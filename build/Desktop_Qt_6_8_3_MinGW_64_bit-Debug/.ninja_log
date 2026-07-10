@@ -1,0 +1,10 @@
+# ninja log v6
+11	790	8054026955554471	build.ninja	c09fe09f50cb9dcd
+14	167	8054026170898783	AI_Mobile_Test_Studio_Codex_autogen/mocs_compilation.cpp	75ad100f1e84a9c8
+14	167	8054026170898783	AI_Mobile_Test_Studio_Codex_autogen/timestamp	75ad100f1e84a9c8
+14	167	8054026170898783	E:/Project/AI_Mobile_Test_Studio_Codex/build/Desktop_Qt_6_8_3_MinGW_64_bit-Debug/AI_Mobile_Test_Studio_Codex_autogen/timestamp	75ad100f1e84a9c8
+14	167	8054026170898783	E:/Project/AI_Mobile_Test_Studio_Codex/build/Desktop_Qt_6_8_3_MinGW_64_bit-Debug/AI_Mobile_Test_Studio_Codex_autogen/mocs_compilation.cpp	75ad100f1e84a9c8
+857	3152	8054025887997031	CMakeFiles/AI_Mobile_Test_Studio_Codex.dir/main.cpp.obj	5ee8aa7f38a6a7a8
+852	3199	8054025887951709	CMakeFiles/AI_Mobile_Test_Studio_Codex.dir/AI_Mobile_Test_Studio_Codex_autogen/mocs_compilation.cpp.obj	2378d7e5fe40b4ea
+167	2595	8054026172440792	CMakeFiles/AI_Mobile_Test_Studio_Codex.dir/mainwindow.cpp.obj	ce2d0436f7810b4f
+2595	2894	8054026196715349	AI_Mobile_Test_Studio_Codex.exe	cdf2acfa49256418

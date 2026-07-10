@@ -13,6 +13,12 @@ qt_add_executable(AI_Mobile_Test_Studio_Codex
     mainwindow.ui
 )
 
+target_compile_features(AI_Mobile_Test_Studio_Codex PRIVATE cxx_std_17)
+
+if(MSVC)
+    target_compile_options(AI_Mobile_Test_Studio_Codex PRIVATE /utf-8)
+endif()
+
 target_link_libraries(AI_Mobile_Test_Studio_Codex
     PRIVATE
         Qt::Core

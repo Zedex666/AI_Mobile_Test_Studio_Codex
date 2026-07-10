@@ -7,7 +7,7 @@
 				{
 					"build" : ".",
 					"hasInstallRule" : true,
-					"jsonFile" : "directory-.-Debug-4024ed7b2ec07c070004.json",
+					"jsonFile" : "directory-.-Debug-f772a3c2e7dce31f92c5.json",
 					"minimumCMakeVersion" : 
 					{
 						"string" : "3.16"
@@ -44,7 +44,7 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "AI_Mobile_Test_Studio_Codex::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-AI_Mobile_Test_Studio_Codex-Debug-4719b8b2527aeed23082.json",
+					"jsonFile" : "target-AI_Mobile_Test_Studio_Codex-Debug-06334d00caf36334d727.json",
 					"name" : "AI_Mobile_Test_Studio_Codex",
 					"projectIndex" : 0
 				},
