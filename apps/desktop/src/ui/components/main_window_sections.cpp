@@ -314,7 +314,7 @@ SidebarSection createSidebar()
     layout->setContentsMargins(26, 20, 26, 26);
     layout->setSpacing(12);
 
-    section.chatButton = makeWorkspaceNavButton(text("▣"), text("对话"), true);
+    section.chatButton = makeWorkspaceNavButton(text("▣"), text("终端"), true);
     section.deviceControlButton = makeWorkspaceNavButton(text("⌘"), text("设备控制"), false);
     section.packageManagerButton = makeWorkspaceNavButton(text("▤"), text("软件包管理器"), false);
     section.appsButton = makeWorkspaceNavButton(text("▦"), text("应用"), false);
@@ -369,33 +369,6 @@ ToolbarSection createToolbar()
     layout->addWidget(makeToolbarAction(text("▰"), text("录屏")));
     layout->addWidget(makeToolbarAction(text("…"), text("更多")));
     layout->addWidget(makeDivider());
-    layout->addStretch();
-    return section;
-}
-
-DevicePaneSection createDevicePane()
-{
-    DevicePaneSection section;
-    section.widget = makePanel("DevicePane");
-    section.widget->setMinimumWidth(455);
-    section.widget->setMaximumWidth(520);
-
-    auto *layout = new QVBoxLayout(section.widget);
-    layout->setContentsMargins(24, 24, 24, 24);
-    layout->setSpacing(10);
-    layout->addStretch();
-
-    section.stateIcon = makeLabel(text("▣"), 36, QFont::DemiBold, "#8b96a8");
-    section.stateIcon->setAlignment(Qt::AlignCenter);
-    section.stateTitle = makeLabel(text("正在检测 Android 设备"), 13, QFont::DemiBold, "#293243");
-    section.stateTitle->setAlignment(Qt::AlignCenter);
-    section.stateDetail = makeLabel(text("scrcpy 4.0"), 9, QFont::Normal, "#8b96a8");
-    section.stateDetail->setAlignment(Qt::AlignCenter);
-    section.stateDetail->setWordWrap(true);
-
-    layout->addWidget(section.stateIcon);
-    layout->addWidget(section.stateTitle);
-    layout->addWidget(section.stateDetail);
     layout->addStretch();
     return section;
 }

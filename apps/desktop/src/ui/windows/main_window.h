@@ -67,9 +67,6 @@ private:
     QLabel *m_sidebarStatusDot = nullptr;
     QLabel *m_sidebarStatusTitle = nullptr;
     QLabel *m_sidebarStatusDetail = nullptr;
-    QLabel *m_mirrorStateIcon = nullptr;
-    QLabel *m_mirrorStateTitle = nullptr;
-    QLabel *m_mirrorStateDetail = nullptr;
     ScrcpyService::DeviceState m_deviceState = ScrcpyService::DeviceState::ToolUnavailable;
     QString m_deviceSerial;
     QString m_deviceDetail;

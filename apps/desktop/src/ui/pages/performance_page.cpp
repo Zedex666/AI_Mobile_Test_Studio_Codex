@@ -9,6 +9,7 @@
 #include <QFrame>
 #include <QGridLayout>
 #include <QHideEvent>
+#include <QElapsedTimer>
 #include <QLabel>
 #include <QPainter>
 #include <QPainterPath>
@@ -40,6 +41,7 @@ public:
         , m_pollTimer(this)
         , m_animationTimer(this)
     {
+        m_monotonicClock.start();
         setMinimumSize(40, 36);
         setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
@@ -111,22 +113,23 @@ protected:
     {
         QPainter painter(this);
         painter.setRenderHint(QPainter::Antialiasing);
-        painter.fillRect(rect(), QColor(QStringLiteral("#fbfcfd")));
+        painter.fillRect(rect(), QColor(QStringLiteral("#f7f8fa")));
         if (width() <= 1 || height() <= 20) {
             return;
         }
 
-        const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+        const qint64 monotonicNowMs = m_monotonicClock.elapsed();
+        const qint64 wallNowMs = QDateTime::currentMSecsSinceEpoch();
         const QRectF plot(0.0, 18.0, width() - 1.0, height() - 19.0);
-        drawTimeGrid(painter, plot, nowMs);
+        drawTimeGrid(painter, plot, wallNowMs);
 
-        const double maximum = chartMaximum(nowMs);
+        const double maximum = chartMaximum(monotonicNowMs);
         const double chartMaximum = std::max(1.0, maximum * 1.05);
-        drawMetric(painter, plot, nowMs, chartMaximum);
+        drawMetric(painter, plot, monotonicNowMs, chartMaximum);
         drawValueGrid(painter, plot, chartMaximum);
 
-        painter.setPen(QPen(QColor(QStringLiteral("#cbd1d9")), 1.0));
-        painter.drawLine(plot.bottomLeft(), plot.bottomRight());
+        painter.setPen(QPen(QColor(QStringLiteral("#d9d9d9")), 1.0));
+        painter.drawRect(QRectF(0.5, 0.5, width() - 1.0, height() - 1.0));
     }
 
 private:
@@ -140,7 +143,7 @@ private:
         if (!m_hasValue) {
             return;
         }
-        const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+        const qint64 nowMs = m_monotonicClock.elapsed();
         m_metrics.append({nowMs, m_latestValue});
 
         const qint64 visibleMillis = qRound64(std::max(1, width()) / kPixelsPerMs);
@@ -198,8 +201,10 @@ private:
 
         const auto pointFor = [&](const Metric &metric) {
             const qreal x = plot.left() + (metric.timestampMs - startTime) * kPixelsPerMs;
-            const qreal y = plot.bottom()
-                - plot.height() * std::clamp(metric.value / maximum, 0.0, 1.0);
+            const qreal y = std::round(plot.bottom()
+                                       - plot.height()
+                                           * std::clamp(metric.value / maximum, 0.0, 1.0))
+                + 0.5;
             return QPointF(x, y);
         };
 
@@ -230,9 +235,9 @@ private:
         painter.save();
         painter.setClipRect(plot.adjusted(0, -18, 0, 1));
         QColor fillColor = m_color;
-        fillColor.setAlpha(48);
+        fillColor.setAlpha(51);
         painter.fillPath(fillPath, fillColor);
-        painter.setPen(QPen(m_color, 1.1));
+        painter.setPen(QPen(m_color, 0.5));
         painter.drawPath(linePath);
         painter.restore();
     }
@@ -249,8 +254,8 @@ private:
                 break;
             }
             const bool major = second % 10 == 0;
-            painter.setPen(QPen(major ? QColor(QStringLiteral("#d9dde3"))
-                                      : QColor(QStringLiteral("#f0f2f5")),
+            painter.setPen(QPen(major ? QColor(0, 0, 0, 20)
+                                      : QColor(0, 0, 0, 5),
                                 1.0));
             painter.drawLine(QPointF(x, 0), QPointF(x, plot.bottom()));
             if (major) {
@@ -277,10 +282,11 @@ private:
         painter.save();
         painter.setFont(ui::appFont(7));
         for (int index = 0; index < 2; ++index) {
-            const qreal y = plot.bottom() - plot.height() * scaleValue / maximum;
+            const qreal y = std::round(plot.bottom() - plot.height() * scaleValue / maximum)
+                + 0.5;
             const QString label = scaleLabel(scaleValue);
             const qreal labelWidth = painter.fontMetrics().horizontalAdvance(label);
-            painter.setPen(QPen(QColor(QStringLiteral("#dfe3e8")), 1.0));
+            painter.setPen(QPen(QColor(0, 0, 0, 20), 1.0));
             painter.drawLine(QPointF(plot.left(), y), QPointF(plot.left() + 4, y));
             painter.drawLine(QPointF(plot.left() + labelWidth + 12, y),
                              QPointF(plot.right(), y));
@@ -317,14 +323,16 @@ private:
     bool m_hasValue = false;
     QTimer m_pollTimer;
     QTimer m_animationTimer;
+    QElapsedTimer m_monotonicClock;
 };
 
 namespace {
 
 constexpr int kCoreColumns = 4;
-const QColor kCpuColor(QStringLiteral("#74cf45"));
-const QColor kMemoryColor(QStringLiteral("#884ce6"));
-const QColor kFpsColor(QStringLiteral("#f28a2c"));
+const QColor kCpuTotalColor(QStringLiteral("#52c41a"));
+const QColor kCpuCoreColor(QStringLiteral("#95de64"));
+const QColor kMemoryColor(QStringLiteral("#722ed1"));
+const QColor kFpsColor(QStringLiteral("#fa8c16"));
 
 QLabel *makeTextLabel(const QString &text,
                       int size,
@@ -351,7 +359,10 @@ QWidget *makeMetricSection(const QString &title,
     auto *titleRow = new QHBoxLayout;
     titleRow->setContentsMargins(0, 0, 0, 0);
     *titleLabel = makeTextLabel(title, 11, QFont::Normal, QStringLiteral("#111827"));
-    *valueLabel = makeTextLabel(QStringLiteral("--"), 11, QFont::Normal, QStringLiteral("#74cf45"));
+    *valueLabel = makeTextLabel(QStringLiteral("--"),
+                               11,
+                               QFont::Normal,
+                               kCpuTotalColor.name());
     titleRow->addWidget(*titleLabel);
     titleRow->addStretch();
     titleRow->addWidget(*valueLabel);
@@ -438,7 +449,7 @@ PerformancePage::PerformancePage(QWidget *parent)
     deviceRow->addWidget(m_batteryLabel);
     layout->addLayout(deviceRow);
 
-    m_cpuGraph = new PerformanceGraph(kCpuColor,
+    m_cpuGraph = new PerformanceGraph(kCpuTotalColor,
                                       PerformanceGraph::ScaleMode::Percent,
                                       true);
     m_cpuGraph->setMaximum(100.0);
@@ -466,7 +477,7 @@ PerformancePage::PerformancePage(QWidget *parent)
                                         &m_memoryValueLabel,
                                         m_memoryGraph,
                                         80));
-    m_memoryValueLabel->setStyleSheet(QStringLiteral("color:#884ce6;"));
+    m_memoryValueLabel->setStyleSheet(QStringLiteral("color:#722ed1;"));
 
     m_fpsGraph = new PerformanceGraph(kFpsColor,
                                       PerformanceGraph::ScaleMode::Frames,
@@ -476,7 +487,7 @@ PerformancePage::PerformancePage(QWidget *parent)
                                         &m_fpsValueLabel,
                                         m_fpsGraph,
                                         80));
-    m_fpsValueLabel->setStyleSheet(QStringLiteral("color:#f28a2c;"));
+    m_fpsValueLabel->setStyleSheet(QStringLiteral("color:#fa8c16;"));
 
     layout->addStretch();
     m_scrollArea->setWidget(m_scrollContent);
@@ -553,7 +564,7 @@ void PerformancePage::applySample(const PerformanceSample &sample)
                                  ? QStringLiteral("CPU %1°C").arg(sample.cpuTemperatureC, 0, 'f', 1)
                                  : QStringLiteral("CPU"));
     m_cpuValueLabel->setText(QStringLiteral("%1%").arg(qFloor(sample.cpuUsagePercent)));
-    m_cpuGraph->setValue(sample.cpuUsagePercent);
+    m_cpuGraph->setValue(qFloor(sample.cpuUsagePercent));
 
     if (m_corePanels.size() != sample.cores.size() && !sample.cores.isEmpty()) {
         rebuildCorePanels(sample.cores.size());
@@ -567,7 +578,7 @@ void PerformancePage::applySample(const PerformanceSample &sample)
                                  ? QStringLiteral("CPU%1 %2MHz").arg(core.index).arg(core.frequencyMhz)
                                  : QStringLiteral("CPU%1 --MHz").arg(core.index));
         panel.value->setText(QStringLiteral("%1%").arg(qFloor(core.usagePercent)));
-        panel.graph->setValue(core.usagePercent);
+        panel.graph->setValue(qFloor(core.usagePercent));
     }
 
     const int memoryPercent = sample.memoryTotalMb > 0
@@ -579,7 +590,7 @@ void PerformancePage::applySample(const PerformanceSample &sample)
 
     m_fpsTitleLabel->setText(ui::text("FPS %1").arg(sample.foregroundLabel));
     m_fpsValueLabel->setText(QString::number(qRound(sample.fps)));
-    m_fpsGraph->setValue(sample.fps);
+    m_fpsGraph->setValue(qRound(sample.fps));
 }
 
 void PerformancePage::showSamplingError(const QString &message)
@@ -619,13 +630,13 @@ void PerformancePage::rebuildCorePanels(int count)
         panel.value = makeTextLabel(QStringLiteral("0%"),
                                    10,
                                    QFont::Normal,
-                                   QStringLiteral("#74cf45"));
+                                   kCpuCoreColor.name());
         titleRow->addWidget(panel.title);
         titleRow->addStretch();
         titleRow->addWidget(panel.value);
         layout->addLayout(titleRow);
 
-        panel.graph = new PerformanceGraph(kCpuColor,
+        panel.graph = new PerformanceGraph(kCpuCoreColor,
                                            PerformanceGraph::ScaleMode::Percent,
                                            true);
         panel.graph->setMaximum(100.0);

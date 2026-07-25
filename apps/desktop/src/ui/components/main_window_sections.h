@@ -29,17 +29,9 @@ struct SidebarSection {
     QLabel *statusDetail = nullptr;
 };
 
-struct DevicePaneSection {
-    QWidget *widget = nullptr;
-    QLabel *stateIcon = nullptr;
-    QLabel *stateTitle = nullptr;
-    QLabel *stateDetail = nullptr;
-};
-
 QWidget *createHeader();
 SidebarSection createSidebar();
 ToolbarSection createToolbar();
-DevicePaneSection createDevicePane();
 QWidget *createChatPane();
 
 } // namespace ui

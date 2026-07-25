@@ -89,12 +89,7 @@ void MainWindow::buildUi()
     auto *mainArea = new QWidget;
     auto *mainLayout = new QHBoxLayout(mainArea);
     mainLayout->setContentsMargins(16, 16, 16, 0);
-    mainLayout->setSpacing(14);
-    const ui::DevicePaneSection devicePane = ui::createDevicePane();
-    m_mirrorStateIcon = devicePane.stateIcon;
-    m_mirrorStateTitle = devicePane.stateTitle;
-    m_mirrorStateDetail = devicePane.stateDetail;
-    mainLayout->addWidget(devicePane.widget);
+    mainLayout->setSpacing(0);
     mainLayout->addWidget(ui::createChatPane(), 1);
 
     m_workspaceStack = new QStackedWidget;
@@ -588,32 +583,26 @@ void MainWindow::updateDeviceUi(ScrcpyService::DeviceState state,
     QString deviceName;
     QString statusText;
     QString statusColor;
-    QString title;
     QString sidebarTitle;
     QString sidebarDetail = detail;
-    QString icon = ui::text("▣");
 
     switch (state) {
     case ScrcpyService::DeviceState::ToolUnavailable:
         deviceName = ui::text("scrcpy 不可用");
         statusText = ui::text("不可用");
         statusColor = QStringLiteral("#d45b5b");
-        title = ui::text("无法使用 scrcpy");
         sidebarTitle = ui::text("ADB 不可用");
-        icon = ui::text("×");
         break;
     case ScrcpyService::DeviceState::Disconnected:
         deviceName = ui::text("未检测到设备");
         statusText = ui::text("未连接");
         statusColor = QStringLiteral("#aab3c2");
-        title = ui::text("等待 Android 设备连接");
         sidebarTitle = ui::text("ADB 未连接");
         break;
     case ScrcpyService::DeviceState::Unauthorized:
         deviceName = serial.isEmpty() ? ui::text("Android 设备") : serial;
         statusText = ui::text("未授权");
         statusColor = QStringLiteral("#e2a43a");
-        title = ui::text("等待 USB 调试授权");
         sidebarTitle = ui::text("ADB 等待授权");
         sidebarDetail = serial;
         break;
@@ -621,16 +610,13 @@ void MainWindow::updateDeviceUi(ScrcpyService::DeviceState state,
         deviceName = serial.isEmpty() ? ui::text("Recovery 设备") : serial;
         statusText = ui::text("侧载模式");
         statusColor = QStringLiteral("#e2a43a");
-        title = ui::text("设备处于 ADB Sideload 模式");
         sidebarTitle = ui::text("Recovery 侧载已就绪");
         sidebarDetail = serial;
-        icon = ui::text("Ⓡ");
         break;
     case ScrcpyService::DeviceState::Connected:
         deviceName = serial;
         statusText = ui::text("已连接");
         statusColor = QStringLiteral("#66c95e");
-        title = ui::text("设备已连接");
         sidebarTitle = ui::text("ADB 连接正常");
         sidebarDetail = ui::text("设备 %1").arg(serial);
         break;
@@ -642,14 +628,6 @@ void MainWindow::updateDeviceUi(ScrcpyService::DeviceState state,
     m_sidebarStatusDot->setStyleSheet(QStringLiteral("color:%1;").arg(statusColor));
     m_sidebarStatusTitle->setText(sidebarTitle);
     m_sidebarStatusDetail->setText(sidebarDetail);
-    m_mirrorStateIcon->setText(icon);
-    m_mirrorStateIcon->setStyleSheet(QStringLiteral("color:%1;").arg(statusColor));
-
-    if (!m_scrcpyService->mirrorRunning()) {
-        m_mirrorStateTitle->setText(title);
-        m_mirrorStateDetail->setText(detail);
-    }
-
     m_mirrorButton->setEnabled(m_scrcpyService->mirrorRunning()
                                || state == ScrcpyService::DeviceState::Connected);
 }
@@ -663,11 +641,6 @@ void MainWindow::updateMirrorUi(bool running)
 
     if (running) {
         m_mirrorButton->setEnabled(true);
-        m_mirrorStateIcon->setText(ui::text("▶"));
-        m_mirrorStateIcon->setStyleSheet(QStringLiteral("color:#2f6df6;"));
-        m_mirrorStateTitle->setText(ui::text("scrcpy 正在运行"));
-        m_mirrorStateDetail->setText(
-            ui::text("设备 %1 · 独立镜像窗口").arg(m_deviceSerial));
         return;
     }
 

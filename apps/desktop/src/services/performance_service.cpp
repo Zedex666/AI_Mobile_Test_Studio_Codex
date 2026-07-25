@@ -33,14 +33,14 @@ QString sectionCommand(const QVector<QString> &layers)
 {
     QString command = QStringLiteral(
         "printf '__PERF_UPTIME__\\n'; cat /proc/uptime; "
-        "printf '__PERF_CPU_BASE__\\n'; cat /proc/stat; sleep 0.05; "
-        "printf '__PERF_CPU_NEXT__\\n'; cat /proc/stat; "
+        "printf '__PERF_CPU_BASE__\\n'; cat /proc/stat; "
         "printf '__PERF_FREQ__\\n'; "
         "for cpu in /sys/devices/system/cpu/cpu[0-9]*; do "
         "idx=${cpu##*cpu}; "
         "freq=$(cat \"$cpu/cpufreq/scaling_cur_freq\" 2>/dev/null); "
         "[ -z \"$freq\" ] && freq=$(cat \"$cpu/cpufreq/cpuinfo_cur_freq\" 2>/dev/null); "
         "printf '%s:%s\\n' \"$idx\" \"$freq\"; done; "
+        "sleep 0.05; printf '__PERF_CPU_NEXT__\\n'; cat /proc/stat; "
         "printf '__PERF_MEM__\\n'; cat /proc/meminfo; "
         "printf '__PERF_BATTERY__\\n'; dumpsys battery 2>/dev/null; "
         "printf '__PERF_THERMAL__\\n'; dumpsys thermalservice 2>/dev/null; "
