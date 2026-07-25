@@ -1,0 +1,35 @@
+# CMake and Qt Creator output
+/build/
+/build-*/
+/.qtcreator/
+CMakeUserPresets.json
+cmake-build-*/
+
+# Compiled artifacts
+*.exe
+*.dll
+*.a
+*.lib
+*.obj
+*.o
+*.pdb
+
+# Python environments and caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Local runtime payloads and task data
+/runtime/*
+!/runtime/README.md
+/workspace/
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

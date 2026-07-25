@@ -12,42 +12,23 @@
 - 任何 Agent 输出都必须能落盘、能追踪、能复现。
 - 支持用户无环境安装使用，开发阶段也要按可打包方式设计路径。
 
-## 2. 推荐目录结构
+## 2. 项目目录结构
 
 ```text
 AI_Mobile_Test_Studio_Codex/
-  CMakeLists.txt
-  main.cpp
-  mainwindow.cpp
-  mainwindow.h
-  mainwindow.ui
-  docs/
-  src/
-    app/
-    ui/
-    core/
-    device/
-    agent/
-    attachment/
-    report/
-  bridge/
-    app/
-    api/
-    agents/
-    device/
-    runner/
-    attachments/
-    reports/
-    runtime/
-    tests/
-  runtime/
-    README.md
-  plugins/
-  skills/
-  workspace/
+  apps/desktop/              # Qt6 桌面应用
+  services/automation/       # Python/Appium/Agent 本地服务
+  packages/contracts/        # 跨语言 JSON Schema
+  resources/                 # 图片、图标和样式
+  plugins/                   # 插件
+  skills/                    # Agent Skill
+  runtime/                   # 便携运行时装配目录
+  tests/                     # C++ 与 Python 测试
+  tools/                     # 构建、打包和诊断脚本
+  docs/                      # 项目文档
 ```
 
-现有工程仍处于 Qt 默认模板阶段，后续开发可以逐步迁移到上述结构。
+完整目录树、依赖方向和代码放置规则见 `docs/PROJECT_STRUCTURE.md`。
 
 ## 3. 技术栈约定
 
@@ -281,4 +262,3 @@ Windows 打包建议：
 - 测试报告字段。
 - 打包方式。
 - 目录结构。
-
