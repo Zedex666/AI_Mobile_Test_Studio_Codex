@@ -4,6 +4,7 @@
 #include "services/apps_service.h"
 #include "services/file_manager_service.h"
 #include "services/package_manager_service.h"
+#include "services/performance_service.h"
 #include "services/recovery_service.h"
 #include "ui/common/widget_helpers.h"
 #include "ui/components/main_window_sections.h"
@@ -11,6 +12,7 @@
 #include "ui/pages/apps_page.h"
 #include "ui/pages/files_page.h"
 #include "ui/pages/package_manager_page.h"
+#include "ui/pages/performance_page.h"
 #include "ui/pages/recovery_page.h"
 #include "ui/styles/app_style.h"
 
@@ -67,6 +69,7 @@ void MainWindow::buildUi()
     m_appsNavButton = sidebar.appsButton;
     m_filesNavButton = sidebar.filesButton;
     m_recoveryNavButton = sidebar.recoveryButton;
+    m_performanceNavButton = sidebar.performanceButton;
     m_sidebarStatusDot = sidebar.statusDot;
     m_sidebarStatusTitle = sidebar.statusTitle;
     m_sidebarStatusDetail = sidebar.statusDetail;
@@ -107,6 +110,8 @@ void MainWindow::buildUi()
     m_workspaceStack->addWidget(m_filesPage);
     m_recoveryPage = new RecoveryPage;
     m_workspaceStack->addWidget(m_recoveryPage);
+    m_performancePage = new PerformancePage;
+    m_workspaceStack->addWidget(m_performancePage);
     workspaceLayout->addWidget(m_workspaceStack, 1);
 
     contentLayout->addWidget(workspace, 1);
@@ -173,6 +178,9 @@ void MainWindow::configureDeviceControls()
     });
     connect(m_recoveryNavButton, &QPushButton::clicked, this, [this] {
         selectWorkspace(5);
+    });
+    connect(m_performanceNavButton, &QPushButton::clicked, this, [this] {
+        selectWorkspace(6);
     });
     connect(m_deviceControlPage,
             &DeviceControlPage::keyEventRequested,
@@ -450,6 +458,16 @@ void MainWindow::configureDeviceControls()
             m_recoveryPage,
             &RecoveryPage::showSideloadFinished);
 
+    m_performanceService = new PerformanceService(m_scrcpyService->adbExecutablePath(), this);
+    connect(m_performanceService,
+            &PerformanceService::sampleReady,
+            m_performancePage,
+            &PerformancePage::applySample);
+    connect(m_performanceService,
+            &PerformanceService::samplingError,
+            m_performancePage,
+            &PerformancePage::showSamplingError);
+
     m_adbControlService->setDeviceSerial(m_deviceSerial);
     m_packageManagerService->setDeviceSerial(m_deviceSerial);
     m_appsService->setDeviceSerial(
@@ -460,6 +478,8 @@ void MainWindow::configureDeviceControls()
     const bool initialDeviceAvailable = initialSideload
         || m_deviceState == ScrcpyService::DeviceState::Connected;
     m_recoveryService->setSideloadDeviceSerial(initialSideload ? m_deviceSerial : QString());
+    m_performanceService->setDeviceSerial(
+        m_deviceState == ScrcpyService::DeviceState::Connected ? m_deviceSerial : QString());
     m_deviceControlPage->setDeviceConnected(
         m_deviceState == ScrcpyService::DeviceState::Connected,
         m_deviceSerial);
@@ -473,6 +493,9 @@ void MainWindow::configureDeviceControls()
         m_deviceState == ScrcpyService::DeviceState::Connected,
         m_deviceSerial);
     m_recoveryPage->setDeviceState(initialDeviceAvailable, initialSideload, m_deviceSerial);
+    m_performancePage->setDeviceConnected(
+        m_deviceState == ScrcpyService::DeviceState::Connected,
+        m_deviceSerial);
     selectWorkspace(0);
 }
 
@@ -485,6 +508,7 @@ void MainWindow::selectWorkspace(int index)
     m_appsNavButton->setProperty("active", index == 3);
     m_filesNavButton->setProperty("active", index == 4);
     m_recoveryNavButton->setProperty("active", index == 5);
+    m_performanceNavButton->setProperty("active", index == 6);
     m_chatNavButton->setFont(ui::appFont(11, index == 0 ? QFont::DemiBold : QFont::Normal));
     m_deviceControlNavButton->setFont(
         ui::appFont(11, index == 1 ? QFont::DemiBold : QFont::Normal));
@@ -496,12 +520,15 @@ void MainWindow::selectWorkspace(int index)
         ui::appFont(11, index == 4 ? QFont::DemiBold : QFont::Normal));
     m_recoveryNavButton->setFont(
         ui::appFont(11, index == 5 ? QFont::DemiBold : QFont::Normal));
+    m_performanceNavButton->setFont(
+        ui::appFont(11, index == 6 ? QFont::DemiBold : QFont::Normal));
     for (QPushButton *button : {m_chatNavButton,
                                 m_deviceControlNavButton,
                                 m_packageManagerNavButton,
                                 m_appsNavButton,
                                 m_filesNavButton,
-                                m_recoveryNavButton}) {
+                                m_recoveryNavButton,
+                                m_performanceNavButton}) {
         button->style()->unpolish(button);
         button->style()->polish(button);
     }
@@ -516,6 +543,9 @@ void MainWindow::selectWorkspace(int index)
     }
     if (index == 5) {
         m_recoveryPage->showOverview();
+    }
+    if (m_performanceService != nullptr) {
+        m_performanceService->setActive(index == 6);
     }
 }
 
@@ -549,6 +579,10 @@ void MainWindow::updateDeviceUi(ScrcpyService::DeviceState state,
         const bool recoveryDeviceAvailable = connected || sideloadMode;
         m_recoveryService->setSideloadDeviceSerial(sideloadMode ? serial : QString());
         m_recoveryPage->setDeviceState(recoveryDeviceAvailable, sideloadMode, serial);
+    }
+    if (m_performanceService != nullptr) {
+        m_performanceService->setDeviceSerial(connected ? serial : QString());
+        m_performancePage->setDeviceConnected(connected, serial);
     }
 
     QString deviceName;

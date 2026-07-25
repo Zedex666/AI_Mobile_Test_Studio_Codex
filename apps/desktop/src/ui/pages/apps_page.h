@@ -80,6 +80,7 @@ private:
     QVector<AndroidAppSummary> m_apps;
     AndroidAppDetails m_details;
     QString m_selectedPackage;
+    QByteArray m_selectedIconPng;
     bool m_selectedUninstalled = false;
     int m_filter = 0;
 

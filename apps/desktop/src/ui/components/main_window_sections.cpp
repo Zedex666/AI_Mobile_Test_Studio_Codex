@@ -320,12 +320,14 @@ SidebarSection createSidebar()
     section.appsButton = makeWorkspaceNavButton(text("▦"), text("应用"), false);
     section.filesButton = makeWorkspaceNavButton(text("▱"), text("Files"), false);
     section.recoveryButton = makeWorkspaceNavButton(text("Ⓡ"), text("Recovery"), false);
+    section.performanceButton = makeWorkspaceNavButton(text("⌁"), text("性能"), false);
     layout->addWidget(section.chatButton);
     layout->addWidget(section.deviceControlButton);
     layout->addWidget(section.packageManagerButton);
     layout->addWidget(section.appsButton);
     layout->addWidget(section.filesButton);
     layout->addWidget(section.recoveryButton);
+    layout->addWidget(section.performanceButton);
     layout->addStretch();
     layout->addWidget(makeNavItem(text("⚙"), text("设置")));
     layout->addWidget(makeNavItem(text("i"), text("关于")));

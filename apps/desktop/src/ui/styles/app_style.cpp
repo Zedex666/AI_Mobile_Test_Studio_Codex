@@ -369,6 +369,7 @@ QString appStyleSheet()
             background: #dceaff;
             color: #245fe0;
         }
+    )") + QString::fromUtf8(R"(
         QFrame#RecoveryEntryCard, QFrame#RecoveryFilePanel {
             background: #ffffff;
             border: 1px solid #e1e7ef;

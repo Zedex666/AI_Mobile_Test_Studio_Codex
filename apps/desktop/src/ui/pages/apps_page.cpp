@@ -10,10 +10,12 @@
 #include <QFileDialog>
 #include <QFormLayout>
 #include <QGridLayout>
+#include <QIcon>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMessageBox>
+#include <QPixmap>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QSignalBlocker>
@@ -53,6 +55,15 @@ QPushButton *makeActionButton(const QString &text, bool danger = false)
     button->setFont(ui::appFont(8, QFont::DemiBold));
     button->setMinimumHeight(34);
     return button;
+}
+
+QIcon appIcon(const AndroidAppSummary &app, QStyle *style)
+{
+    QPixmap pixmap;
+    if (!app.iconPng.isEmpty() && pixmap.loadFromData(app.iconPng, "PNG")) {
+        return QIcon(pixmap);
+    }
+    return style->standardIcon(QStyle::SP_ComputerIcon);
 }
 
 } // namespace
@@ -363,6 +374,12 @@ void AppsPage::setBusy(bool busy)
 void AppsPage::setApps(const QVector<AndroidAppSummary> &apps)
 {
     m_apps = apps;
+    for (const AndroidAppSummary &app : m_apps) {
+        if (app.packageName == m_selectedPackage) {
+            m_selectedIconPng = app.iconPng;
+            break;
+        }
+    }
     applyFilter();
 }
 
@@ -371,12 +388,18 @@ void AppsPage::setAppDetails(const AndroidAppDetails &details)
     if (details.packageName != m_selectedPackage) {
         return;
     }
+    QString resolvedDisplayName = details.displayName;
     for (int index = 0; index < m_apps.size(); ++index) {
         AndroidAppSummary &app = m_apps[index];
-        if (app.packageName != details.packageName || details.displayName.isEmpty()) {
+        if (app.packageName != details.packageName) {
             continue;
         }
-        app.displayName = details.displayName;
+        const bool detailsHaveLabel = !details.displayName.isEmpty()
+            && details.displayName != details.packageName;
+        if (detailsHaveLabel || app.displayName.isEmpty() || app.displayName == app.packageName) {
+            app.displayName = details.displayName;
+        }
+        resolvedDisplayName = app.displayName;
         for (int row = 0; row < m_appList->count(); ++row) {
             QListWidgetItem *item = m_appList->item(row);
             if (item->data(Qt::UserRole).toInt() != index) {
@@ -392,6 +415,9 @@ void AppsPage::setAppDetails(const AndroidAppDetails &details)
         break;
     }
     m_details = details;
+    if (!resolvedDisplayName.isEmpty()) {
+        m_details.displayName = resolvedDisplayName;
+    }
     rebuildDetails();
 }
 
@@ -485,7 +511,7 @@ void AppsPage::applyFilter()
         const QString state = app.uninstalled ? ui::text("已卸载")
             : app.disabled ? ui::text("已停用")
                            : app.systemApp ? ui::text("系统") : ui::text("用户");
-        auto *item = new QListWidgetItem(style()->standardIcon(QStyle::SP_ComputerIcon),
+        auto *item = new QListWidgetItem(appIcon(app, style()),
                                          app.displayName + QLatin1Char('\n') + app.packageName
                                              + QStringLiteral("  ·  ") + state);
         item->setData(Qt::UserRole, index);
@@ -510,6 +536,7 @@ void AppsPage::selectApp(QListWidgetItem *item)
     }
     const AndroidAppSummary &app = m_apps[index];
     m_selectedPackage = app.packageName;
+    m_selectedIconPng = app.iconPng;
     m_selectedUninstalled = app.uninstalled;
     m_details = {};
     m_details.packageName = app.packageName;
@@ -526,6 +553,7 @@ void AppsPage::selectApp(QListWidgetItem *item)
 void AppsPage::clearDetails()
 {
     m_selectedPackage.clear();
+    m_selectedIconPng.clear();
     m_selectedUninstalled = false;
     m_details = {};
     m_detailStack->setCurrentIndex(0);
@@ -537,7 +565,17 @@ void AppsPage::rebuildDetails()
 {
     m_detailStack->setCurrentIndex(1);
     const QString initials = m_details.displayName.left(2).toUpper();
-    m_appIcon->setText(initials.isEmpty() ? ui::text("AP") : initials);
+    QPixmap iconPixmap;
+    if (!m_selectedIconPng.isEmpty() && iconPixmap.loadFromData(m_selectedIconPng, "PNG")) {
+        m_appIcon->setText(QString());
+        m_appIcon->setPixmap(iconPixmap.scaled(48,
+                                               48,
+                                               Qt::KeepAspectRatio,
+                                               Qt::SmoothTransformation));
+    } else {
+        m_appIcon->setPixmap(QPixmap());
+        m_appIcon->setText(initials.isEmpty() ? ui::text("AP") : initials);
+    }
     m_appTitle->setText(m_details.displayName.isEmpty() ? m_selectedPackage
                                                         : m_details.displayName);
     m_packageName->setText(m_selectedPackage);

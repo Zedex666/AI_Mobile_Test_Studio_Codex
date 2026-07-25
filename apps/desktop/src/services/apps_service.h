@@ -2,6 +2,7 @@
 #define AI_MOBILE_TEST_STUDIO_APPS_SERVICE_H
 
 #include <QByteArray>
+#include <QHash>
 #include <QMetaType>
 #include <QObject>
 #include <QProcess>
@@ -16,6 +17,7 @@ struct AndroidAppSummary {
     bool systemApp = false;
     bool disabled = false;
     bool uninstalled = false;
+    QByteArray iconPng;
 };
 
 struct AndroidAppPermission {
@@ -94,6 +96,8 @@ private:
         Idle,
         AppList,
         AppDetails,
+        MetadataPush,
+        AppMetadata,
         Action,
         Install,
         Export
@@ -109,6 +113,10 @@ private:
     void failRequest(const QString &detail);
     void startNextInstall();
     void resetInstallBatch();
+    void beginMetadataLoad(QVector<AndroidAppSummary> apps);
+    void startNextMetadataBatch();
+    int applyMetadataResponse(const QString &output);
+    void resetMetadataLoad();
 
     static bool validPackageName(const QString &packageName);
     static QVector<AndroidAppSummary> parseApps(const QString &output);
@@ -119,6 +127,7 @@ private:
                                                            const QString &changeableOutput);
 
     QString m_adbPath;
+    QString m_metadataJarPath;
     QString m_deviceSerial;
     QString m_currentPackage;
     QString m_currentLabel;
@@ -134,6 +143,12 @@ private:
     bool m_installReplaceExisting = true;
     bool m_installGrantPermissions = false;
     bool m_installBypassLowTargetSdk = true;
+    QVector<AndroidAppSummary> m_metadataApps;
+    QStringList m_pendingMetadataPackages;
+    QHash<QString, QString> m_labelCache;
+    QHash<QString, QByteArray> m_iconCache;
+    int m_metadataRequested = 0;
+    int m_metadataLoaded = 0;
 };
 
 #endif // AI_MOBILE_TEST_STUDIO_APPS_SERVICE_H

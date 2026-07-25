@@ -13,6 +13,8 @@ class FileManagerService;
 class FilesPage;
 class PackageManagerPage;
 class PackageManagerService;
+class PerformancePage;
+class PerformanceService;
 class RecoveryPage;
 class RecoveryService;
 class QLabel;
@@ -46,6 +48,8 @@ private:
     FilesPage *m_filesPage = nullptr;
     PackageManagerService *m_packageManagerService = nullptr;
     PackageManagerPage *m_packageManagerPage = nullptr;
+    PerformanceService *m_performanceService = nullptr;
+    PerformancePage *m_performancePage = nullptr;
     RecoveryService *m_recoveryService = nullptr;
     RecoveryPage *m_recoveryPage = nullptr;
     QStackedWidget *m_workspaceStack = nullptr;
@@ -55,6 +59,7 @@ private:
     QPushButton *m_appsNavButton = nullptr;
     QPushButton *m_filesNavButton = nullptr;
     QPushButton *m_recoveryNavButton = nullptr;
+    QPushButton *m_performanceNavButton = nullptr;
     QPushButton *m_mirrorButton = nullptr;
     QLabel *m_deviceNameLabel = nullptr;
     QLabel *m_deviceStatusDot = nullptr;
