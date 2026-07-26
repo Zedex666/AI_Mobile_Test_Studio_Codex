@@ -1,222 +1,160 @@
-# C++/Python 编码规范
+# 编码规范
 
 ## 1. 总体原则
 
-- 代码优先可读、可调试、可复现。
-- 所有跨进程、跨语言接口必须有结构化数据契约。
-- UI 层不写设备自动化细节。
-- Agent 层不直接操作设备，必须通过 Device Controller。
-- Python 运行时不假设用户系统已安装任何依赖。
+- 代码优先可读、可调试、可测试和可复现。
+- 页面不拥有设备协议、外部进程和运行时发现逻辑。
+- 所有跨进程接口使用结构化契约。
+- 发布代码不依赖系统 PATH、开发机路径或启动时在线安装。
+- 规划模块遵循本规范，但未实现前不制造空洞抽象。
 
-## 2. C++/Qt 编码规范
+## 2. C++/Qt 命名
 
-### 2.1 命名
+- 类型：`PascalCase`，如 `TerminalService`。
+- 函数：`camelCase`，如 `createSession()`。
+- 成员：`m_` 前缀，如 `m_deviceSerial`。
+- 常量：`k` 前缀，如 `kDefaultTimeoutMs`。
+- 信号：事件或结果，如 `sessionStarted()`、`outputReady()`。
+- 槽：动作，如 `restartSession()`、`handleProcessFinished()`。
+- 文件：`snake_case.h/.cpp`。
 
-- 类名使用 `PascalCase`：`DevicePanel`、`ChatPanel`。
-- 函数名使用 `camelCase`：`startTask()`、`loadAttachment()`。
-- 成员变量使用 `m_` 前缀：`m_deviceId`、`m_taskClient`。
-- 常量使用 `k` 前缀：`kDefaultTimeoutMs`。
-- 信号使用过去式或事件式：`taskStarted()`、`deviceDisconnected()`。
-- 槽函数表达动作：`onSendClicked()`、`handleTaskEvent()`。
+## 3. 文件和模块
 
-### 2.2 文件组织
+- 一个主要类型一组 `.h/.cpp`。
+- 头文件放稳定接口，不放长算法实现。
+- 超过单一职责的页面应拆出 widget、model 或 service。
+- 协议解析、进程监督、manifest 和 terminal backend 不放进 UI 文件。
+- `MainWindow` 不增长业务算法。
 
-每个主要类使用独立 `.h` 和 `.cpp` 文件。
+## 4. Qt 生命周期和线程
 
-```text
-device_panel.h
-device_panel.cpp
-chat_panel.h
-chat_panel.cpp
-```
+- QObject 优先使用父子生命周期。
+- HANDLE、socket、ConPTY、文件和非 QObject 资源使用 RAII。
+- lambda 捕获 QObject 指针时确保 context object 能取消连接。
+- 跨线程 UI 更新通过 queued signal 回主线程。
+- 禁止在 UI 线程调用长 `waitForFinished()`、同步网络或循环 sleep。
+- 进程、server 和 session 都要定义 owner、停止顺序和强制终止兜底。
 
-头文件只放接口，不放复杂实现。
+## 5. 错误类型
 
-### 2.3 Qt 对象管理
-
-- 优先使用 Qt 父子对象生命周期。
-- 非 QObject 资源使用 RAII。
-- 长任务使用 `QThread`、`QProcess` 或本地 bridge，不阻塞主线程。
-- 跨线程 UI 更新必须回到主线程。
-
-示例：
+新增 service 优先返回或发出结构化错误：
 
 ```cpp
-connect(client, &TaskClient::eventReceived,
-        this, &TaskPanel::handleTaskEvent);
-```
-
-### 2.4 UI 规则
-
-- UI 层只展示状态，不决策测试逻辑。
-- 所有用户可感知的失败都要有明确提示。
-- 长任务必须展示进度或状态。
-- 对话框中展示的 Agent 输出应区分“计划、执行、结果、错误”。
-
-### 2.5 错误处理
-
-C++ 层建议使用明确返回类型：
-
-```cpp
-struct Result {
-    bool ok;
+struct OperationError {
+    QString code;
     QString message;
+    QString detail;
+    bool recoverable = false;
+    QString action;
 };
 ```
 
-对于本地 API 调用，必须处理：
+- `message` 面向用户。
+- `detail` 面向诊断日志。
+- `code` 稳定，可用于测试和协议。
+- 不吞异常，不只返回 `false`。
+- 原始 stderr 有长度上限，并落入对应任务或诊断日志。
 
-- 超时。
-- 连接失败。
-- JSON 解析失败。
-- bridge 返回错误。
-- 任务被取消。
+## 6. 外部进程
 
-## 3. Python 编码规范
+- program 使用 `RuntimeLocator` 返回的绝对路径。
+- arguments 使用字符串数组，不拼接 shell 命令。
+- cwd 必须显式，尤其是 OpenCode 和测试 Runner。
+- 环境由 `RuntimeManager` 生成，不修改系统永久环境。
+- 日志记录 program component ID、参数摘要、cwd、PID、退出码和耗时。
+- 参数和环境中的 Token、密码、Authorization 必须脱敏。
+- 所有进程都有启动超时、运行取消和退出清理。
 
-### 3.1 命名
-
-- 模块名使用 `snake_case`：`device_controller.py`。
-- 类名使用 `PascalCase`：`DeviceController`。
-- 函数和变量使用 `snake_case`：`get_page_source()`。
-- 常量使用大写：`DEFAULT_TIMEOUT_SECONDS`。
-
-### 3.2 类型标注
-
-新增 Python 代码必须尽量添加类型标注。
-
-```python
-from pathlib import Path
-
-def create_task_dir(workspace: Path, task_name: str) -> Path:
-    ...
+```cpp
+process.setProgram(runtime.path(RuntimeComponent::Adb));
+process.setArguments({QStringLiteral("-s"), serial, QStringLiteral("devices")});
+process.setProcessEnvironment(runtime.environment(RuntimeRole::AdbClient));
 ```
 
-### 3.3 数据模型
+## 7. 运行时路径
 
-跨模块数据优先使用 `dataclass` 或 Pydantic 模型。
+- 不写开发机绝对路径。
+- 不通过 `where.exe`、注册表或系统 PATH 静默寻找发布依赖。
+- 路径组合使用 `QDir`/`QFileInfo`，不手工连接分隔符。
+- 安装目录视为只读。
+- 用户配置、缓存和日志使用 `QStandardPaths`。
+- runtime manifest 校验失败时明确失败，不自动下载替换。
+
+## 8. 终端和二进制协议
+
+- 终端输入输出使用 `QByteArray` 保持字节边界。
+- UTF-8 解码只能发生在明确需要文本的显示或日志层。
+- ADB packet 长度、packet id 和最大大小必须校验。
+- partial frame 必须留在 buffer 等待下一次读取。
+- resize 使用字符列/行，不使用像素。
+- OpenCode TUI 必须运行在 ConPTY，不使用普通 QProcess 管道。
+- xterm.js 输入、输出不剥离 ANSI，也不擅自转换换行。
+- 高频输出需要背压、批量刷新和滚动缓冲上限。
+
+## 9. UI
+
+- 所有用户可感知错误有明确提示和恢复入口。
+- 设备断开后立即禁用危险操作。
+- 动态文本不改变固定工具栏和终端网格的稳定尺寸。
+- 图标按钮有 tooltip；熟悉符号优于文字胶囊按钮。
+- 高 DPI 下检查文字、关闭按钮、标签和图表不重叠。
+- 终端快捷命令的危险等级可识别，高风险动作确认。
+
+## 10. Python（规划模块）
+
+- 模块和函数：`snake_case`；类型：`PascalCase`；常量：大写。
+- 新代码使用类型标注。
+- 跨模块数据使用 dataclass 或 Pydantic。
+- 子进程统一由 runtime/process adapter 启动。
+- 日志使用 JSON Lines 并带 `task_id`、`session_id`。
+- 发布版不运行 pip，不读取全局 site-packages。
 
 ```python
-from dataclasses import dataclass
-
 @dataclass(frozen=True)
 class DeviceContext:
     device_id: str
     activity: str | None
-    page_source_path: str | None
     screenshot_path: str | None
 ```
 
-### 3.4 子进程调用
+## 11. Appium 脚本（规划模块）
 
-所有工具调用集中封装，不在业务代码中散落 `subprocess`。
+生成脚本必须包含显式等待、步骤日志、截图、异常上下文和结构化结果。
 
-封装层必须记录：
-
-- 命令。
-- 工作目录。
-- 环境变量摘要。
-- 退出码。
-- stdout 路径。
-- stderr 路径。
-- 耗时。
-
-禁止把用户输入直接拼接进 shell 字符串。使用参数数组。
-
-```python
-subprocess.run(
-    ["adb", "-s", device_id, "shell", "dumpsys", "activity"],
-    cwd=work_dir,
-    env=env,
-    check=False,
-    text=True,
-    capture_output=True,
-)
-```
-
-### 3.5 Appium 脚本规范
-
-生成的测试脚本必须包含：
-
-- 设备能力配置。
-- 显式等待。
-- 截图辅助函数。
-- 步骤日志。
-- 异常上下文采集。
-- 用例结果输出。
-
-定位控件优先级：
+定位优先级：
 
 1. accessibility id
 2. resource-id
 3. text
 4. Android UIAutomator
 5. XPath
-6. 坐标点击
+6. 坐标兜底
 
-坐标点击只能作为兜底，并且必须写明原因。
+坐标操作必须记录原因和目标分辨率。
 
-### 3.6 日志
+## 12. 配置和凭据
 
-Python 使用标准 `logging`，日志输出 JSON Lines。
+- 默认配置可提交，用户配置不能提交。
+- API Key、Token、账号密码不得出现在源码、manifest、任务 JSON 或普通日志。
+- OpenCode Server 密码每次运行随机生成。
+- workspace 权限和 Agent 权限策略必须可见、可审计。
+- 测试 fixture 使用假密钥。
 
-```python
-logger.info(
-    "step_finished",
-    extra={"task_id": task_id, "case_id": case_id, "elapsed_ms": elapsed_ms},
-)
-```
-
-### 3.7 异常
-
-异常需要转成明确错误类型：
-
-- `DeviceNotFoundError`
-- `AppiumSessionError`
-- `ElementNotFoundError`
-- `AgentCommandError`
-- `AttachmentParseError`
-- `ReportGenerateError`
-
-不要吞掉异常。捕获后必须记录上下文。
-
-## 4. Markdown 文档规范
+## 13. 文档
 
 - 标题从一级标题开始。
-- 每个文档说明目标和适用范围。
 - 代码块标注语言。
-- 表格用于协议字段和状态码。
-- 变更协议时同步更新 `CHANGELOG.md`。
+- 当前能力与目标能力明确区分。
+- 修改协议、目录、运行时或终端架构时同步更新专项文档。
+- 已发生变化写 `CHANGELOG.md`；计划写 `ROADMAP.md`，不要混用。
+- 相对链接必须在仓库内可解析。
 
-## 5. 配置文件规范
+## 14. 审查清单
 
-配置文件优先使用 JSON 或 TOML。
-
-敏感字段不得明文提交：
-
-- API Key
-- Token
-- 账号密码
-- 公司内部设备信息
-- 未脱敏日志
-
-建议配置分层：
-
-```text
-config/default.toml
-config/local.toml
-workspace/tasks/<taskId>/task.json
-```
-
-## 6. 代码审查清单
-
-提交前检查：
-
-- 是否阻塞 UI 线程。
-- 是否依赖用户系统 PATH。
-- 是否记录了任务 ID。
-- 是否能在失败时保存截图和日志。
-- 是否更新了相关文档。
-- 是否有最小测试覆盖。
-- 是否避免把敏感信息传给 Agent。
-
+- 是否阻塞 UI 线程？
+- 是否新增系统 PATH 或绝对路径依赖？
+- 是否正确处理设备切换、取消和应用退出？
+- 是否泄露凭据？
+- 是否为外部二进制记录版本、校验和许可证？
+- 是否有最小测试或可重复真机验证？
+- 文档状态是否与代码一致？

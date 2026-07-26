@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "platform": "windows-x64",
+  "components": [
+    {
+      "id": "opencode",
+      "version": "1.18.5",
+      "archive": "opencode-windows-x64-baseline-1.18.5.tgz",
+      "url": "https://registry.npmjs.org/opencode-windows-x64-baseline/-/opencode-windows-x64-baseline-1.18.5.tgz",
+      "sha256": "376e31df5ea24e451ab2039d6182ddc92bd1235322d332935118a029f4fef96f",
+      "license": "MIT"
+    },
+    {
+      "id": "node",
+      "version": "24.18.0",
+      "archive": "node-v24.18.0-win-x64.zip",
+      "url": "https://nodejs.org/dist/v24.18.0/node-v24.18.0-win-x64.zip",
+      "sha256": "0ae68406b42d7725661da979b1403ec9926da205c6770827f33aac9d8f26e821",
+      "license": "MIT"
+    },
+    {
+      "id": "node-pty",
+      "version": "1.1.0",
+      "archive": "node-pty-1.1.0.tgz",
+      "url": "https://registry.npmjs.org/node-pty/-/node-pty-1.1.0.tgz",
+      "sha256": "c7517f19083ddcb05f276904680eb2b11a6b5ecab778b8e4e5685a6d645b3f60",
+      "license": "MIT"
+    }
+  ]
+}

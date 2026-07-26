@@ -17,6 +17,8 @@ class PerformancePage;
 class PerformanceService;
 class RecoveryPage;
 class RecoveryService;
+class TerminalPage;
+class TerminalService;
 class QLabel;
 class QPushButton;
 class QStackedWidget;
@@ -52,6 +54,8 @@ private:
     PerformancePage *m_performancePage = nullptr;
     RecoveryService *m_recoveryService = nullptr;
     RecoveryPage *m_recoveryPage = nullptr;
+    TerminalService *m_terminalService = nullptr;
+    TerminalPage *m_terminalPage = nullptr;
     QStackedWidget *m_workspaceStack = nullptr;
     QPushButton *m_chatNavButton = nullptr;
     QPushButton *m_deviceControlNavButton = nullptr;

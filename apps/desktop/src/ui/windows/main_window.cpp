@@ -6,6 +6,7 @@
 #include "services/package_manager_service.h"
 #include "services/performance_service.h"
 #include "services/recovery_service.h"
+#include "services/terminal_service.h"
 #include "ui/common/widget_helpers.h"
 #include "ui/components/main_window_sections.h"
 #include "ui/pages/device_control_page.h"
@@ -14,6 +15,7 @@
 #include "ui/pages/package_manager_page.h"
 #include "ui/pages/performance_page.h"
 #include "ui/pages/recovery_page.h"
+#include "ui/pages/terminal_page.h"
 #include "ui/styles/app_style.h"
 
 #include <QApplication>
@@ -32,6 +34,82 @@ namespace {
 
 const QString kDefaultScrcpyPath = QStringLiteral(
     "D:/myApp_666666666666666/scrcpy-win64-v4.0/scrcpy.exe");
+
+QString openCodeExecutablePath()
+{
+    QSettings settings(QStringLiteral("AI Mobile Test Studio"),
+                       QStringLiteral("AI Mobile Test Studio"));
+    QString configured = qEnvironmentVariable("AI_MOBILE_TEST_OPENCODE_PATH");
+    if (configured.isEmpty()) {
+        configured = settings.value(QStringLiteral("runtime/opencodePath")).toString();
+    }
+    if (!configured.isEmpty()) {
+        return QFileInfo(configured).absoluteFilePath();
+    }
+
+    const QDir runtimeDirectory(
+        QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("runtime/opencode")));
+    const QStringList candidates = {
+        runtimeDirectory.filePath(QStringLiteral("opencode.exe")),
+        runtimeDirectory.filePath(QStringLiteral("opencode.cmd")),
+        runtimeDirectory.filePath(QStringLiteral("bin/opencode.exe"))};
+    for (const QString &candidate : candidates) {
+        if (QFileInfo::exists(candidate)) {
+            return candidate;
+        }
+    }
+    return candidates.first();
+}
+
+QString openCodeWorkingDirectory()
+{
+    QSettings settings(QStringLiteral("AI Mobile Test Studio"),
+                       QStringLiteral("AI Mobile Test Studio"));
+    QString directory = qEnvironmentVariable("AI_MOBILE_TEST_WORKSPACE");
+    if (directory.isEmpty()) {
+        directory = settings.value(QStringLiteral("workspace/path")).toString();
+    }
+    if (directory.isEmpty() || !QFileInfo(directory).isDir()) {
+        directory = QDir::currentPath();
+    }
+    return QDir(directory).absolutePath();
+}
+
+QString nodeExecutablePath()
+{
+    QSettings settings(QStringLiteral("AI Mobile Test Studio"),
+                       QStringLiteral("AI Mobile Test Studio"));
+    QString configured = qEnvironmentVariable("AI_MOBILE_TEST_NODE_PATH");
+    if (configured.isEmpty()) {
+        configured = settings.value(QStringLiteral("runtime/nodePath")).toString();
+    }
+    if (!configured.isEmpty()) {
+        return QFileInfo(configured).absoluteFilePath();
+    }
+    return QDir(QCoreApplication::applicationDirPath())
+        .filePath(QStringLiteral("runtime/node/node.exe"));
+}
+
+QString nodePtyModulePath()
+{
+    QSettings settings(QStringLiteral("AI Mobile Test Studio"),
+                       QStringLiteral("AI Mobile Test Studio"));
+    QString configured = qEnvironmentVariable("AI_MOBILE_TEST_NODE_PTY_PATH");
+    if (configured.isEmpty()) {
+        configured = settings.value(QStringLiteral("runtime/nodePtyPath")).toString();
+    }
+    if (!configured.isEmpty()) {
+        return QFileInfo(configured).absoluteFilePath();
+    }
+    return QDir(QCoreApplication::applicationDirPath())
+        .filePath(QStringLiteral("runtime/node/node_modules/node-pty"));
+}
+
+QString terminalHostScriptPath()
+{
+    return QDir(QCoreApplication::applicationDirPath())
+        .filePath(QStringLiteral("runtime/terminal-host/conpty_host.js"));
+}
 
 } // namespace
 
@@ -86,15 +164,10 @@ void MainWindow::buildUi()
     m_deviceStatusLabel = toolbar.deviceStatusLabel;
     workspaceLayout->addWidget(toolbar.widget);
 
-    auto *mainArea = new QWidget;
-    auto *mainLayout = new QHBoxLayout(mainArea);
-    mainLayout->setContentsMargins(16, 16, 16, 0);
-    mainLayout->setSpacing(0);
-    mainLayout->addWidget(ui::createChatPane(), 1);
-
     m_workspaceStack = new QStackedWidget;
     m_workspaceStack->setObjectName("WorkspaceStack");
-    m_workspaceStack->addWidget(mainArea);
+    m_terminalPage = new TerminalPage;
+    m_workspaceStack->addWidget(m_terminalPage);
     m_deviceControlPage = new DeviceControlPage;
     m_workspaceStack->addWidget(m_deviceControlPage);
     m_packageManagerPage = new PackageManagerPage;
@@ -154,7 +227,50 @@ void MainWindow::configureScrcpy()
 
 void MainWindow::configureDeviceControls()
 {
+    m_terminalService = new TerminalService(this);
+    m_terminalService->setOpenCodeConfiguration(openCodeExecutablePath(),
+                                                openCodeWorkingDirectory(),
+                                                nodeExecutablePath(),
+                                                nodePtyModulePath(),
+                                                terminalHostScriptPath());
     m_adbControlService = new AdbControlService(m_scrcpyService->adbExecutablePath(), this);
+
+    connect(m_terminalPage,
+            &TerminalPage::sessionCreateRequested,
+            m_terminalService,
+            &TerminalService::createSession);
+    connect(m_terminalPage,
+            &TerminalPage::sessionWriteRequested,
+            m_terminalService,
+            &TerminalService::writeSession);
+    connect(m_terminalPage,
+            &TerminalPage::sessionResizeRequested,
+            m_terminalService,
+            &TerminalService::resizeSession);
+    connect(m_terminalPage,
+            &TerminalPage::sessionRestartRequested,
+            m_terminalService,
+            &TerminalService::restartSession);
+    connect(m_terminalPage,
+            &TerminalPage::sessionCloseRequested,
+            m_terminalService,
+            &TerminalService::closeSession);
+    connect(m_terminalService,
+            &TerminalService::sessionStarted,
+            m_terminalPage,
+            &TerminalPage::handleSessionStarted);
+    connect(m_terminalService,
+            &TerminalService::sessionOutput,
+            m_terminalPage,
+            &TerminalPage::handleSessionOutput);
+    connect(m_terminalService,
+            &TerminalService::sessionFailed,
+            m_terminalPage,
+            &TerminalPage::handleSessionFailed);
+    connect(m_terminalService,
+            &TerminalService::sessionClosed,
+            m_terminalPage,
+            &TerminalPage::handleSessionClosed);
 
     connect(m_chatNavButton, &QPushButton::clicked, this, [this] {
         selectWorkspace(0);
@@ -238,6 +354,10 @@ void MainWindow::configureDeviceControls()
             &PackageManagerPage::userRemoveRequested,
             m_packageManagerService,
             &PackageManagerService::removeUser);
+    connect(m_packageManagerPage,
+            &PackageManagerPage::installRequested,
+            m_packageManagerService,
+            &PackageManagerService::installPackage);
     connect(m_packageManagerPage,
             &PackageManagerPage::packageDetailsRequested,
             m_packageManagerService,
@@ -463,6 +583,9 @@ void MainWindow::configureDeviceControls()
             m_performancePage,
             &PerformancePage::showSamplingError);
 
+    const bool initialConnected = m_deviceState == ScrcpyService::DeviceState::Connected;
+    m_terminalService->setDeviceSerial(initialConnected ? m_deviceSerial : QString());
+    m_terminalPage->setDeviceConnected(initialConnected, m_deviceSerial);
     m_adbControlService->setDeviceSerial(m_deviceSerial);
     m_packageManagerService->setDeviceSerial(m_deviceSerial);
     m_appsService->setDeviceSerial(
@@ -542,6 +665,9 @@ void MainWindow::selectWorkspace(int index)
     if (m_performanceService != nullptr) {
         m_performanceService->setActive(index == 6);
     }
+    if (index == 0 && m_terminalPage != nullptr) {
+        m_terminalPage->activate();
+    }
 }
 
 void MainWindow::updateDeviceUi(ScrcpyService::DeviceState state,
@@ -553,6 +679,10 @@ void MainWindow::updateDeviceUi(ScrcpyService::DeviceState state,
     m_deviceDetail = detail;
 
     const bool connected = state == ScrcpyService::DeviceState::Connected;
+    if (m_terminalService != nullptr) {
+        m_terminalService->setDeviceSerial(connected ? serial : QString());
+        m_terminalPage->setDeviceConnected(connected, serial);
+    }
     if (m_adbControlService != nullptr) {
         m_adbControlService->setDeviceSerial(connected ? serial : QString());
         m_deviceControlPage->setDeviceConnected(connected, serial);

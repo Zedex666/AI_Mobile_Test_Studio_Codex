@@ -7,6 +7,8 @@ qt_add_executable(${DESKTOP_TARGET}
     src/core/device_command_catalog.h
     src/services/adb_control_service.cpp
     src/services/adb_control_service.h
+    src/services/adb_shell_session.cpp
+    src/services/adb_shell_session.h
     src/services/apps_service.cpp
     src/services/apps_service.h
     src/services/file_manager_service.cpp
@@ -19,6 +21,11 @@ qt_add_executable(${DESKTOP_TARGET}
     src/services/recovery_service.h
     src/services/scrcpy_service.cpp
     src/services/scrcpy_service.h
+    src/services/conpty_session.cpp
+    src/services/conpty_session.h
+    src/services/terminal_service.cpp
+    src/services/terminal_service.h
+    src/services/terminal_session.h
     src/ui/common/widget_helpers.cpp
     src/ui/common/widget_helpers.h
     src/ui/components/main_window_sections.cpp
@@ -35,6 +42,10 @@ qt_add_executable(${DESKTOP_TARGET}
     src/ui/pages/performance_page.h
     src/ui/pages/recovery_page.cpp
     src/ui/pages/recovery_page.h
+    src/ui/pages/terminal_page.cpp
+    src/ui/pages/terminal_page.h
+    src/ui/pages/terminal_bridge.cpp
+    src/ui/pages/terminal_bridge.h
     src/ui/styles/app_style.cpp
     src/ui/styles/app_style.h
     src/ui/widgets/brand_badges.cpp
@@ -47,14 +58,107 @@ target_compile_features(${DESKTOP_TARGET} PRIVATE cxx_std_17)
 target_include_directories(${DESKTOP_TARGET} PRIVATE src)
 
 set(APP_METADATA_JAR "${CMAKE_SOURCE_DIR}/resources/tools/java/app_metadata.jar")
+file(GLOB_RECURSE TERMINAL_RUNTIME_RESOURCE_FILES CONFIGURE_DEPENDS
+    "${CMAKE_SOURCE_DIR}/resources/terminal-host/*"
+    "${CMAKE_SOURCE_DIR}/resources/terminal-web/*")
+set_property(TARGET ${DESKTOP_TARGET} APPEND PROPERTY LINK_DEPENDS
+    "${APP_METADATA_JAR}"
+    ${TERMINAL_RUNTIME_RESOURCE_FILES})
 add_custom_command(TARGET ${DESKTOP_TARGET} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory
         "$<TARGET_FILE_DIR:${DESKTOP_TARGET}>/runtime/android"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${APP_METADATA_JAR}"
         "$<TARGET_FILE_DIR:${DESKTOP_TARGET}>/runtime/android/app_metadata.jar"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/resources/terminal-web"
+        "$<TARGET_FILE_DIR:${DESKTOP_TARGET}>/runtime/terminal-web"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/resources/terminal-host"
+        "$<TARGET_FILE_DIR:${DESKTOP_TARGET}>/runtime/terminal-host"
     VERBATIM
 )
+
+if(TARGET ai_mobile_test_stage_terminal_runtime)
+    add_dependencies(${DESKTOP_TARGET} ai_mobile_test_stage_terminal_runtime)
+endif()
+
+if(AI_MOBILE_TEST_OPENCODE_RUNTIME_EXECUTABLE)
+    if(NOT AI_MOBILE_TEST_TERMINAL_RUNTIME_GENERATED
+       AND NOT EXISTS "${AI_MOBILE_TEST_OPENCODE_RUNTIME_EXECUTABLE}")
+        message(FATAL_ERROR
+            "AI_MOBILE_TEST_OPENCODE_EXECUTABLE does not exist: "
+            "${AI_MOBILE_TEST_OPENCODE_RUNTIME_EXECUTABLE}")
+    endif()
+    get_filename_component(OPENCODE_EXECUTABLE_NAME
+        "${AI_MOBILE_TEST_OPENCODE_RUNTIME_EXECUTABLE}" NAME)
+    add_custom_command(TARGET ${DESKTOP_TARGET} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            "$<TARGET_FILE_DIR:${DESKTOP_TARGET}>/runtime/opencode"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${AI_MOBILE_TEST_OPENCODE_RUNTIME_EXECUTABLE}"
+            "$<TARGET_FILE_DIR:${DESKTOP_TARGET}>/runtime/opencode/${OPENCODE_EXECUTABLE_NAME}"
+        VERBATIM
+    )
+endif()
+
+if(AI_MOBILE_TEST_NODE_RUNTIME_EXECUTABLE)
+    if(NOT AI_MOBILE_TEST_TERMINAL_RUNTIME_GENERATED
+       AND NOT EXISTS "${AI_MOBILE_TEST_NODE_RUNTIME_EXECUTABLE}")
+        message(FATAL_ERROR
+            "AI_MOBILE_TEST_NODE_EXECUTABLE does not exist: "
+            "${AI_MOBILE_TEST_NODE_RUNTIME_EXECUTABLE}")
+    endif()
+    add_custom_command(TARGET ${DESKTOP_TARGET} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            "$<TARGET_FILE_DIR:${DESKTOP_TARGET}>/runtime/node"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${AI_MOBILE_TEST_NODE_RUNTIME_EXECUTABLE}"
+            "$<TARGET_FILE_DIR:${DESKTOP_TARGET}>/runtime/node/node.exe"
+        VERBATIM
+    )
+endif()
+
+if(AI_MOBILE_TEST_NODE_PTY_RUNTIME_MODULE)
+    if(NOT AI_MOBILE_TEST_TERMINAL_RUNTIME_GENERATED
+       AND NOT EXISTS "${AI_MOBILE_TEST_NODE_PTY_RUNTIME_MODULE}/package.json")
+        message(FATAL_ERROR
+            "AI_MOBILE_TEST_NODE_PTY_MODULE is not a node-pty package: "
+            "${AI_MOBILE_TEST_NODE_PTY_RUNTIME_MODULE}")
+    endif()
+    add_custom_command(TARGET ${DESKTOP_TARGET} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${AI_MOBILE_TEST_NODE_PTY_RUNTIME_MODULE}"
+            "$<TARGET_FILE_DIR:${DESKTOP_TARGET}>/runtime/node/node_modules/node-pty"
+        VERBATIM
+    )
+endif()
+
+if(AI_MOBILE_TEST_TERMINAL_RUNTIME_MANIFEST)
+    add_custom_command(TARGET ${DESKTOP_TARGET} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${AI_MOBILE_TEST_TERMINAL_RUNTIME_MANIFEST}"
+            "$<TARGET_FILE_DIR:${DESKTOP_TARGET}>/runtime/manifest.json"
+        VERBATIM
+    )
+endif()
+
+if(WIN32 AND AI_MOBILE_TEST_DEPLOY_QT_RUNTIME)
+    get_filename_component(_qt_binary_directory
+        "${QT_QMAKE_EXECUTABLE}" DIRECTORY)
+    find_program(AI_MOBILE_TEST_WINDEPLOYQT_EXECUTABLE
+        NAMES windeployqt
+        HINTS "${_qt_binary_directory}"
+        NO_DEFAULT_PATH REQUIRED)
+    add_custom_command(TARGET ${DESKTOP_TARGET} POST_BUILD
+        COMMAND "${AI_MOBILE_TEST_WINDEPLOYQT_EXECUTABLE}"
+            "$<IF:$<CONFIG:Debug>,--debug,--release>"
+            --compiler-runtime
+            "$<TARGET_FILE:${DESKTOP_TARGET}>"
+        COMMENT "Deploying Qt runtime beside ${DESKTOP_TARGET}"
+        VERBATIM
+    )
+endif()
 
 if(MSVC)
     target_compile_options(${DESKTOP_TARGET} PRIVATE /utf-8 /Zc:__cplusplus /permissive-)
@@ -63,8 +167,20 @@ endif()
 target_link_libraries(${DESKTOP_TARGET}
     PRIVATE
         Qt::Core
+        Qt::Network
         Qt::Widgets
 )
+
+if(TARGET Qt6::WebChannel AND TARGET Qt6::WebEngineWidgets)
+    target_compile_definitions(${DESKTOP_TARGET}
+        PRIVATE AI_MOBILE_TEST_STUDIO_HAS_WEB_TERMINAL=1)
+    target_link_libraries(${DESKTOP_TARGET}
+        PRIVATE Qt6::WebChannel Qt6::WebEngineWidgets)
+else()
+    message(STATUS
+        "Qt WebEngine terminal unavailable (WebChannel=${Qt6WebChannel_FOUND}, "
+        "WebEngineWidgets=${Qt6WebEngineWidgets_FOUND}); using the basic renderer")
+endif()
 
 include(GNUInstallDirs)
 
@@ -74,6 +190,26 @@ install(TARGETS ${DESKTOP_TARGET}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 install(FILES "${APP_METADATA_JAR}" DESTINATION "runtime/android")
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/resources/terminal-web/"
+    DESTINATION "runtime/terminal-web")
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/resources/terminal-host/"
+    DESTINATION "runtime/terminal-host")
+if(AI_MOBILE_TEST_OPENCODE_RUNTIME_EXECUTABLE)
+    install(PROGRAMS "${AI_MOBILE_TEST_OPENCODE_RUNTIME_EXECUTABLE}"
+        DESTINATION "runtime/opencode")
+endif()
+if(AI_MOBILE_TEST_NODE_RUNTIME_EXECUTABLE)
+    install(PROGRAMS "${AI_MOBILE_TEST_NODE_RUNTIME_EXECUTABLE}"
+        DESTINATION "runtime/node" RENAME "node.exe")
+endif()
+if(AI_MOBILE_TEST_NODE_PTY_RUNTIME_MODULE)
+    install(DIRECTORY "${AI_MOBILE_TEST_NODE_PTY_RUNTIME_MODULE}/"
+        DESTINATION "runtime/node/node_modules/node-pty")
+endif()
+if(AI_MOBILE_TEST_TERMINAL_RUNTIME_MANIFEST)
+    install(FILES "${AI_MOBILE_TEST_TERMINAL_RUNTIME_MANIFEST}"
+        DESTINATION "runtime")
+endif()
 
 qt_generate_deploy_app_script(
     TARGET ${DESKTOP_TARGET}

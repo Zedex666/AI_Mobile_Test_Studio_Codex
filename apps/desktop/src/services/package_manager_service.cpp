@@ -178,6 +178,23 @@ void PackageManagerService::loadPackageDetails(const QString &packageName)
                              packageName}));
 }
 
+void PackageManagerService::installPackage(const QString &apkPath)
+{
+    const QFileInfo apkFile(apkPath);
+    if (!apkFile.isFile()
+        || apkFile.suffix().compare(QStringLiteral("apk"), Qt::CaseInsensitive) != 0) {
+        emit commandFinished(false, tr("安装应用"), tr("请选择有效的 .apk 文件。"));
+        return;
+    }
+
+    const QString absolutePath = apkFile.absoluteFilePath();
+    start(Request::Install,
+          tr("安装 %1").arg(apkFile.fileName()),
+          QStringLiteral("adb -s %1 install \"%2\"")
+              .arg(m_deviceSerial, QDir::toNativeSeparators(absolutePath)),
+          {QStringLiteral("-s"), m_deviceSerial, QStringLiteral("install"), absolutePath});
+}
+
 void PackageManagerService::uninstallPackage(const QString &packageName)
 {
     if (packageName.isEmpty()) {
@@ -348,6 +365,13 @@ void PackageManagerService::handleFinished(int exitCode, QProcess::ExitStatus ex
         finishRequest();
         emit packageDetailsLoaded(packageName, path, installer);
         emit commandFinished(true, label, tr("已读取 %1 的软件包详情。").arg(packageName));
+        return;
+    }
+    case Request::Install: {
+        const QString label = m_currentLabel;
+        const QString detail = output.isEmpty() ? tr("安装成功。") : output;
+        finishRequest();
+        emit commandFinished(true, label, detail);
         return;
     }
     case Request::PackageAction: {

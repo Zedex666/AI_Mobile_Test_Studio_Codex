@@ -1,200 +1,193 @@
 # 开发路线图
 
-## 0. 阶段目标
+## 1. 状态
 
-路线图按“先闭环、再增强、最后工程化规模化”推进。当前最重要的是跑通 Android 真机、Appium 脚本、Agent 修复、Markdown 报告这一条最小闭环。
+- `完成`：当前代码已实现并验证。
+- `进行中`：已有部分代码，但不满足阶段验收。
+- `待开始`：只有文档或目录骨架。
 
-## 1. M0：项目骨架与文档
+## 2. M0 工程骨架与设备工作台
 
-目标：建立工程方向和基础规范。
+状态：**完成**
 
-任务：
+已完成：
 
-- 创建 docs 文档体系。
-- 明确 Qt6 + Python + Appium + opencode 架构。
-- 定义 Agent、Plugin、Skill 基础规范。
-- 初始化推荐目录结构。
-- 明确打包依赖清单。
+- Qt 6/CMake 子项目结构。
+- 主窗口、侧栏、设备状态和工作区切换。
+- 设备控制、包管理、应用、文件、Recovery 和性能页面。
+- scrcpy 进程管理和 Android 应用元数据工具。
 
-验收：
+剩余维护项进入后续阶段，不回退到静态演示数据。
 
-- 文档完整。
-- 项目成员能根据文档理解系统边界。
+## 3. M1 ADB 持久终端
 
-## 2. M1：Qt 主界面原型
+状态：**完成**
 
-目标：完成桌面端基础 UI。
+已完成：
 
-任务：
+- ADB `shell,v2` 和 legacy 回退。
+- 多会话、多标签、输入输出和窗口尺寸同步。
+- 设备断开、切换、重置和快捷命令。
+- 真机命令和多标签冒烟验证。
 
-- 左右分栏主界面。
-- 左侧设备画面占位区。
-- 右侧对话区。
-- 附件列表。
-- 任务进度列表。
-- 状态栏显示设备连接状态。
+自研显示层的完整 TUI 兼容不属于本阶段，后续由 xterm.js 替换。
 
-验收：
+## 4. M2 便携运行时基础
 
-- 应用可启动。
-- 用户可以选择附件并发送消息。
-- UI 不阻塞。
+状态：**进行中，下一优先级**
 
-## 3. M2：设备连接与画面显示
-
-目标：让手机真实接入。
+已完成：OpenCode、Node.js 和 `node-pty` 的 Windows x64 锁文件、SHA-256 下载校验、构建期 staging、应用目录复制和 ConPTY 冒烟。
 
 任务：
 
-- 集成 Android platform-tools。
-- 实现 ADB 设备发现。
-- 获取设备信息。
-- 集成 scrcpy 画面显示。
-- 支持截图。
-- 支持基础输入操作。
+- 实现 `RuntimeManifest`、`RuntimeLocator`、`RuntimeManager`。
+- 删除发布构建的开发机硬编码路径。
+- 建立 runtime lock、下载、SHA-256 校验和 staging 脚本。
+- 随包装配 Qt、ADB、scrcpy 和 OpenCode。
+- 建立第三方 notices 和许可证门禁。
+- 使用私有 ADB server 端口，所有组件共享同一连接参数。
+- 完成启动自检和诊断页。
 
 验收：
 
-- 插入手机后能识别设备。
-- 左侧能看到实时画面。
-- 能截图并保存到任务目录。
+- 干净 Windows 机器无需安装/下载 ADB、scrcpy、OpenCode 或 Qt 即可启动相关能力。
+- 不读取系统 PATH，不终止用户已有 ADB server。
+- 安装损坏时给出结构化诊断，不静默回退。
 
-## 4. M3：Appium 运行时
+## 5. M3 成熟终端显示层
 
-目标：建立 Python + Appium 执行能力。
+状态：**进行中**
 
 任务：
 
-- 内置 Python 运行时。
-- 内置 Node.js、JDK、Appium、UiAutomator2 driver。
-- Runtime Manager 检查依赖。
-- 启动 Appium Server。
-- 创建 Appium Session。
-- 执行最小点击测试。
+- 引入 Qt WebEngine、QWebChannel 和本地 xterm.js 资源。
+- 抽取 `ITerminalSession` 和 `TerminalSessionManager`。
+- 让现有 ADB session 接入统一接口。
+- 验证 Unicode、IME、鼠标、备用屏幕、搜索和大输出。
+- 将 WebEngine 完整部署进安装包。
+
+已完成：统一 `TerminalSession`、ADB 会话迁移、本地 xterm.js/FitAddon、QWebChannel 桥接、离线资源复制和无 WebEngine 降级构建。
+
+剩余：补齐构建机 Qt Positioning/WebEngine 依赖，完成真实备用屏幕、鼠标、IME、Unicode 和高输出验收，并将 WebEngine 完整部署进安装包。
 
 验收：
 
-- 用户无需安装 Appium。
-- 能运行一个 Python Appium 脚本。
-- 能采集失败截图和日志。
+- ADB shell 行为不回退。
+- `vim`、全屏 TUI、中文输入、复制粘贴和 resize 正常。
+- 所有 Web 资源离线随包加载。
 
-## 5. M4：附件解析
+## 6. M4 OpenCode 内嵌与结构化集成
 
-目标：让测试用例成为 Agent 上下文。
+状态：**进行中**
 
 任务：
 
-- 支持 `xlsx`、`csv`。
-- 支持 `txt`、`md`。
-- 支持 `docx`、`pdf` 的文本抽取。
-- 生成统一用例 JSON。
-- UI 展示解析摘要。
+- 实现 Windows ConPTY 后端。
+- 在选定 workspace 启动随包 OpenCode TUI。
+- 接入 OpenCode Server/OpenAPI/SDK。
+- 使用 loopback 动态端口和随机认证。
+- 把会话、权限、问题和完成状态映射到产品 UI。
+- 禁止通过终端文字判断 Agent 状态。
+
+已完成：Windows Terminal 风格终端类型菜单、OpenCode/ADB 标签隔离、`node-pty` ConPTY 宿主、输入/输出/resize/退出帧协议和自动化 ConPTY 冒烟。
+
+剩余：完成真实 OpenCode 交互式 TUI 端到端验收，并接入 Server/SDK 与认证。
 
 验收：
 
-- 上传 Excel 后能识别用例 ID、步骤、期望结果。
-- 解析失败时有明确错误提示。
+- OpenCode TUI 的布局、命令面板、鼠标、滚动和中文输入正常。
+- 产品能通过 API 提交提示词并获得结构化状态。
+- 关闭标签和退出应用后无残留 ConPTY/OpenCode 进程。
 
-## 6. M5：脚本生成 Agent
+## 7. M5 自动化运行时
 
-目标：通过 opencode 生成可执行脚本。
+状态：**待开始**
 
 任务：
 
-- 集成 opencode CLI。
-- 实现 Agent Orchestrator。
-- 将用户需求、用例、设备上下文传给脚本生成 Agent。
-- 生成 Python Appium 脚本。
-- 将脚本保存到任务目录。
+- 实现 Python Automation Service。
+- 随包 Python、Node.js、JDK、Appium 和 UiAutomator2 driver。
+- 实现本机 API、任务队列、事件流和进程监督。
+- 创建 Appium Session 并运行最小点击用例。
+- 采集截图、page source、logcat 和失败上下文。
 
 验收：
 
-- 用户一句话可以生成脚本。
-- 脚本能被 Runner 执行。
-- 生成过程可追踪。
+- 干净电脑无需安装 Python/Appium/JDK/Node.js。
+- UI 不阻塞，任务可取消，退出后无孤儿进程。
+- 最小 Appium 用例能生成证据目录。
 
-## 7. M6：UI 理解与错误修复
+## 8. M6 附件与统一用例
 
-目标：失败后能自动定位原因并修复。
+状态：**待开始**
 
 任务：
 
-- 采集当前 Activity。
-- 采集当前 Fragment。
-- 采集 Appium page source。
-- 采集 Toast、Crash、ANR。
-- UI 理解 Agent 输出页面状态。
-- 错误修复 Agent 修改脚本。
-- 最多自动重试 2 次。
+- 支持 `xlsx`、`csv`、`md`、`txt`。
+- 支持 `docx` 和 `pdf` 文本抽取。
+- 生成稳定统一用例 Schema。
+- UI 展示解析摘要和错误。
 
-验收：
+验收：上传用例后可识别 ID、前置条件、步骤、期望结果和优先级。
 
-- 控件找不到时能抓取截图和页面树。
-- 能根据页面状态修改定位或等待逻辑。
-- 不能修复时给出明确失败原因。
+## 9. M7 Agent 测试闭环
 
-## 8. M7：测试报告与附件回填
-
-目标：形成可提交产物。
+状态：**待开始**
 
 任务：
 
-- 生成 Markdown 报告。
-- 统计成功率、失败原因、耗时。
-- 插入截图和日志链接。
-- 输出建议。
-- 回填 Excel、Markdown、Word。
-- PDF 附件生成旁路报告。
+- 脚本生成、UI 理解、错误修复和报告 Agent。
+- OpenCode 会话与任务目录绑定。
+- 直接配置并使用 OpenCode 自带的 plugins、skills、agents 和 tools，不开发宿主插件或 Skill 运行器。
+- 设备上下文和附件上下文结构化输入。
+- Runner 执行和最多 2 次自动修复。
+- 权限和危险操作由用户确认。
 
-验收：
+验收：一句话加用例可以生成、执行、诊断并产出脚本差异。
 
-- 测试结束自动生成报告。
-- Excel 用例表中能看到执行结果。
-- 报告可直接提交或二次编辑。
+## 10. M8 报告和回填
 
-## 9. M8：打包与免安装体验
-
-目标：让非开发用户可直接使用。
+状态：**待开始**
 
 任务：
 
-- 打包 Qt 应用。
-- 打包 Python、Node.js、JDK、ADB、scrcpy、Appium、opencode。
-- 启动时运行自检。
-- 首次启动引导授权 USB 调试。
-- 生成诊断包。
+- Markdown 报告。
+- 成功率、失败原因、耗时和性能汇总。
+- 截图和日志证据链接。
+- Excel、Markdown、Word 回填。
+- PDF 生成旁路报告。
 
-验收：
+验收：测试结束自动生成可提交报告，原始证据可追溯。
 
-- 新电脑解压或安装后可直接启动。
-- 不要求用户手动安装 Python、Appium、JDK、Node.js。
-- 缺失依赖时提示清晰。
+## 11. M9 正式发布
 
-## 10. M9：领域增强
-
-目标：强化豆包眼镜连接测试。
+状态：**待开始**
 
 任务：
 
-- 蓝牙连接模板。
-- 蓝牙连接耗时统计。
-- 蓝牙断连重连测试。
-- Wi-Fi 切换测试。
-- 弱网和后台恢复测试。
-- 眼镜设备识别策略。
+- 代码签名、安装包和便携 ZIP。
+- 完整 runtime manifest 和 notices。
+- 干净机、升级、卸载和损坏修复测试。
+- 组件版本升级回归矩阵。
+- 诊断包导出。
 
-验收：
+验收：满足 [PORTABLE_RUNTIME.md](PORTABLE_RUNTIME.md) 的全部发布门禁。
 
-- 可以稳定执行一组豆包眼镜连接回归用例。
-- 报告能区分 App 问题、设备问题、环境问题和脚本问题。
+## 12. 领域增强
 
-## 11. 长期规划
+便携发布和最小 AI 闭环稳定后再实现：
 
-- 多设备并发测试。
-- 测试任务队列。
-- 真机云接入。
-- 本地模型或企业私有模型适配。
-- 团队共享插件市场。
-- 测试报告仪表盘。
-- 与缺陷管理系统对接。
+- 蓝牙连接耗时、断连重连和稳定性模板。
+- Wi-Fi 切换、弱网和后台恢复。
+- 眼镜设备识别和配对策略。
+- 多设备并发和任务队列。
+- 企业私有模型和真机云。
+- 缺陷管理和团队报告。
 
+## 13. 每阶段共同完成定义
+
+- 有自动化或可重复冒烟步骤。
+- 不引入系统 PATH 和开发机绝对路径依赖。
+- 更新相关 docs 和 `CHANGELOG.md`。
+- 新第三方组件完成版本锁定、校验和许可证记录。
+- 失败有诊断信息，退出无残留进程。

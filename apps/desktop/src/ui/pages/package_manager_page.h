@@ -9,6 +9,7 @@ class QLabel;
 class QLineEdit;
 class QListWidget;
 class QListWidgetItem;
+class QProgressBar;
 class QPushButton;
 class QStackedWidget;
 class QToolButton;
@@ -42,6 +43,7 @@ signals:
                                      bool systemOnly);
     void categoryRequested(int category);
     void userRemoveRequested(const QString &userId);
+    void installRequested(const QString &apkPath);
     void packageDetailsRequested(const QString &packageName);
     void uninstallRequested(const QString &packageName);
     void clearDataRequested(const QString &packageName);
@@ -56,11 +58,15 @@ private:
                        const QString &message,
                        void (PackageManagerPage::*signal)(const QString &));
     void showPackageWorkspace();
+    void showInstallWorkspace();
     void showCatalogWorkspace(int category);
+    void selectApkFile();
+    void startInstall();
     void copyCommand(const QString &command);
 
     bool m_connected = false;
     bool m_busy = false;
+    bool m_installRunning = false;
     QString m_serial;
     QString m_selectedPackage;
     QStringList m_packages;
@@ -77,6 +83,11 @@ private:
     QLabel *m_resultStatus = nullptr;
     QToolButton *m_resultBackButton = nullptr;
     QPushButton *m_resultRemoveButton = nullptr;
+    QToolButton *m_installBackButton = nullptr;
+    QLineEdit *m_installFilePath = nullptr;
+    QToolButton *m_installSelectButton = nullptr;
+    QPushButton *m_installButton = nullptr;
+    QProgressBar *m_installProgress = nullptr;
     QCheckBox *m_enabledFilter = nullptr;
     QCheckBox *m_disabledFilter = nullptr;
     QCheckBox *m_thirdPartyFilter = nullptr;

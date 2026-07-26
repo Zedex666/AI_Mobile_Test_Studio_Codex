@@ -1,176 +1,146 @@
 # 系统架构
 
-## 1. 架构目标
+## 1. 文档范围
 
-系统采用桌面宿主、自动化运行时、设备观测、Agent 编排和插件扩展分层架构。核心目标是让 Qt6 前端负责稳定交互和可视化，让 Python + Appium 负责设备自动化，让 opencode 负责 Agent 原生代码生成和修复，让报告与附件模块负责测试资产闭环。
+本文同时描述当前可运行架构和目标产品架构。OpenCode TUI 会话接入已进入进行中阶段；规划中的 Python、Appium、OpenCode Server/SDK 能力不会被描述为已经完成。
 
-## 2. 总体架构
+## 2. 架构原则
+
+- Qt 主线程只负责交互和轻量状态合成，设备采样、文件传输和外部进程必须异步。
+- UI 页面不直接拼接外部命令；命令和协议集中在 service 或 runtime 层。
+- 发布版本只使用随包运行时和绝对路径，不依赖系统 `PATH`。
+- ADB、OpenCode Server、Appium 等本机服务使用应用分配的端口和进程级环境，避免影响用户已有工具。
+- 终端显示与会话后端分离，设备 shell 和 OpenCode TUI 复用统一终端界面。
+- Agent 决策通过结构化协议进入自动化层，不通过解析终端屏幕驱动产品状态。
+- 用户任务、缓存和凭据与只读安装目录分离。
+
+## 3. 当前架构
 
 ```mermaid
 flowchart TB
-    User["测试人员"] --> Qt["Qt6 Desktop Shell"]
-    Qt --> DeviceView["Device Mirror View"]
-    Qt --> Chat["AI Chat Panel"]
-    Qt --> Attachment["Attachment Center"]
-    Qt --> Task["Task Monitor"]
-
-    Qt --> Bridge["Local RPC Bridge"]
-    Bridge --> Runtime["Runtime Manager"]
-    Bridge --> AgentHub["Agent Orchestrator"]
-    Bridge --> DeviceHub["Device Controller"]
-    Bridge --> Artifact["Artifact Store"]
-
-    Runtime --> Python["Bundled Python"]
-    Runtime --> Node["Bundled Node.js"]
-    Runtime --> JDK["Bundled JDK"]
-    Runtime --> Appium["Appium Server"]
-    Runtime --> ADB["Android platform-tools"]
-    Runtime --> Scrcpy["scrcpy"]
-    Runtime --> OpenCode["opencode CLI"]
-
-    AgentHub --> ScriptAgent["脚本生成 Agent"]
-    AgentHub --> UIAgent["UI 理解 Agent"]
-    AgentHub --> FixAgent["错误修复 Agent"]
-    AgentHub --> ReportAgent["测试报告 Agent"]
-
-    DeviceHub --> Android["Android Device"]
-    DeviceHub --> Appium
-    DeviceHub --> ADB
-    DeviceHub --> Scrcpy
-
-    ScriptAgent --> OpenCode
-    FixAgent --> OpenCode
-    ReportAgent --> Artifact
+    User["测试人员"] --> Main["MainWindow / Qt Widgets"]
+    Main --> Pages["Terminal / Device / Packages / Apps / Files / Recovery / Performance"]
+    Pages --> Services["Desktop Services"]
+    Services --> AdbProcess["adb child processes"]
+    Services --> AdbSocket["ADB shell,v2 socket"]
+    Services --> Scrcpy["scrcpy process"]
+    Services --> Metadata["app_metadata.jar"]
+    AdbProcess --> Device["Android Device"]
+    AdbSocket --> Device
+    Scrcpy --> Device
 ```
 
-## 3. 进程模型
+当前桌面 services：
+
+| Service | 当前职责 |
+| --- | --- |
+| `ScrcpyService` | ADB 设备轮询、镜像进程启动停止和错误处理 |
+| `TerminalService` | ADB transport、`shell,v2`/legacy、多终端会话和 resize |
+| `AdbControlService` | Android KEYCODE、电源和系统快捷操作 |
+| `PackageManagerService` | 软件包查询、详情、安装、卸载、启停用和清数据 |
+| `AppsService` | 应用列表、元数据、启动停止、权限、后台模式和 APK 导入导出 |
+| `FileManagerService` | 目录浏览、上传下载、重命名、复制、权限和删除 |
+| `RecoveryService` | Recovery sideload 和进度输出 |
+| `PerformanceService` | CPU、内存、电池、温度和前台应用 FPS 采样 |
+| `TerminalService` | 统一管理 ADB shell 与 OpenCode 会话，设备切换只回收 ADB 会话 |
+| `ConPtySession` | 通过随包 Node.js/`node-pty` 宿主创建 OpenCode ConPTY |
+
+当前 Python `services/automation/`、contracts 和 tests 主要是目录骨架，尚未形成运行进程。仓库中的 `plugins/`、`skills/` 是早期空目录，不属于目标架构，后续可以清理。
+
+## 4. 目标架构
 
 ```mermaid
-flowchart LR
-    QtApp["Qt 主进程"] --> BridgeProc["bridge 服务进程"]
-    BridgeProc --> AppiumProc["Appium Server 进程"]
-    BridgeProc --> ADBProc["adb/scrcpy 进程"]
-    BridgeProc --> AgentProc["opencode Agent 进程"]
-    BridgeProc --> RunnerProc["Python Test Runner 进程"]
+flowchart TB
+    Qt["Qt Desktop Shell"] --> Runtime["Runtime Manager"]
+    Qt --> Terminal["xterm.js Terminal View"]
+    Qt --> BridgeClient["Automation API Client"]
+
+    Terminal --> SessionManager["Terminal Session Manager"]
+    SessionManager --> AdbSession["ADB shell,v2"]
+    SessionManager --> PtyHost["Node terminal host"]
+    PtyHost --> ConPty["node-pty / Windows ConPTY"]
+    ConPty --> OpenCodeTui["OpenCode TUI"]
+
+    Runtime --> PrivateAdb["Bundled private ADB server"]
+    Runtime --> Scrcpy["Bundled scrcpy"]
+    Runtime --> OpenCodeServer["Bundled OpenCode Server"]
+    Runtime --> Automation["Bundled Python Automation Service"]
+    Runtime --> Appium["Bundled Appium + UiAutomator2"]
+
+    BridgeClient <--> Automation
+    Automation --> AgentHub["Agent Orchestrator"]
+    Automation --> Runner["Test Runner"]
+    Automation --> Artifacts["Artifact Store"]
+    AgentHub <--> OpenCodeServer
+    Runner --> Appium
+    Appium --> PrivateAdb
+    AdbSession --> PrivateAdb
+    Scrcpy --> PrivateAdb
 ```
 
-建议进程职责：
+## 5. 目标进程模型
 
-- Qt 主进程：UI、状态展示、用户输入、画面渲染。
-- bridge 服务进程：本地 API、任务队列、事件总线、跨语言通信。
-- Appium Server 进程：移动端自动化会话。
-- adb/scrcpy 进程：设备发现、画面流、日志、截图。
-- opencode Agent 进程：脚本生成、修复、报告内容生成。
-- Python Test Runner 进程：执行测试脚本并回传事件。
+| 进程 | 所有者 | 说明 |
+| --- | --- | --- |
+| Qt 主进程 | 桌面端 | 页面、状态、轻量协议和子进程监督入口 |
+| Qt WebEngine 进程 | Qt 部署 | xterm.js 显示；仅加载随包本地资源 |
+| 私有 ADB server | Runtime Manager | 使用应用端口，不终止系统默认 server |
+| scrcpy | Runtime Manager | 镜像窗口或未来视频流 |
+| Node terminal host | `ConPtySession` | 帧协议、`node-pty` 与 ConPTY 生命周期 |
+| OpenCode TUI | node-pty / ConPTY | 面向用户的完整 AI 终端交互 |
+| OpenCode Server | Runtime Manager | OpenAPI/SDK、会话、权限和结构化事件 |
+| Python Automation Service | Runtime Manager | 本地 API、Agent 编排、附件和报告 |
+| Appium Server | Automation Service | Android 自动化会话 |
+| Python Test Runner | Automation Service | 隔离执行测试脚本和采集产物 |
 
-Qt 主进程不直接执行长耗时测试任务，避免 UI 卡死。
+Qt 主进程退出时，Runtime Manager 必须按所有权只回收本应用启动的进程。
 
-## 4. 模块划分
+## 6. 模块边界
 
-### 4.1 Qt Desktop Shell
+### 6.1 Desktop UI
 
-职责：
+- `ui/windows/`：顶层窗口和页面装配。
+- `ui/pages/`：主工作区页面。
+- `ui/widgets/`：曲线、终端宿主等复用控件。
+- `ui/components/`：Header、Sidebar、Toolbar 等窗口区域。
+- `ui/styles/`：应用 QSS。
 
-- 主窗口布局。
-- 手机实时画面展示。
-- 对话框与附件区。
-- 测试进度展示。
-- 报告预览。
-- 用户配置管理。
+页面只能通过 signals/slots 或 client 接口请求业务动作。
 
-建议 Qt 模块：
+### 6.2 Desktop Services
 
-- `ui/main_window`
-- `ui/device_panel`
-- `ui/chat_panel`
-- `ui/attachment_panel`
-- `ui/task_panel`
-- `ui/report_viewer`
-- `core/local_api_client`
-- `core/event_stream_client`
+当前负责具体 ADB 和 scrcpy 操作。后续应进一步抽取：
 
-### 4.2 Local RPC Bridge
+- `RuntimeLocator`：按 manifest 解析组件绝对路径。
+- `RuntimeManager`：端口、环境、自检和进程生命周期。
+- `TerminalSessionManager`：管理 ADB、ConPTY 等后端。
+- `AutomationClient`：连接 Python 本地服务。
 
-职责：
+### 6.3 Automation Service（规划中）
 
-- 向 Qt 提供本地 HTTP/WebSocket 或 QLocalSocket API。
-- 管理任务生命周期。
-- 统一启动和停止 Python、Appium、ADB、scrcpy、opencode。
-- 归一化日志、截图、页面树和测试结果。
+- `api/`：本地 HTTP/WebSocket 或 QLocalSocket 接口。
+- `agents/`：脚本生成、UI 理解、错误修复和报告 Agent。
+- `device/`：Appium、ADB 观测和设备事实。
+- `runner/`：执行、超时、取消和重试。
+- `attachments/`：用例解析和结果回填。
+- `reports/`：Markdown、Excel、Word 等结果输出。
+- `runtime/`：Python 侧组件健康检查和子进程适配。
 
-建议使用 Python 实现 bridge，便于复用 Appium、文档解析和报告生成生态。
+### 6.4 OpenCode
 
-### 4.3 Runtime Manager
+- TUI 由 `node-pty` 放入 ConPTY，并在完整 WebEngine 构建中显示于 xterm.js；基础构建使用降级显示。
+- Server/SDK 提供结构化会话和事件。
+- Agent Orchestrator 不解析 TUI 文字。
+- 工作目录绑定到用户选择的测试项目或任务目录。
+- plugins、skills、agents 和 tools 直接使用 OpenCode 官方机制；宿主不实现重复的发现、安装、Schema 或运行器。
+- 宿主只管理随包 OpenCode 版本、启动环境、权限展示、Server/SDK 连接和任务产物边界。
 
-职责：
-
-- 检查内置运行时是否存在。
-- 生成隔离环境变量。
-- 为每个任务创建工作目录。
-- 分配端口。
-- 启动 Appium Server。
-- 启动 opencode CLI。
-- 检查 Android platform-tools、scrcpy、JDK、Node.js、Python。
-
-运行时路径不写入系统 PATH，只注入子进程环境。
-
-### 4.4 Device Controller
-
-职责：
-
-- 设备发现。
-- 设备连接状态维护。
-- ADB 命令封装。
-- Appium Session 管理。
-- 截图、录屏、页面树、日志采集。
-- Toast、Crash、ANR 检测。
-- 当前 Activity 和 Fragment 采集。
-
-### 4.5 Agent Orchestrator
-
-职责：
-
-- 解析用户消息。
-- 加载附件上下文。
-- 选择合适 Agent。
-- 维护 Agent 状态机。
-- 限制修复重试次数。
-- 将设备观测结果传给 Agent。
-- 将 Agent 产物写入任务目录。
-
-Agent 状态机：
-
-```mermaid
-stateDiagram-v2
-    [*] --> Planning
-    Planning --> Generating
-    Generating --> Running
-    Running --> Observing
-    Observing --> Reporting: success
-    Observing --> Fixing: failed
-    Fixing --> Running: retry
-    Fixing --> Reporting: retry_limit_reached
-    Reporting --> Completed
-    Completed --> [*]
-```
-
-### 4.6 Artifact Store
-
-职责：
-
-- 保存附件解析结果。
-- 保存生成脚本。
-- 保存截图、页面树、日志。
-- 保存执行记录。
-- 保存 Markdown 报告。
-- 保存回填后的附件文件。
-
-建议目录：
+### 6.5 Artifact Store（规划中）
 
 ```text
 workspace/
   tasks/
-    20260710-230000-bt-connect/
+    <task-id>/
       input/
       parsed/
       scripts/
@@ -179,129 +149,91 @@ workspace/
       logs/
       reports/
       filled/
+      task.json
 ```
 
-## 5. 数据流
+任务目录必须可单独归档、诊断和删除。
 
-### 5.1 脚本生成数据流
+## 7. 核心数据流
+
+### 7.1 当前设备终端
+
+```mermaid
+sequenceDiagram
+    participant UI as TerminalPage
+    participant TS as TerminalService
+    participant AS as ADB Server
+    participant D as Android Device
+    UI->>TS: createSession(sessionId)
+    TS->>AS: host:transport:serial
+    TS->>AS: shell,v2:
+    AS->>D: open shell
+    D-->>TS: stdout/stderr packets
+    TS-->>UI: sessionOutput
+    UI->>TS: write/resize
+    TS->>D: stdin/window-size packets
+```
+
+### 7.2 目标 AI 自动化
 
 ```mermaid
 sequenceDiagram
     participant U as User
     participant Q as Qt
-    participant B as Bridge
+    participant O as OpenCode Server
     participant A as Agent Orchestrator
-    participant O as opencode
+    participant R as Runner
     participant D as Device Controller
-
-    U->>Q: 上传附件并发送需求
-    Q->>B: create_task
-    B->>A: dispatch
-    A->>D: get_device_context
-    D-->>A: screenshot/page_source/activity/logs
-    A->>O: native command request
-    O-->>A: generated script
-    A-->>B: script artifact
-    B-->>Q: task event
+    U->>Q: 提交需求和用例
+    Q->>A: create task
+    A->>D: collect device context
+    D-->>A: screenshot/page tree/logs
+    A->>O: create session and prompt
+    O-->>A: structured events and artifacts
+    A->>R: execute generated test
+    R->>D: operate and observe device
+    D-->>R: result/evidence
+    R-->>Q: task events and report
 ```
 
-### 5.2 执行与修复数据流
+## 8. 运行时隔离
 
-```mermaid
-sequenceDiagram
-    participant R as Python Runner
-    participant AP as Appium
-    participant D as Device Controller
-    participant F as Fix Agent
-    participant O as opencode
+运行时设计以 [PORTABLE_RUNTIME.md](PORTABLE_RUNTIME.md) 为准：
 
-    R->>AP: execute test step
-    AP->>D: operate device
-    D-->>R: result
-    R-->>D: collect context on failure
-    D-->>F: screenshot/page_tree/logs/error
-    F->>O: native fix command
-    O-->>F: patch proposal
-    F-->>R: patched script
-    R->>AP: retry
-```
+- 发布包自带工具，终端用户不安装或下载依赖。
+- 构建阶段锁定版本、来源和 SHA-256。
+- 子进程不读取系统同名工具。
+- 私有服务绑定 loopback 和应用端口。
+- 安装目录只读，用户数据进入 `QStandardPaths` 对应位置。
 
-## 6. 关键接口草案
+## 9. 错误模型
 
-### 6.1 Qt 调用 Bridge
-
-```http
-POST /api/tasks
-Content-Type: application/json
-
-{
-  "message": "根据附件生成蓝牙连接测试脚本",
-  "attachments": ["input/cases.xlsx"],
-  "deviceId": "emulator-5554",
-  "appPackage": "com.ss.android.ugc.aweme.lite"
-}
-```
-
-### 6.2 Bridge 事件流
+错误需要包含稳定 code、用户消息、技术详情和恢复建议：
 
 ```json
 {
-  "taskId": "20260710-230000-bt-connect",
-  "type": "agent.script.generated",
-  "message": "脚本生成完成",
-  "artifact": "scripts/test_bt_connect.py"
+  "code": "RUNTIME_COMPONENT_CORRUPT",
+  "message": "内置 ADB 文件校验失败",
+  "detail": "sha256 mismatch: runtime/windows-x64/android/platform-tools/adb.exe",
+  "recoverable": false,
+  "action": "repair_installation"
 }
 ```
 
-### 6.3 设备上下文
+禁止只显示原始 stderr。原始输出进入诊断日志，UI 展示可操作摘要。
 
-```json
-{
-  "deviceId": "R5CT0000000",
-  "platform": "Android",
-  "androidVersion": "14",
-  "screen": {"width": 1080, "height": 2400},
-  "app": {
-    "package": "com.example.doubao",
-    "activity": ".MainActivity",
-    "fragment": "DeviceConnectFragment"
-  },
-  "observability": {
-    "screenshot": "screenshots/current.png",
-    "pageSource": "runs/current_page.xml",
-    "logcat": "logs/logcat.txt",
-    "crash": null,
-    "anr": null,
-    "toast": "连接成功"
-  }
-}
-```
+## 10. 安全边界
 
-## 7. opencode 集成原则
+- 默认只操作用户选中的设备和 workspace。
+- 重启、卸载、清数据、删除文件等动作需要按风险确认。
+- OpenCode 和 Agent 读取范围、网络权限和命令权限必须可配置。
+- 日志和报告落盘前脱敏。
+- 凭据不进入命令行、普通日志或任务产物。
+- 本机 HTTP 服务默认只监听 `127.0.0.1` 并使用随机认证信息。
 
-- 所有 Agent 代码生成、修改和解释行为通过 opencode 原生命令完成。
-- 系统只封装命令执行、工作目录、输入输出、超时和日志，不重写 opencode 的语义。
-- opencode 调用必须记录完整上下文摘要、命令、退出码和产物路径。
-- 禁止把用户隐私、账号、Token、公司敏感日志明文写入长期上下文。
-- 对命令输出做结构化归档，便于复盘每次脚本生成和修复过程。
+## 11. 相关文档
 
-## 8. 异常处理
-
-| 异常 | 处理策略 |
-| --- | --- |
-| 手机断开 | 暂停任务，提示用户重新连接，保留任务上下文 |
-| Appium Session 失效 | 重建 Session，最多重试 2 次 |
-| 控件找不到 | 采集截图和页面树，交给 UI 理解 Agent |
-| App 崩溃 | 抓取 logcat、tombstone、截图，标记为阻塞失败 |
-| ANR | 抓取 traces 和当前页面状态，报告中高亮 |
-| opencode 失败 | 记录退出码和 stderr，允许用户手动查看 |
-| 附件解析失败 | 保留原文件，提示不支持部分内容 |
-
-## 9. 安全边界
-
-- 默认只操作用户选择的设备。
-- 默认只读取用户上传附件和当前任务目录。
-- 日志脱敏后再传给 Agent。
-- 删除任务产物前需要用户确认。
-- 企业内网环境下支持离线运行和本地模型适配预留。
-
+- [终端与 OpenCode 架构](TERMINAL_ARCHITECTURE.md)
+- [便携运行时规范](PORTABLE_RUNTIME.md)
+- [项目结构](PROJECT_STRUCTURE.md)
+- [开发路线图](ROADMAP.md)

@@ -28,6 +28,7 @@ public slots:
     void loadCategory(int category);
     void loadPackages(PackageFilters filters);
     void loadPackageDetails(const QString &packageName);
+    void installPackage(const QString &apkPath);
     void removeUser(const QString &userId);
     void uninstallPackage(const QString &packageName);
     void clearPackageData(const QString &packageName);
@@ -52,6 +53,7 @@ private:
         PackageList,
         PackagePath,
         PackageInstaller,
+        Install,
         PackageAction,
         Catalog
     };

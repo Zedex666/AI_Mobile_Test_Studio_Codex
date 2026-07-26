@@ -369,7 +369,146 @@ QString appStyleSheet()
             background: #dceaff;
             color: #245fe0;
         }
+        QFrame#PackageInstallPanel {
+            background: #ffffff;
+            border: 1px solid #dfe7f3;
+            border-radius: 7px;
+        }
+        QFrame#PackageInstallNotice {
+            background: #f1faf6;
+            border: 1px solid #bee4d3;
+            border-radius: 7px;
+        }
+        QLineEdit#PackageInstallFilePath {
+            background: #fbfdff;
+            border: 1px solid #c7d8f1;
+            border-radius: 6px;
+            color: #293243;
+            min-height: 32px;
+            padding: 0 10px;
+        }
+        QToolButton#PackageInstallSelectButton {
+            background: #ffffff;
+            border: 1px solid #cbd9ec;
+            border-radius: 6px;
+            color: #36506f;
+        }
+        QToolButton#PackageInstallSelectButton:hover {
+            background: #eaf2ff;
+            border-color: #9bbcf7;
+            color: #2f6df6;
+        }
+        QToolButton#PackageInstallSelectButton:disabled {
+            background: #f2f4f7;
+            border-color: #e4e8ee;
+            color: #aab3c2;
+        }
+        QPushButton#PackageInstallStartButton {
+            background: #2f6df6;
+            border: none;
+            border-radius: 6px;
+            color: #ffffff;
+            padding: 0 14px;
+        }
+        QPushButton#PackageInstallStartButton:hover { background: #245fe0; }
+        QPushButton#PackageInstallStartButton:disabled {
+            background: #e8edf5;
+            color: #9aa5b5;
+        }
+        QProgressBar#PackageInstallProgress {
+            background: #e8edf5;
+            border: none;
+            border-radius: 5px;
+            min-height: 10px;
+            max-height: 10px;
+        }
+        QProgressBar#PackageInstallProgress::chunk {
+            background: #3aa675;
+            border-radius: 5px;
+        }
     )") + QString::fromUtf8(R"(
+        QWidget#TerminalPage, QStackedWidget#TerminalStack,
+        QWidget#TerminalViewport {
+            background: #0c0c0c;
+            border: none;
+        }
+        QWidget#TerminalToolbar {
+            background: #2d2d2d;
+            border: none;
+            border-bottom: 1px solid #3b3b3b;
+        }
+        QTabBar#TerminalTabs {
+            background: transparent;
+            border: none;
+        }
+        QTabBar#TerminalTabs::tab {
+            background: transparent;
+            border: none;
+            border-right: 1px solid #3b3b3b;
+            color: #d8d8d8;
+            min-width: 128px;
+            min-height: 42px;
+            padding: 0 12px;
+        }
+        QTabBar#TerminalTabs::tab:hover {
+            background: #383838;
+            color: #ffffff;
+        }
+        QTabBar#TerminalTabs::tab:selected {
+            background: #0c0c0c;
+            color: #ffffff;
+            border-bottom: 2px solid #3b78ff;
+        }
+        QAbstractButton#TerminalTabCloseButton {
+            background: transparent;
+            border: none;
+            color: #b8b8b8;
+            font-size: 15px;
+        }
+        QAbstractButton#TerminalTabCloseButton:hover { color: #ff7b72; }
+        QToolButton#TerminalToolButton {
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            color: #f2f2f2;
+        }
+        QToolButton#TerminalToolButton:hover {
+            background: #444444;
+            color: #ffffff;
+        }
+        QToolButton#TerminalToolButton:disabled {
+            background: transparent;
+            color: #777777;
+        }
+        QPlainTextEdit#TerminalViewport {
+            background: #0c0c0c;
+            border: none;
+            color: #f2f2f2;
+            padding: 8px 6px;
+            selection-background-color: #264f78;
+            selection-color: #ffffff;
+        }
+        QMenu {
+            background: #ffffff;
+            border: 1px solid #d6e0ee;
+            color: #293243;
+            padding: 4px;
+        }
+        QMenu::item {
+            border-radius: 5px;
+            min-height: 28px;
+            padding: 2px 26px 2px 10px;
+        }
+        QMenu::item:selected {
+            background: #eaf2ff;
+            color: #245fe0;
+        }
+        QMenu::item:disabled { color: #aab3c2; }
+        QMenu::separator {
+            background: #e5eaf1;
+            height: 1px;
+            margin: 4px 6px;
+        }
         QFrame#RecoveryEntryCard, QFrame#RecoveryFilePanel {
             background: #ffffff;
             border: 1px solid #e1e7ef;

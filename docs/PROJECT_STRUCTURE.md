@@ -1,147 +1,229 @@
 # 项目目录结构
 
-## 1. 设计目标
+## 1. 说明
 
-目录结构围绕以下目标设计：
-
-- 按产品形态和运行进程划分，而不是按技术名词堆放文件。
-- Qt 桌面端、Python 自动化服务和共享协议互相独立。
-- UI、设备操作、Agent、附件和报告各有清晰所有权。
-- 便携运行时、用户任务数据和构建产物不进入源码目录。
-- 插件和 Skill 可以独立开发、测试与升级。
+本文件描述当前仓库真实结构，并标注未来目录。目录存在不代表功能已经实现。
 
 ## 2. 当前结构
 
 ```text
 AI_Mobile_Test_Studio_Codex/
-  CMakeLists.txt                 # 根构建入口，只负责组合子项目
-  README.md                      # 项目入口
+  CMakeLists.txt
+  README.md
   apps/
-    desktop/                     # Qt6 桌面应用
+    desktop/
       CMakeLists.txt
-      README.md
       src/
-        app/                     # 程序入口和应用生命周期
+        app/
           main.cpp
-        core/                    # 桌面领域模型和业务规则
-        services/                # Bridge、设备、任务等客户端接口
+        core/
+          device_command_catalog.*
+        services/
+          adb_control_service.*
+          adb_shell_session.*
+          apps_service.*
+          file_manager_service.*
+          package_manager_service.*
+          performance_service.*
+          recovery_service.*
+          scrcpy_service.*
+          conpty_session.*
+          terminal_session.h
+          terminal_service.*
         ui/
-          windows/               # 顶层窗口和页面组装
-          components/            # Header、Sidebar 等窗口级区域
-          pages/                 # 对话、设备控制等主工作区页面
-          widgets/               # 可复用、自绘控件
-          common/                # UI 基础帮助函数
-          styles/                # 应用级 QSS 样式
-          forms/                 # 可选 Qt Designer 文件
+          common/
+          components/
+          pages/
+            terminal_page.*
+            terminal_bridge.*
+            device_control_page.*
+            package_manager_page.*
+            apps_page.*
+            files_page.*
+            recovery_page.*
+            performance_page.*
+          styles/
+          widgets/
+          windows/
   services/
-    automation/                  # Python 本地自动化服务
-      pyproject.toml             # Python 包和依赖入口
-      README.md
-      src/ai_mobile_test_studio/
-        api/                     # Qt 调用的本地 API 和事件流
-        agents/                  # Agent 编排与四类 Agent
-        attachments/             # 附件解析与结果回填
-        device/                  # ADB、Appium、scrcpy、设备观测
-        reports/                 # 报告聚合与导出
-        runner/                  # 测试脚本执行、重试和取消
-        runtime/                 # 内置工具链管理与进程监督
+    automation/                 # Python 包骨架，业务尚未实现
   packages/
-    contracts/                   # C++/Python 共享 JSON Schema
-      schemas/
-  resources/                     # 图片、图标、字体和样式资源
-  plugins/                       # 可安装插件
-  skills/                        # Agent Skill
-  runtime/                       # 打包时装配的便携运行时
+    contracts/                  # 协议目录骨架
+  resources/
+    images/
+    terminal-host/conpty_host.js
+    terminal-web/              # xterm.js、FitAddon、本地页面和许可证
+    tools/java/app_metadata.jar
+  runtime/                      # 打包装配目录，二进制被 Git 忽略
+  plugins/                      # 早期空目录，非目标模块，可清理
+  skills/                       # 早期空目录，非目标模块，可清理
   tests/
-    cpp/                         # Qt/C++ 测试
-    python/                      # Python 测试
-  tools/                         # 构建、打包、诊断脚本
-  docs/                          # 设计、架构和规范文档
-  workspace/                     # 用户任务数据，运行时生成且不入库
-  build/                         # CMake 构建目录，不入库
+    cpp/                        # ConPTY 输入/输出/resize/退出冒烟
+  tools/
+    android-app-metadata/
+    runtime/
+      runtime-lock.json         # Windows 终端运行时版本、来源和 SHA-256
+      stage-terminal-runtime.ps1
+  docs/
 ```
 
-## 3. 依赖方向
+## 3. 当前依赖方向
 
 ```mermaid
 flowchart LR
-    UI["Desktop UI"] --> DesktopServices["Desktop Services"]
-    UI --> DesktopCore["Desktop Core"]
-    DesktopServices --> Contracts["Shared Contracts"]
-    DesktopServices --> AutomationAPI["Automation API"]
-    AutomationAPI --> Agents["Agents"]
-    AutomationAPI --> Device["Device"]
-    AutomationAPI --> Attachments["Attachments"]
-    AutomationAPI --> Runner["Runner"]
-    AutomationAPI --> Reports["Reports"]
-    Agents --> Device
-    Agents --> Runner
-    Agents --> Contracts
-    Attachments --> Contracts
-    Reports --> Contracts
-    Plugins["Plugins"] --> AutomationAPI
-    Skills["Skills"] --> Agents
+    MainWindow --> Pages
+    MainWindow --> Services
+    Pages --> CommonUI
+    Pages --> ServicesAPI["service signals/slots"]
+    Services --> QtCore
+    Services --> QtNetwork
+    Services --> External["ADB / scrcpy / Android"]
+    DeviceCatalog --> AdbControlService
 ```
 
-依赖规则：
+规则：
 
-1. `ui/` 可以依赖桌面端 `core/` 和 `services/`，反向依赖禁止。
-2. Qt UI 不得直接执行 ADB、Appium、scrcpy 或 opencode 命令。
-3. Python `api/` 只做参数校验、任务提交和事件输出，不承载复杂业务逻辑。
-4. `device/` 只负责设备事实与操作，不理解测试用例或聊天语义。
-5. `agents/` 通过受控接口调用设备和 Runner，不直接拼接任意 Shell 命令。
-6. `packages/contracts/` 不依赖任何应用模块，是跨语言通信的唯一事实来源。
-7. `runtime/` 只存分发期工具链，运行时产生的数据进入 `workspace/`。
+1. `main_window.*` 只做顶层创建、连接和工作区切换。
+2. 页面不直接创建外部进程或 socket。
+3. 设备命令、参数和异步状态归 service 所有。
+4. 可复用绘制和终端显示控件放 `ui/widgets/`；页面只负责组合。
+5. Android KEYCODE 事实集中在 `core/device_command_catalog.*`。
+6. 第三方二进制不提交到普通源码目录。
 
-## 4. 桌面端放置规则
+## 4. 目标新增结构
+
+以下目录在对应里程碑实施时创建：
+
+```text
+apps/desktop/src/
+  runtime/
+    runtime_locator.*
+    runtime_manager.*
+    process_supervisor.*
+    port_allocator.*
+    runtime_manifest.*
+  terminal/
+    terminal_session.*
+    terminal_session_manager.*
+    adb_shell_session.*
+    conpty_session.*
+    terminal_bridge.*
+  clients/
+    automation_client.*
+    opencode_client.*
+  ui/widgets/
+    xterm_view.*
+
+tools/
+  runtime/
+    runtime-lock.json
+    fetch-runtime.ps1
+    verify-runtime.ps1
+    stage-runtime.ps1
+    generate-notices.ps1
+  package/
+    package-windows.ps1
+    smoke-test-clean-windows.ps1
+
+runtime/
+  manifest.json
+  windows-x64/
+    android/
+    scrcpy/
+    opencode/
+    python/
+    node/
+    jdk/
+    appium/
+    terminal-web/
+
+licenses/
+  THIRD_PARTY_NOTICES.md
+  components/
+```
+
+## 5. Python 自动化服务目标结构
+
+```text
+services/automation/
+  pyproject.toml
+  src/ai_mobile_test_studio/
+    api/               # 本机 API 和事件流
+    agents/            # Agent 编排
+    attachments/       # 用例解析和回填
+    device/            # Appium 和设备观测
+    reports/           # 报告聚合与导出
+    runner/            # 测试执行、超时、取消、重试
+    runtime/           # Python 侧运行时适配
+```
+
+依赖方向：
+
+```mermaid
+flowchart LR
+    Desktop --> Contracts
+    Desktop --> AutomationAPI
+    AutomationAPI --> Agents
+    AutomationAPI --> Runner
+    AutomationAPI --> Attachments
+    AutomationAPI --> Reports
+    Agents --> OpenCodeAPI
+    Agents --> Device
+    Runner --> Device
+    Attachments --> Contracts
+    Reports --> Contracts
+```
+
+## 6. 文件放置表
 
 | 内容 | 目录 |
 | --- | --- |
-| `main()`、应用初始化 | `apps/desktop/src/app/` |
-| 主窗口、设置窗口、报告窗口 | `apps/desktop/src/ui/windows/` |
-| Header、Sidebar、DevicePane、ChatPane | `apps/desktop/src/ui/components/` |
-| 设备控制等可切换工作区 | `apps/desktop/src/ui/pages/` |
-| 手机画面、品牌徽标等可复用控件 | `apps/desktop/src/ui/widgets/` |
-| 字体、文本和基础控件帮助函数 | `apps/desktop/src/ui/common/` |
-| 应用级 QSS | `apps/desktop/src/ui/styles/` |
-| 任务、设备、会话领域模型 | `apps/desktop/src/core/` |
-| Bridge、任务和设备客户端 | `apps/desktop/src/services/` |
-| 图片、图标和 QSS | `resources/` |
+| 应用入口 | `apps/desktop/src/app/` |
+| 桌面业务事实和目录 | `apps/desktop/src/core/` |
+| 当前设备/文件/应用服务 | `apps/desktop/src/services/` |
+| 运行时发现和进程监督 | `apps/desktop/src/runtime/`（规划） |
+| 终端会话后端 | `apps/desktop/src/terminal/`（规划） |
+| 主工作区页面 | `apps/desktop/src/ui/pages/` |
+| 复用控件和 xterm 宿主 | `apps/desktop/src/ui/widgets/` |
+| 应用级样式 | `apps/desktop/src/ui/styles/` |
+| 跨进程 JSON Schema | `packages/contracts/schemas/` |
+| 可复现运行时装配脚本 | `tools/runtime/`（终端 runtime 已实现，其余规划中） |
+| 发布打包脚本 | `tools/package/`（规划） |
+| 随包第三方许可证 | `licenses/`（规划） |
+| 用户任务产物 | workspace，不进入安装目录和 Git |
 
-主窗口只保留顶层组合和信号连接；视觉区域放入 `ui/components/`，可复用自绘控件放入 `ui/widgets/`。
+## 7. 运行时与用户数据边界
 
-桌面端通过 `ScrcpyService` 管理本地 scrcpy 进程。UI 不直接调用 `QProcess`，也不再维护静态手机模拟画面。
+- `runtime/`：只读、随发布制品装配的工具和静态资源。
+- `resources/`：源码内资源和可复现构建的小型自有工具。
+- `build*/`：本机构建输出。
+- workspace：用户项目和测试任务。
+- `QStandardPaths` 用户目录：设置、缓存、凭据、会话和日志。
 
-设备控制页通过 `AdbControlService` 下发参数化 ADB 命令。KEYCODE 数据集中放在 `core/device_command_catalog.*`，页面不直接维护命令字符串。
+运行时不得把缓存写回安装目录。详细规则见 [PORTABLE_RUNTIME.md](PORTABLE_RUNTIME.md)。
 
-## 5. Python 服务放置规则
+## 8. 命名约定
 
-| 内容 | 目录 |
-| --- | --- |
-| HTTP、WebSocket、QLocalSocket 入口 | `api/` |
-| 脚本生成、UI 理解、错误修复、报告 Agent | `agents/` |
-| Excel、CSV、PDF、DOCX、TXT、Markdown | `attachments/` |
-| ADB、Appium、截图、Activity、页面树、Toast、Crash、ANR | `device/` |
-| Python 测试脚本执行、超时、取消和重试 | `runner/` |
-| Markdown 报告及附件结果回填 | `reports/` |
-| Python、Node.js、JDK、Appium、scrcpy、opencode 管理 | `runtime/` |
+- C++ 文件和目录：`snake_case`。
+- C++ 类型：`PascalCase`；成员：`m_` 前缀。
+- Python 包和模块：`snake_case`。
+- JSON Schema：`kebab-case.schema.json`。
+- runtime component ID：使用稳定小写 ID，发布后不因展示名称变化。
 
-## 6. 命名约定
+项目不新增自有 Plugin/Skill 目录协议。OpenCode 扩展放在 OpenCode 支持的标准用户或 workspace 配置位置，并由 OpenCode 自己加载。
 
-- 目录和文件使用 `snake_case`。
-- C++ 类使用 `PascalCase`。
-- Python 包和模块使用 `snake_case`。
-- JSON Schema 使用 `kebab-case.schema.json`。
-- 插件和 Skill ID 使用稳定的小写 `snake_case`，发布后不随展示名称变化。
+## 9. Git 边界
 
-## 7. 构建产物边界
+默认不提交：
 
-以下目录和文件不提交到 Git：
+- `build/`、`build-*`、Qt Creator 本地配置。
+- workspace 和任务产物。
+- runtime 下的大型第三方二进制。
+- Python 缓存和虚拟环境。
+- 用户配置、凭据和诊断日志。
 
-- `build/`
-- `.qtcreator/`
-- `workspace/`
-- Python 虚拟环境和缓存
-- `runtime/` 下的第三方二进制
+必须提交：
 
-仓库只提交源码、配置、协议、文档和可复现的装配脚本。
+- 运行时锁文件、校验值和装配脚本。
+- 第三方许可证模板和生成规则。
+- 协议 Schema、测试、源码和文档。

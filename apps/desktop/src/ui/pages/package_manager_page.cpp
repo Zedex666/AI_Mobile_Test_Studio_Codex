@@ -6,11 +6,15 @@
 #include <QBoxLayout>
 #include <QCheckBox>
 #include <QClipboard>
+#include <QDir>
+#include <QFileDialog>
+#include <QFileInfo>
 #include <QFrame>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMessageBox>
+#include <QProgressBar>
 #include <QPushButton>
 #include <QRegularExpression>
 #include <QScrollArea>
@@ -67,6 +71,8 @@ const CatalogEntry kCatalogEntries[] = {
     {4, "▱", "库", "adb shell pm list libraries"},
     {5, "♙", "用户", "adb shell pm list users"},
 };
+
+constexpr int kInstallWorkspace = -1;
 
 } // namespace
 
@@ -211,7 +217,10 @@ PackageManagerPage::PackageManagerPage(QWidget *parent)
     overviewLayout->setContentsMargins(0, 0, 4, 0);
     overviewLayout->setSpacing(8);
 
-    for (const CatalogEntry &entry : kCatalogEntries) {
+    const auto addCatalogCard = [this, overviewLayout](int category,
+                                                       const QString &iconText,
+                                                       const QString &title,
+                                                       const QString &command) {
         auto *card = ui::makePanel("PackageCategoryCard");
         card->setMinimumHeight(92);
         auto *cardLayout = new QHBoxLayout(card);
@@ -222,7 +231,7 @@ PackageManagerPage::PackageManagerPage(QWidget *parent)
         iconPanel->setFixedSize(74, 74);
         auto *iconLayout = new QVBoxLayout(iconPanel);
         iconLayout->setContentsMargins(0, 0, 0, 0);
-        auto *icon = makeLabel(ui::text(entry.icon), 28, QFont::Normal, "#172033");
+        auto *icon = makeLabel(iconText, 28, QFont::Normal, "#172033");
         icon->setAlignment(Qt::AlignCenter);
         iconLayout->addWidget(icon);
         cardLayout->addWidget(iconPanel);
@@ -231,9 +240,8 @@ PackageManagerPage::PackageManagerPage(QWidget *parent)
         openButton->setObjectName("PackageCategoryOpenButton");
         openButton->setCursor(Qt::PointingHandCursor);
         openButton->setFont(ui::appFont(10, QFont::Normal));
-        openButton->setText(ui::text(entry.title) + QLatin1Char('\n')
-                            + ui::text(entry.command));
-        openButton->setToolTip(ui::text("打开 %1").arg(ui::text(entry.title)));
+        openButton->setText(title + QLatin1Char('\n') + command);
+        openButton->setToolTip(ui::text("打开 %1").arg(title));
         openButton->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
         cardLayout->addWidget(openButton, 1);
 
@@ -251,18 +259,30 @@ PackageManagerPage::PackageManagerPage(QWidget *parent)
         arrow->setAlignment(Qt::AlignCenter);
         cardLayout->addWidget(arrow);
 
-        const QString command = ui::text(entry.command);
         connect(copyButton, &QToolButton::clicked, this, [this, command] {
             copyCommand(command);
         });
-        connect(openButton, &QPushButton::clicked, this, [this, category = entry.category] {
-            if (category == 2) {
+        connect(openButton, &QPushButton::clicked, this, [this, category] {
+            if (category == kInstallWorkspace) {
+                showInstallWorkspace();
+            } else if (category == 2) {
                 showPackageWorkspace();
             } else {
                 showCatalogWorkspace(category);
             }
         });
         overviewLayout->addWidget(card);
+    };
+
+    addCatalogCard(kInstallWorkspace,
+                   ui::text("⇩"),
+                   ui::text("安装应用"),
+                   ui::text("adb install <filename>"));
+    for (const CatalogEntry &entry : kCatalogEntries) {
+        addCatalogCard(entry.category,
+                       ui::text(entry.icon),
+                       ui::text(entry.title),
+                       ui::text(entry.command));
     }
     overviewLayout->addStretch();
     overviewScroll->setWidget(overviewContent);
@@ -304,15 +324,94 @@ PackageManagerPage::PackageManagerPage(QWidget *parent)
     m_resultList->setAlternatingRowColors(true);
     resultLayout->addWidget(m_resultList, 1);
 
+    auto *installWorkspace = new QWidget;
+    auto *installLayout = new QVBoxLayout(installWorkspace);
+    installLayout->setContentsMargins(8, 0, 8, 0);
+    installLayout->setSpacing(12);
+
+    auto *installHeader = new QHBoxLayout;
+    installHeader->setContentsMargins(0, 0, 0, 0);
+    installHeader->setSpacing(10);
+    m_installBackButton = new QToolButton;
+    m_installBackButton->setObjectName("PackageBackButton");
+    m_installBackButton->setText(ui::text("←"));
+    m_installBackButton->setToolTip(ui::text("返回软件包管理器"));
+    m_installBackButton->setCursor(Qt::PointingHandCursor);
+    m_installBackButton->setFixedSize(34, 34);
+    m_installBackButton->setFont(ui::appFont(16, QFont::DemiBold));
+    installHeader->addWidget(m_installBackButton);
+    installHeader->addWidget(makeLabel(ui::text("安装应用"),
+                                        13,
+                                        QFont::DemiBold,
+                                        "#172033"));
+    installHeader->addStretch();
+    installLayout->addLayout(installHeader);
+
+    auto *filePanel = ui::makePanel("PackageInstallPanel");
+    auto *fileLayout = new QHBoxLayout(filePanel);
+    fileLayout->setContentsMargins(14, 12, 14, 12);
+    fileLayout->setSpacing(10);
+    m_installSelectButton = new QToolButton;
+    m_installSelectButton->setObjectName("PackageInstallSelectButton");
+    m_installSelectButton->setText(ui::text("选择 APK"));
+    m_installSelectButton->setToolTip(ui::text("选择 APK 文件"));
+    m_installSelectButton->setCursor(Qt::PointingHandCursor);
+    m_installSelectButton->setFixedSize(88, 34);
+    m_installSelectButton->setFont(ui::appFont(9, QFont::DemiBold));
+    fileLayout->addWidget(m_installSelectButton);
+    m_installFilePath = new QLineEdit;
+    m_installFilePath->setObjectName("PackageInstallFilePath");
+    m_installFilePath->setPlaceholderText(ui::text("选择要安装的 APK 文件"));
+    m_installFilePath->setReadOnly(true);
+    fileLayout->addWidget(m_installFilePath, 1);
+    installLayout->addWidget(filePanel);
+
+    auto *noticePanel = ui::makePanel("PackageInstallNotice");
+    auto *noticeLayout = new QHBoxLayout(noticePanel);
+    noticeLayout->setContentsMargins(14, 12, 14, 12);
+    noticeLayout->setSpacing(10);
+    noticeLayout->addWidget(makeLabel(ui::text("!"), 14, QFont::DemiBold, "#2f7d62"));
+    auto *notice = makeLabel(ui::text("安装过程中请保持设备连接，不要插拔设备。"),
+                             9,
+                             QFont::DemiBold,
+                             "#2f6b57");
+    notice->setWordWrap(true);
+    noticeLayout->addWidget(notice, 1);
+    installLayout->addWidget(noticePanel);
+
+    auto *installActions = new QHBoxLayout;
+    installActions->setContentsMargins(0, 0, 0, 0);
+    installActions->setSpacing(10);
+    m_installButton = new QPushButton(ui::text("▶  安装应用"));
+    m_installButton->setObjectName("PackageInstallStartButton");
+    m_installButton->setCursor(Qt::PointingHandCursor);
+    m_installButton->setFont(ui::appFont(9, QFont::DemiBold));
+    m_installButton->setMinimumSize(124, 36);
+    installActions->addWidget(m_installButton);
+    installActions->addStretch();
+    installLayout->addLayout(installActions);
+
+    m_installProgress = new QProgressBar;
+    m_installProgress->setObjectName("PackageInstallProgress");
+    m_installProgress->setRange(0, 0);
+    m_installProgress->setTextVisible(false);
+    m_installProgress->setVisible(false);
+    installLayout->addWidget(m_installProgress);
+    installLayout->addStretch();
+
     m_workspaceStack = new QStackedWidget;
     m_workspaceStack->setObjectName("PackageWorkspaceStack");
     m_workspaceStack->addWidget(overviewScroll);
     m_workspaceStack->addWidget(packageWorkspace);
     m_workspaceStack->addWidget(resultWorkspace);
+    m_workspaceStack->addWidget(installWorkspace);
     pageLayout->addWidget(m_workspaceStack, 1);
     m_packageToolbar->setVisible(false);
 
     connect(m_resultBackButton, &QToolButton::clicked, this, &PackageManagerPage::showOverview);
+    connect(m_installBackButton, &QToolButton::clicked, this, &PackageManagerPage::showOverview);
+    connect(m_installSelectButton, &QToolButton::clicked, this, &PackageManagerPage::selectApkFile);
+    connect(m_installButton, &QPushButton::clicked, this, &PackageManagerPage::startInstall);
     connect(m_resultRemoveButton, &QPushButton::clicked, this, [this] {
         const QListWidgetItem *item = m_resultList->currentItem();
         if (item == nullptr) {
@@ -389,6 +488,10 @@ PackageManagerPage::PackageManagerPage(QWidget *parent)
 
 void PackageManagerPage::setDeviceConnected(bool connected, const QString &serial)
 {
+    if (m_installRunning && (!connected || serial != m_serial)) {
+        m_installRunning = false;
+        m_installProgress->setVisible(false);
+    }
     m_connected = connected;
     m_serial = connected ? serial : QString();
     m_deviceDot->setStyleSheet(connected ? QStringLiteral("color:#66c95e;")
@@ -457,6 +560,9 @@ void PackageManagerPage::setBusy(bool busy)
     if (m_resultRemoveButton != nullptr) {
         m_resultRemoveButton->setEnabled(!busy && m_resultCategory == 5);
     }
+    if (m_installProgress != nullptr) {
+        m_installProgress->setVisible(m_installRunning && busy);
+    }
 }
 
 void PackageManagerPage::showCommandStarted(const QString &label, const QString &command)
@@ -475,6 +581,11 @@ void PackageManagerPage::showCommandResult(bool success,
     m_commandStatus->setText(success
                                  ? ui::text("%1：%2").arg(label, detail)
                                  : ui::text("%1失败：%2").arg(label, detail));
+    if (m_installRunning) {
+        m_installRunning = false;
+        m_installProgress->setVisible(false);
+        updateControls();
+    }
 }
 
 void PackageManagerPage::refreshPackages()
@@ -513,6 +624,18 @@ void PackageManagerPage::showPackageWorkspace()
     }
 }
 
+void PackageManagerPage::showInstallWorkspace()
+{
+    if (m_workspaceStack == nullptr || m_busy) {
+        return;
+    }
+    m_workspaceStack->setCurrentIndex(3);
+    m_packageToolbar->setVisible(false);
+    m_resultCategory = -1;
+    m_resultRemoveButton->setVisible(false);
+    updateControls();
+}
+
 void PackageManagerPage::showCatalogWorkspace(int category)
 {
     if (m_workspaceStack == nullptr || category < 0 || category >= 6 || category == 2) {
@@ -528,6 +651,42 @@ void PackageManagerPage::showCatalogWorkspace(int category)
     if (m_connected) {
         emit categoryRequested(category);
     }
+}
+
+void PackageManagerPage::selectApkFile()
+{
+    const QString selected = QFileDialog::getOpenFileName(this,
+                                                          ui::text("选择 APK 安装包"),
+                                                          QString(),
+                                                          ui::text("APK 文件 (*.apk)"));
+    if (!selected.isEmpty()) {
+        m_installFilePath->setText(QDir::toNativeSeparators(selected));
+    }
+    updateControls();
+}
+
+void PackageManagerPage::startInstall()
+{
+    const QFileInfo apkFile(m_installFilePath->text());
+    if (!apkFile.isFile()
+        || apkFile.suffix().compare(QStringLiteral("apk"), Qt::CaseInsensitive) != 0) {
+        QMessageBox::warning(this,
+                             ui::text("未选择安装包"),
+                             ui::text("请选择有效的 .apk 文件。"));
+        return;
+    }
+    if (!m_connected) {
+        QMessageBox::warning(this,
+                             ui::text("无法安装应用"),
+                             ui::text("请先连接并授权 Android 设备。"));
+        return;
+    }
+
+    m_installRunning = true;
+    m_installProgress->setRange(0, 0);
+    m_installProgress->setVisible(true);
+    updateControls();
+    emit installRequested(apkFile.absoluteFilePath());
 }
 
 void PackageManagerPage::copyCommand(const QString &command)
@@ -585,6 +744,13 @@ void PackageManagerPage::updateControls()
                                 m_disableButton}) {
         button->setEnabled(canAct);
     }
+    const QFileInfo apkFile(m_installFilePath->text());
+    const bool hasApk = apkFile.isFile()
+        && apkFile.suffix().compare(QStringLiteral("apk"), Qt::CaseInsensitive) == 0;
+    const bool installIdle = !m_busy && !m_installRunning;
+    m_installBackButton->setEnabled(installIdle);
+    m_installSelectButton->setEnabled(installIdle);
+    m_installButton->setEnabled(installIdle && m_connected && hasApk);
 }
 
 void PackageManagerPage::requestAction(const QString &title,

@@ -8,6 +8,16 @@
 
 ### Added
 
+- 新增统一 `TerminalSession` 契约，将 ADB shell 与 OpenCode 会话接入同一 `TerminalService`，设备切换只回收 ADB 标签。
+- 终端“+ / 下拉”新增 OpenCode 与 ADB Shell 类型菜单，标签按类型命名，OpenCode 在无设备时仍可创建。
+- 新增 `node-pty` ConPTY 终端宿主和二进制帧协议，支持 OpenCode 输入、输出、resize、停止和错误回传。
+- 新增本地 xterm.js 6.0.0、FitAddon 0.11.0、Qt WebChannel 桥接、离线 CSP、复制粘贴和暗色终端主题；缺少 WebEngine 时保留基础显示降级。
+- 新增 OpenCode/Node.js/`node-pty` CMake staging 参数和 ConPTY 自动化冒烟测试，MinGW、MSVC 均已验证。
+- 新增 ADB 持久终端工作区，支持 `shell,v2`、legacy 回退、多标签、输入输出、窗口尺寸同步、重置、复制粘贴和快捷命令。
+- 新增 `TerminalService`，直接通过 ADB server transport 管理独立设备 shell 会话，并在设备断开或切换时统一回收。
+- 新增终端与 OpenCode 集成专项设计，确定未来采用 xterm.js、Qt WebEngine/QWebChannel、Windows ConPTY 和 OpenCode Server/SDK。
+- 新增便携运行时与无外部安装分发规范，覆盖 runtime manifest、版本锁定、SHA-256、私有 ADB server、OpenCode 隔离、许可证门禁和干净机验收。
+- 新增 docs 导航和“已实现、进行中、规划中、决策”状态约定。
 - 左侧导航新增“性能”工作区，实时展示设备开机时长、电池电量、电压与温度、CPU 总占用、各核心频率与占用、内存占用及前台应用 FPS。
 - 新增 `PerformanceService`，通过异步 ADB 采样读取 `/proc/stat`、CPU 频率、`/proc/meminfo`、thermalservice、battery 和 SurfaceFlinger 数据，离开性能页后自动停止采集。
 - 新增时间驱动的性能曲线控件，支持 CPU、各核心、内存和 FPS 历史数据的四列布局与连续滚动显示。
@@ -26,15 +36,13 @@
 - 新增 `ScrcpyService`，支持真实 ADB 设备探测、scrcpy 启动、停止和异常反馈。
 - 顶部工具栏新增“启动镜像”按钮，仅在设备已连接时启用。
 - 新增项目目录结构与依赖规则文档。
-- 新增 Qt 桌面端、Python 自动化服务、共享协议、插件、Skill、运行时和测试目录边界。
+- 新增 Qt 桌面端、Python 自动化服务、共享协议、运行时和测试目录边界。
 - 新增根目录 `README.md` 和 `.gitignore`。
 - 新增项目文档目录 `docs/`。
 - 新增项目设计文档。
 - 新增系统架构文档。
 - 新增开发规范文档。
 - 新增 C++/Python 编码规范。
-- 新增插件开发规范。
-- 新增 Skill 规范。
 - 新增开发路线图。
 - 明确 Qt6 + Python + Appium + opencode 的总体技术方向。
 - 明确四类核心 Agent：脚本生成、UI 理解、错误修复、测试报告。
@@ -43,7 +51,11 @@
 
 ### Changed
 
-- 首页侧栏入口由“对话”更名为“终端”，并移除首页左侧设备状态占位面板，使主内容面板使用完整工作区宽度。
+- 终端后端从页面内嵌 ADB 专用逻辑改为独立 ADB/OpenCode 会话实现；OpenCode 子进程由 `node-pty` 放入真实 Windows ConPTY，Qt `QProcess` 只承载宿主帧协议。
+- 首页侧栏入口由“对话”更名为“终端”，原静态聊天占位主工作区替换为真实 ADB 终端。
+- CMake 增加 Qt Network 依赖，用于 ADB server socket 会话。
+- 全量校准 `docs/`：明确当前 Qt 设备工作台与规划中的 Python/Appium/OpenCode 能力，更新目录、架构、开发规范和实施顺序。
+- 正式分发目标调整为构建期装配完整运行时、终端用户不下载工程工具；发布构建禁止静默使用系统 PATH 或开发机绝对路径。
 - 性能指标计算与曲线绘制参考 AYA：CPU 使用两次 `/proc/stat` 差分并取各核心平均值，内存优先使用 `MemAvailable`，FPS 优先使用 SurfaceFlinger `flips` 增量并回退到前台应用图层 latency。
 - 性能曲线改为每 500ms 记录指标并以 16ms 动画时钟按单调时间连续向左移动，同时对齐 AYA 的整数化输入、主题色、网格、填充、边框和半像素绘制方式。
 - 性能工作区根据滚动视口动态计算宽度与四列核心面板尺寸，在最大化窗口和高 DPI 屏幕下使用完整可用空间。
@@ -59,6 +71,9 @@
 
 ### Fixed
 
+- 修复完整 Qt WebEngine 部署后终端区域变成白屏的问题；本地页面导航校验不再混用 Qt 规范路径的正斜杠和 Windows 目录分隔符，CSP 允许 xterm.js 必需的动态样式，`terminal-web/index.html`、xterm.js 与 QWebChannel 可以正常加载和渲染。
+- 修复 Qt Creator 中可以启动、但从构建目录双击主程序会依次提示缺少 `Qt6Widgetsd.dll`、`Qt6WebChanneld.dll` 和 `Qt6WebEngineCored.dll` 等运行库的问题；Windows 构建现在链接后自动执行 `windeployqt`，同时部署 WebEngine 进程和资源。
+- 修复终端页始终显示 OpenCode 入口、但默认构建未复制 `opencode.exe`、Node.js 和 `node-pty`，导致新建 OpenCode 标签立即报“未找到可执行程序”的问题；Windows 构建现在使用锁定版本和 SHA-256 自动 staging 完整 ConPTY 运行时。
 - 修复性能工作区右侧存在大块空白、第四列 CPU 核心可能超出可视区域的问题。
 - 修复性能曲线每次采样才跳动一次的问题，时间网格和曲线现在会在两次采样之间平滑连续移动。
 - 修复性能曲线时间轴、实时采样时刻与开机时长未同步更新的问题。
@@ -72,7 +87,7 @@
 
 ### Removed
 
-- 暂无。
+- 移除独立 Plugin/Skill 规范和对应实现规划；AI 扩展统一使用 OpenCode 自带的 plugins、skills、agents 和 tools 机制。
 
 ## [0.1.0] - 2026-07-10
 
