@@ -12,7 +12,10 @@
 - 终端“+ / 下拉”新增 OpenCode 与 ADB Shell 类型菜单，标签按类型命名，OpenCode 在无设备时仍可创建。
 - 新增 `node-pty` ConPTY 终端宿主和二进制帧协议，支持 OpenCode 输入、输出、resize、停止和错误回传。
 - 新增本地 xterm.js 6.0.0、FitAddon 0.11.0、Qt WebChannel 桥接、离线 CSP、复制粘贴和暗色终端主题；缺少 WebEngine 时保留基础显示降级。
-- 新增 OpenCode/Node.js/`node-pty` CMake staging 参数和 ConPTY 自动化冒烟测试，MinGW、MSVC 均已验证。
+- 新增 `tools/runtime/runtime-lock.json`，锁定 Windows x64 OpenCode 1.18.5、Node.js 24.18.0 和 `node-pty` 1.1.0 的版本、官方来源、SHA-256 与许可证信息。
+- 新增 `stage-terminal-runtime.ps1`，在构建阶段下载、缓存、校验并原子 staging 终端运行时；应用启动阶段不联网下载依赖。
+- 新增构建产物 `runtime/manifest.json`，记录终端组件版本、相对路径、归档校验值和来源。
+- 新增 `opencode_conpty_smoke`，通过 Qt `ConPtySession`、随包 Node.js 和 `node-pty` 启动真实 `opencode.exe --version`；原有 `conpty_session_smoke` 继续覆盖输入、输出、resize 和退出。
 - 新增 ADB 持久终端工作区，支持 `shell,v2`、legacy 回退、多标签、输入输出、窗口尺寸同步、重置、复制粘贴和快捷命令。
 - 新增 `TerminalService`，直接通过 ADB server transport 管理独立设备 shell 会话，并在设备断开或切换时统一回收。
 - 新增终端与 OpenCode 集成专项设计，确定未来采用 xterm.js、Qt WebEngine/QWebChannel、Windows ConPTY 和 OpenCode Server/SDK。
@@ -51,6 +54,9 @@
 
 ### Changed
 
+- Windows 构建默认自动 staging 锁定的 OpenCode 终端运行时；仍支持同时使用 `AI_MOBILE_TEST_OPENCODE_EXECUTABLE`、`AI_MOBILE_TEST_NODE_EXECUTABLE` 和 `AI_MOBILE_TEST_NODE_PTY_MODULE` 覆盖，禁止只覆盖其中一部分造成版本混用。
+- Windows 主程序链接后默认执行 `windeployqt`，将当前 Debug/Release 配置对应的 Qt DLL、平台插件、MSVC runtime、`QtWebEngineProcess`、Chromium resources 和 locales 部署到可执行文件旁。
+- xterm.js、ConPTY 宿主脚本和应用元数据 JAR 现在作为链接依赖参与增量构建；资源变化会触发重新复制，不再继续使用构建目录中的旧静态文件。
 - 终端后端从页面内嵌 ADB 专用逻辑改为独立 ADB/OpenCode 会话实现；OpenCode 子进程由 `node-pty` 放入真实 Windows ConPTY，Qt `QProcess` 只承载宿主帧协议。
 - 首页侧栏入口由“对话”更名为“终端”，原静态聊天占位主工作区替换为真实 ADB 终端。
 - CMake 增加 Qt Network 依赖，用于 ADB server socket 会话。

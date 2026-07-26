@@ -42,6 +42,8 @@ qt_add_executable(${DESKTOP_TARGET}
     src/ui/pages/performance_page.h
     src/ui/pages/recovery_page.cpp
     src/ui/pages/recovery_page.h
+    src/ui/pages/layout_page.cpp
+    src/ui/pages/layout_page.h
     src/ui/pages/terminal_page.cpp
     src/ui/pages/terminal_page.h
     src/ui/pages/terminal_bridge.cpp
@@ -60,7 +62,8 @@ target_include_directories(${DESKTOP_TARGET} PRIVATE src)
 set(APP_METADATA_JAR "${CMAKE_SOURCE_DIR}/resources/tools/java/app_metadata.jar")
 file(GLOB_RECURSE TERMINAL_RUNTIME_RESOURCE_FILES CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/resources/terminal-host/*"
-    "${CMAKE_SOURCE_DIR}/resources/terminal-web/*")
+    "${CMAKE_SOURCE_DIR}/resources/terminal-web/*"
+    "${CMAKE_SOURCE_DIR}/resources/appium-inspector/*")
 set_property(TARGET ${DESKTOP_TARGET} APPEND PROPERTY LINK_DEPENDS
     "${APP_METADATA_JAR}"
     ${TERMINAL_RUNTIME_RESOURCE_FILES})
@@ -76,6 +79,9 @@ add_custom_command(TARGET ${DESKTOP_TARGET} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_SOURCE_DIR}/resources/terminal-host"
         "$<TARGET_FILE_DIR:${DESKTOP_TARGET}>/runtime/terminal-host"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/resources/appium-inspector"
+        "$<TARGET_FILE_DIR:${DESKTOP_TARGET}>/runtime/appium-inspector"
     VERBATIM
 )
 
@@ -173,7 +179,9 @@ target_link_libraries(${DESKTOP_TARGET}
 
 if(TARGET Qt6::WebChannel AND TARGET Qt6::WebEngineWidgets)
     target_compile_definitions(${DESKTOP_TARGET}
-        PRIVATE AI_MOBILE_TEST_STUDIO_HAS_WEB_TERMINAL=1)
+        PRIVATE
+            AI_MOBILE_TEST_STUDIO_HAS_WEBENGINE=1
+            AI_MOBILE_TEST_STUDIO_HAS_WEB_TERMINAL=1)
     target_link_libraries(${DESKTOP_TARGET}
         PRIVATE Qt6::WebChannel Qt6::WebEngineWidgets)
 else()
@@ -194,6 +202,8 @@ install(DIRECTORY "${CMAKE_SOURCE_DIR}/resources/terminal-web/"
     DESTINATION "runtime/terminal-web")
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/resources/terminal-host/"
     DESTINATION "runtime/terminal-host")
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/resources/appium-inspector/"
+    DESTINATION "runtime/appium-inspector")
 if(AI_MOBILE_TEST_OPENCODE_RUNTIME_EXECUTABLE)
     install(PROGRAMS "${AI_MOBILE_TEST_OPENCODE_RUNTIME_EXECUTABLE}"
         DESTINATION "runtime/opencode")

@@ -17,6 +17,7 @@ class PerformancePage;
 class PerformanceService;
 class RecoveryPage;
 class RecoveryService;
+class LayoutPage;
 class TerminalPage;
 class TerminalService;
 class QLabel;
@@ -52,6 +53,7 @@ private:
     PackageManagerPage *m_packageManagerPage = nullptr;
     PerformanceService *m_performanceService = nullptr;
     PerformancePage *m_performancePage = nullptr;
+    LayoutPage *m_layoutPage = nullptr;
     RecoveryService *m_recoveryService = nullptr;
     RecoveryPage *m_recoveryPage = nullptr;
     TerminalService *m_terminalService = nullptr;
@@ -64,6 +66,7 @@ private:
     QPushButton *m_filesNavButton = nullptr;
     QPushButton *m_recoveryNavButton = nullptr;
     QPushButton *m_performanceNavButton = nullptr;
+    QPushButton *m_layoutNavButton = nullptr;
     QPushButton *m_mirrorButton = nullptr;
     QLabel *m_deviceNameLabel = nullptr;
     QLabel *m_deviceStatusDot = nullptr;

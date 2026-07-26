@@ -11,6 +11,7 @@
 - OpenCode ConPTY 宿主需要的 Node.js 和 ABI 匹配的 `node-pty`。
 - 后续自动化闭环需要的 Python、JDK、Appium 和 UiAutomator2 driver。
 - xterm.js 及官方 addons 的静态前端资源。
+- Appium Inspector 浏览器前端、语言包、云提供商图标和许可证。
 
 “无需下载”指最终用户收到的安装包或便携压缩包已经包含运行所需工具。构建机或 CI 可以在制品生成阶段下载经过锁定和校验的上游制品。
 
@@ -26,7 +27,7 @@
 
 ## 3. 当前差距
 
-当前构建会复制 `app_metadata.jar`、xterm.js 静态资源和 ConPTY 宿主脚本。Windows 构建默认按 `tools/runtime/runtime-lock.json` 下载并校验 OpenCode、Node.js 和 `node-pty`，将它们 staging 到构建目录并复制到应用旁的 `runtime/`；也可用三个 CMake 路径参数整体覆盖。主程序链接后还会运行 `windeployqt`，部署 Qt DLL、插件和 WebEngine 资源，使构建目录可以直接启动。scrcpy、ADB 和其余组件仍未进入统一锁文件，且 `MainWindow` 仍保留开发机 scrcpy 绝对路径回退。
+当前构建会复制 `app_metadata.jar`、xterm.js、Appium Inspector 2026.5.1 静态资源和 ConPTY 宿主脚本。Windows 构建默认按 `tools/runtime/runtime-lock.json` 下载并校验 OpenCode、Node.js 和 `node-pty`，将它们 staging 到构建目录并复制到应用旁的 `runtime/`；也可用三个 CMake 路径参数整体覆盖。主程序链接后还会运行 `windeployqt`，部署 Qt DLL、插件和 WebEngine 资源，使构建目录可以直接启动。scrcpy、ADB、Appium Server/driver 和其余组件仍未进入统一锁文件，且 `MainWindow` 仍保留开发机 scrcpy 绝对路径回退。
 
 在正式发布前必须完成：
 
@@ -70,6 +71,12 @@ AI-Mobile-Test-Studio/
         node_modules/node-pty/
       jdk/
       appium/
+      appium-inspector/
+        index.html
+        assets/
+        locales/
+        LICENSE
+        NOTICE.md
       terminal-web/
         index.html
         vendor/

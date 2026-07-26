@@ -15,6 +15,7 @@
 #include "ui/pages/package_manager_page.h"
 #include "ui/pages/performance_page.h"
 #include "ui/pages/recovery_page.h"
+#include "ui/pages/layout_page.h"
 #include "ui/pages/terminal_page.h"
 #include "ui/styles/app_style.h"
 
@@ -148,6 +149,7 @@ void MainWindow::buildUi()
     m_filesNavButton = sidebar.filesButton;
     m_recoveryNavButton = sidebar.recoveryButton;
     m_performanceNavButton = sidebar.performanceButton;
+    m_layoutNavButton = sidebar.layoutButton;
     m_sidebarStatusDot = sidebar.statusDot;
     m_sidebarStatusTitle = sidebar.statusTitle;
     m_sidebarStatusDetail = sidebar.statusDetail;
@@ -180,6 +182,8 @@ void MainWindow::buildUi()
     m_workspaceStack->addWidget(m_recoveryPage);
     m_performancePage = new PerformancePage;
     m_workspaceStack->addWidget(m_performancePage);
+    m_layoutPage = new LayoutPage;
+    m_workspaceStack->addWidget(m_layoutPage);
     workspaceLayout->addWidget(m_workspaceStack, 1);
 
     contentLayout->addWidget(workspace, 1);
@@ -292,6 +296,9 @@ void MainWindow::configureDeviceControls()
     });
     connect(m_performanceNavButton, &QPushButton::clicked, this, [this] {
         selectWorkspace(6);
+    });
+    connect(m_layoutNavButton, &QPushButton::clicked, this, [this] {
+        selectWorkspace(7);
     });
     connect(m_deviceControlPage,
             &DeviceControlPage::keyEventRequested,
@@ -614,6 +621,9 @@ void MainWindow::configureDeviceControls()
     m_performancePage->setDeviceConnected(
         m_deviceState == ScrcpyService::DeviceState::Connected,
         m_deviceSerial);
+    m_layoutPage->setDeviceConnected(
+        m_deviceState == ScrcpyService::DeviceState::Connected,
+        m_deviceSerial);
     selectWorkspace(0);
 }
 
@@ -627,6 +637,7 @@ void MainWindow::selectWorkspace(int index)
     m_filesNavButton->setProperty("active", index == 4);
     m_recoveryNavButton->setProperty("active", index == 5);
     m_performanceNavButton->setProperty("active", index == 6);
+    m_layoutNavButton->setProperty("active", index == 7);
     m_chatNavButton->setFont(ui::appFont(11, index == 0 ? QFont::DemiBold : QFont::Normal));
     m_deviceControlNavButton->setFont(
         ui::appFont(11, index == 1 ? QFont::DemiBold : QFont::Normal));
@@ -640,13 +651,16 @@ void MainWindow::selectWorkspace(int index)
         ui::appFont(11, index == 5 ? QFont::DemiBold : QFont::Normal));
     m_performanceNavButton->setFont(
         ui::appFont(11, index == 6 ? QFont::DemiBold : QFont::Normal));
+    m_layoutNavButton->setFont(
+        ui::appFont(11, index == 7 ? QFont::DemiBold : QFont::Normal));
     for (QPushButton *button : {m_chatNavButton,
                                 m_deviceControlNavButton,
                                 m_packageManagerNavButton,
                                 m_appsNavButton,
                                 m_filesNavButton,
                                 m_recoveryNavButton,
-                                m_performanceNavButton}) {
+                                m_performanceNavButton,
+                                m_layoutNavButton}) {
         button->style()->unpolish(button);
         button->style()->polish(button);
     }
@@ -708,6 +722,9 @@ void MainWindow::updateDeviceUi(ScrcpyService::DeviceState state,
     if (m_performanceService != nullptr) {
         m_performanceService->setDeviceSerial(connected ? serial : QString());
         m_performancePage->setDeviceConnected(connected, serial);
+    }
+    if (m_layoutPage != nullptr) {
+        m_layoutPage->setDeviceConnected(connected, serial);
     }
 
     QString deviceName;

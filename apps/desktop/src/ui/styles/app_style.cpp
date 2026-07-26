@@ -842,6 +842,135 @@ QString appStyleSheet()
         QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
             height: 0px;
         }
+    )") + QString::fromUtf8(R"(
+        QWidget#LayoutPage, QWidget#LayoutSessionBuilder, QWidget#LayoutSessionInspector {
+            background: #f7f7f7;
+        }
+        QTabWidget#LayoutServerTabs::pane, QTabWidget#LayoutBuilderTabs::pane,
+        QTabWidget#LayoutInspectorTabs::pane {
+            border: none;
+            background: transparent;
+        }
+        QTabWidget#LayoutServerTabs QTabBar::tab, QTabWidget#LayoutBuilderTabs QTabBar::tab,
+        QTabWidget#LayoutInspectorTabs QTabBar::tab {
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: #172033;
+            min-height: 34px;
+            padding: 0 14px;
+            font-size: 12px;
+        }
+        QTabWidget#LayoutServerTabs QTabBar::tab:selected,
+        QTabWidget#LayoutBuilderTabs QTabBar::tab:selected,
+        QTabWidget#LayoutInspectorTabs QTabBar::tab:selected {
+            color: #1677ff;
+            border-bottom-color: #1677ff;
+            font-weight: 600;
+        }
+        QFrame#LayoutInputGroup, QFrame#LayoutAdvancedPanel, QFrame#LayoutCloudProviderForm,
+        QFrame#LayoutCapabilityPanel, QFrame#LayoutJsonPanel, QFrame#LayoutSavedPanel,
+        QFrame#LayoutInstruction, QFrame#LayoutSourceCard, QFrame#LayoutCommandsCard,
+        QFrame#LayoutGestureCard, QFrame#LayoutRecorderCard, QFrame#LayoutSessionInfoCard,
+        QFrame#LayoutSelectedElement, QFrame#LayoutScreenshotCard {
+            background: #ffffff;
+            border: 1px solid #d9d9d9;
+            border-radius: 10px;
+        }
+        QFrame#LayoutInspectorHeader {
+            background: #f8f8f8;
+            border: none;
+        }
+        QFrame#LayoutCapabilityRow { background: transparent; border: none; }
+        QLineEdit, QComboBox {
+            background: #ffffff;
+            border: 1px solid #d9d9d9;
+            border-radius: 7px;
+            color: #172033;
+            min-height: 32px;
+            padding: 0 9px;
+        }
+        QLineEdit:focus, QComboBox:focus { border-color: #1677ff; }
+        QLineEdit:disabled { background: #f5f5f5; color: #a8adb5; }
+        QCheckBox { spacing: 7px; color: #343a46; }
+        QCheckBox::indicator {
+            width: 16px;
+            height: 16px;
+            border: 1px solid #b8c0cb;
+            border-radius: 4px;
+            background: #ffffff;
+        }
+        QCheckBox::indicator:checked { background: #1677ff; border-color: #1677ff; }
+        QToolButton#LayoutAdvancedButton {
+            background: #fafafa;
+            border: 1px solid #d9d9d9;
+            border-radius: 9px;
+            color: #172033;
+            min-height: 42px;
+            padding: 0 16px;
+            text-align: left;
+            font-size: 11px;
+        }
+        QPushButton#LayoutToolButton, QPushButton#LayoutCommandButton {
+            background: #ffffff;
+            border: 1px solid #d9d9d9;
+            border-radius: 7px;
+            color: #172033;
+            padding: 0 12px;
+        }
+        QPushButton#LayoutToolButton:hover, QPushButton#LayoutCommandButton:hover {
+            color: #1677ff;
+            border-color: #91caff;
+            background: #f0f7ff;
+        }
+        QPushButton#LayoutPrimaryButton, QPushButton#LayoutInspectorSelectedButton {
+            background: #1677ff;
+            border: 1px solid #1677ff;
+            border-radius: 7px;
+            color: #ffffff;
+            padding: 0 14px;
+        }
+        QPushButton#LayoutPrimaryButton:hover, QPushButton#LayoutInspectorSelectedButton:hover {
+            background: #0958d9;
+            border-color: #0958d9;
+        }
+        QPushButton#LayoutDangerButton {
+            background: #fff1f0;
+            border: 1px solid #ffccc7;
+            border-radius: 7px;
+            color: #cf1322;
+            padding: 0 14px;
+        }
+        QPlainTextEdit#LayoutJsonEditor, QPlainTextEdit {
+            background: #ffffff;
+            border: 1px solid #edf0f4;
+            border-radius: 6px;
+            color: #172033;
+            padding: 10px;
+            selection-background-color: #d9edff;
+        }
+        QScrollArea#LayoutCapabilityScroll { background: transparent; border: none; }
+        QTableWidget#LayoutSavedTable, QTableWidget, QTreeWidget#LayoutSourceTree,
+        QListWidget#LayoutSessionList {
+            background: #ffffff;
+            border: 1px solid #e4e7ec;
+            border-radius: 7px;
+            color: #172033;
+            outline: none;
+        }
+        QTableWidget::item, QTreeWidget::item, QListWidget::item { padding: 6px 8px; }
+        QTableWidget::item:selected, QTreeWidget::item:selected, QListWidget::item:selected {
+            background: #e6f4ff;
+            color: #0958d9;
+        }
+        QHeaderView::section {
+            background: #fafafa;
+            color: #596579;
+            border: none;
+            border-bottom: 1px solid #e4e7ec;
+            padding: 8px;
+            font-weight: 600;
+        }
     )");
 }
 

@@ -2,7 +2,7 @@
 
 ## 1. 开发基线
 
-当前可运行产品是 Qt 6/C++17 桌面应用。ADB/OpenCode 统一终端、`node-pty` ConPTY 宿主和 xterm.js/WebChannel 资源已经接入；Python 服务、Appium、OpenCode Server/SDK 和完整便携运行时仍属于后续里程碑。
+当前可运行产品是 Qt 6/C++17 桌面应用。ADB/OpenCode 统一终端、`node-pty` ConPTY 宿主、xterm.js/WebChannel 资源和 Appium Inspector 2026.5.1 浏览器前端已经接入；Python 服务、随包 Appium Server/driver、OpenCode Server/SDK 和完整便携运行时仍属于后续里程碑。
 
 开发原则：
 
@@ -17,7 +17,7 @@
 
 - CMake 3.19 或更高。
 - Qt 6.5 或更高，基础组件：Core、Gui、Network、Widgets。
-- 完整终端显示还需要 WebChannel、WebEngineWidgets 及 WebEngine 的传递依赖（Qt 6.8.3 当前包括 Qt Positioning）；缺少时自动使用基础显示降级。
+- 完整终端和“布局”工作区还需要 WebChannel、WebEngineWidgets 及 WebEngine 的传递依赖（Qt 6.8.3 当前包括 Qt Positioning）；缺少时自动使用 Qt Widgets 基础显示降级。
 - 支持 C++17 的 MinGW 或 MSVC 工具链。
 - Android 真机和 USB 调试，用于设备能力验证。
 - Windows 开发构建默认从锁文件 staging OpenCode、Node.js 和 `node-pty`；也可显式配置三个本地路径。正式包必须使用随包 runtime。
@@ -50,9 +50,29 @@ cmake -S . -B build-terminal -G Ninja `
 
 MSVC 构建必须使用 MSVC 版 Qt，不能让 Visual Studio generator 链接 MinGW Qt 库。遇到 `mingw32.lib` 等错误时应重新配置匹配的构建目录，而不是在项目中硬补系统库。
 
+完整 Appium Inspector 工作区推荐使用包含 WebEngineWidgets 的 MSVC Qt 套件。Qt 官方 MinGW 套件可能不包含 WebEngine，此时只会构建基础降级页：
+
+```powershell
+cmake -S . -B build-msvc-web -G "Visual Studio 17 2022" -A x64 `
+  -DCMAKE_PREFIX_PATH="<Qt>/msvc2022_64"
+cmake --build build-msvc-web --config Debug --parallel
+```
+
 当前可执行文件位于构建目录根部。Windows 构建默认在链接后运行 `windeployqt`，把当前配置对应的 Qt DLL、插件和 WebEngine 资源部署到可执行文件旁，因此可以从资源管理器直接双击运行。仅需编译、不需要可直接启动目录的特殊构建可设置 `-DAI_MOBILE_TEST_DEPLOY_QT_RUNTIME=OFF`。
 
-## 4. 当前真机运行
+## 4. Appium Inspector
+
+侧边栏“布局”工作区优先加载随包的 Appium Inspector 2026.5.1 官方浏览器构建，源资源位于 `resources/appium-inspector/`，构建后复制到 `runtime/appium-inspector/`。该页面直接提供 Session Builder、云提供商配置、能力集、Attach to Session、Source、Commands、Gestures、Recorder 和 Session Information。
+
+浏览器版 Inspector 连接 Appium Server 时受浏览器跨域策略约束。开发环境应允许 Inspector 来源访问，例如：
+
+```powershell
+appium --allow-cors
+```
+
+Appium Server 和 UiAutomator2 driver 当前仍由开发机或远端环境提供，不在本仓库运行时中自动安装。
+
+## 5. 当前真机运行
 
 开发构建的 scrcpy 路径解析顺序目前是：
 
@@ -71,7 +91,7 @@ MSVC 构建必须使用 MSVC 版 Qt，不能让 Visual Studio generator 链接 M
 
 确认状态为 `device`，再启动应用。`unauthorized` 时需要在设备端确认 USB 调试授权。
 
-## 5. 代码修改流程
+## 6. 代码修改流程
 
 1. 阅读 [README.md](README.md) 和相关专项文档。
 2. 检查工作树，保留其他未提交修改。
@@ -82,7 +102,7 @@ MSVC 构建必须使用 MSVC 版 Qt，不能让 Visual Studio generator 链接 M
 7. 运行 `git diff --check`。
 8. 更新 `CHANGELOG.md` 和相关设计文档。
 
-## 6. 桌面端开发规则
+## 7. 桌面端开发规则
 
 - `MainWindow` 只创建对象、连接信号和切换工作区。
 - 页面通过 signals 发起动作，不创建 ADB/scrcpy/OpenCode 进程。
@@ -92,7 +112,7 @@ MSVC 构建必须使用 MSVC 版 Qt，不能让 Visual Studio generator 链接 M
 - 设备切换时清理缓存、终止旧会话并更新全部相关页面。
 - Release 代码只通过 `RuntimeLocator` 获取第三方组件路径。
 
-## 7. 终端开发
+## 8. 终端开发
 
 当前 ADB 终端改动至少验证：
 
@@ -105,7 +125,7 @@ MSVC 构建必须使用 MSVC 版 Qt，不能让 Visual Studio generator 链接 M
 
 xterm.js/ConPTY 开发以 [TERMINAL_ARCHITECTURE.md](TERMINAL_ARCHITECTURE.md) 为准。不要继续在页面里扩展完整 VT 解析器，也不要用普通 QProcess 管道直接运行 OpenCode TUI。当前 QProcess 只启动 `node-pty` 宿主，真正的 OpenCode 子进程仍在 ConPTY 中。
 
-## 8. 运行时组件更新
+## 9. 运行时组件更新
 
 正式 runtime 装配实现后，更新第三方组件必须：
 
@@ -120,7 +140,7 @@ xterm.js/ConPTY 开发以 [TERMINAL_ARCHITECTURE.md](TERMINAL_ARCHITECTURE.md) �
 
 禁止在应用启动时自动执行包管理器安装、npm install、pip install 或在线升级工具。
 
-## 9. OpenCode 开发
+## 10. OpenCode 开发
 
 - 运行随包绝对路径，不调用系统 `opencode`。
 - TUI 通过 ConPTY；结构化集成通过 Server/SDK。
@@ -130,7 +150,7 @@ xterm.js/ConPTY 开发以 [TERMINAL_ARCHITECTURE.md](TERMINAL_ARCHITECTURE.md) �
 - 测试时使用无真实密钥的 fixture；真实凭据只存在用户配置存储。
 - 不用终端截图或文本正则判断任务是否完成。
 
-## 10. Python 自动化服务（规划）
+## 11. Python 自动化服务（规划）
 
 实现后推荐开发方式：
 
@@ -143,7 +163,7 @@ pytest tests\python
 
 开发虚拟环境只服务开发者。发布版使用预装、锁定并校验的便携 Python，不在用户电脑运行 pip。
 
-## 11. 测试层级
+## 12. 测试层级
 
 | 层级 | 目标 |
 | --- | --- |
@@ -156,7 +176,7 @@ pytest tests\python
 
 不可自动化的真机步骤必须写成可重复的验收清单。
 
-## 12. 打包开发
+## 13. 打包开发
 
 目标流程见 [PORTABLE_RUNTIME.md](PORTABLE_RUNTIME.md)。关键要求：
 
@@ -165,7 +185,7 @@ pytest tests\python
 - 安装包和 portable ZIP 使用同一 runtime manifest。
 - 打包脚本失败即停止，不允许生成缺组件但表面成功的制品。
 
-## 13. 提交前检查
+## 14. 提交前检查
 
 - 构建通过，目标程序可启动。
 - 没有新增开发机绝对路径。
