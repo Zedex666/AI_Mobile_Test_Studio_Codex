@@ -323,10 +323,12 @@ SidebarSection createSidebar()
     section.packageManagerButton = makeWorkspaceNavButton(text("▤"), text("软件包管理器"), false);
     section.appsButton = makeWorkspaceNavButton(text("▦"), text("应用"), false);
     section.filesButton = makeWorkspaceNavButton(text("▱"), text("文件"), false);
+    section.processButton = makeWorkspaceNavButton(text("▥"), text("进程"), false);
     section.recoveryButton = makeWorkspaceNavButton(text("Ⓡ"), text("Recovery"), false);
     section.performanceButton = makeWorkspaceNavButton(text("⌁"), text("性能"), false);
     section.layoutButton = makeWorkspaceNavButton(text("▦"), text("布局"), false);
     section.logcatButton = makeWorkspaceNavButton(text("≡"), text("日志"), false);
+    section.otherButton = makeWorkspaceNavButton(text("</>"), text("其它"), false);
     layout->addWidget(section.overviewButton);
     layout->addWidget(section.displayButton);
     layout->addWidget(section.mirroringButton);
@@ -335,10 +337,12 @@ SidebarSection createSidebar()
     layout->addWidget(section.packageManagerButton);
     layout->addWidget(section.appsButton);
     layout->addWidget(section.filesButton);
+    layout->addWidget(section.processButton);
     layout->addWidget(section.recoveryButton);
     layout->addWidget(section.performanceButton);
     layout->addWidget(section.layoutButton);
     layout->addWidget(section.logcatButton);
+    layout->addWidget(section.otherButton);
     layout->addWidget(makeNavItem(text("⚙"), text("设置")));
     layout->addWidget(makeNavItem(text("i"), text("关于")));
     const SideStatus sideStatus = makeSideStatus();

@@ -19,7 +19,7 @@
 ```mermaid
 flowchart TB
     User["测试人员"] --> Main["MainWindow / Qt Widgets"]
-    Main --> Pages["Terminal / Device / Packages / Apps / Files / Recovery / Performance"]
+    Main --> Pages["Overview / Display / Mirroring / Terminal / Device / Packages / Apps / Files / Process / Recovery / Performance / Layout / Logcat / Other"]
     Pages --> Services["Desktop Services"]
     Services --> AdbProcess["adb child processes"]
     Services --> AdbSocket["ADB shell,v2 socket"]
@@ -43,6 +43,8 @@ flowchart TB
 | `FileManagerService` | 目录浏览、上传下载、重命名、复制、权限和删除 |
 | `RecoveryService` | Recovery sideload 和进度输出 |
 | `PerformanceService` | CPU、内存、电池、温度和前台应用 FPS 采样 |
+| `ProcessService` | 软件包缓存、`top` 进程采样和应用强制停止 |
+| `OtherService` | 自定义 Shell 与系统设置工具命令的异步执行和结果回传 |
 | `TerminalService` | 统一管理 ADB shell 与 OpenCode 会话，设备切换只回收 ADB 会话 |
 | `ConPtySession` | 通过随包 Node.js/`node-pty` 宿主创建 OpenCode ConPTY |
 

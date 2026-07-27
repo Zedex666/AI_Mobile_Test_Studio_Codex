@@ -1367,6 +1367,96 @@ QString appStyleSheet()
             border-color: #d8dee8;
             color: #9aa5b5;
         }
+        QWidget#OtherPage, QWidget#OtherContent,
+        QWidget#ProcessPage { background: #f7f9fc; }
+        QWidget#OtherToolbar, QWidget#ProcessToolbar {
+            background: #ffffff;
+            border-bottom: 1px solid #dce3ed;
+        }
+        QScrollArea#OtherScroll { background: transparent; border: none; }
+        QFrame#OtherCommandList {
+            background: #ffffff;
+            border: 1px solid #dce3ed;
+            border-radius: 6px;
+        }
+        QFrame#OtherCommandRow {
+            background: #ffffff;
+            border: none;
+            border-bottom: 1px solid #e5eaf1;
+        }
+        QFrame#OtherCommandRow:hover { background: #f0f4fa; }
+        QFrame#OtherCommandRow:disabled { background: #f7f8fa; }
+        QLabel#OtherCommandIcon {
+            background: #ffffff;
+            border: 1px solid #cbd3df;
+            border-radius: 6px;
+        }
+        QToolButton#OtherOpenButton,
+        QToolButton#ProcessToolButton,
+        QToolButton#ProcessStopButton {
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 5px;
+            color: #596579;
+            font-size: 18px;
+        }
+        QToolButton#OtherOpenButton:hover,
+        QToolButton#ProcessToolButton:hover {
+            background: #e8f1ff;
+            border-color: #c8dcfb;
+            color: #2f6df6;
+        }
+        QToolButton#ProcessStopButton:hover {
+            background: #fff0ed;
+            border-color: #f0c4bb;
+            color: #c84f42;
+        }
+        QToolButton#OtherOpenButton:disabled,
+        QToolButton#ProcessToolButton:disabled,
+        QToolButton#ProcessStopButton:disabled { color: #b5bdc9; }
+        QPlainTextEdit#OtherOutput {
+            background: #141922;
+            border: 1px solid #2d3542;
+            border-radius: 5px;
+            color: #dce7f5;
+            padding: 10px;
+        }
+        QLineEdit#ProcessFilterInput {
+            min-height: 34px;
+            background: #ffffff;
+            border: 1px solid #cbd4e1;
+            border-radius: 4px;
+            padding: 0 10px;
+            color: #293243;
+        }
+        QLineEdit#ProcessFilterInput:focus { border-color: #6f9ced; }
+        QCheckBox#ProcessOnlyApps { color: #293243; spacing: 7px; }
+        QFrame#ProcessSeparator { color: #d5dce7; }
+        QTableView#ProcessTable {
+            background: #f8fafc;
+            alternate-background-color: #eef1f5;
+            border: none;
+            color: #333b49;
+            gridline-color: #d6dce5;
+            selection-background-color: #d9e8fb;
+            selection-color: #172033;
+        }
+        QTableView#ProcessTable::item {
+            border: none;
+            border-right: 1px solid #d8dee7;
+            padding: 3px 7px;
+        }
+        QTableView#ProcessTable::item:hover { background: #e7eef8; }
+        QTableView#ProcessTable QHeaderView::section {
+            min-height: 30px;
+            background: #e8ebf0;
+            border: none;
+            border-right: 1px solid #cbd2dc;
+            border-bottom: 1px solid #cbd2dc;
+            color: #313a49;
+            padding: 0 7px;
+            text-align: left;
+        }
     )");
 }
 

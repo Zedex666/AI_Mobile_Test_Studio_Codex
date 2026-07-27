@@ -17,12 +17,16 @@ qt_add_executable(${DESKTOP_TARGET}
     src/services/file_manager_service.h
     src/services/logcat_service.cpp
     src/services/logcat_service.h
+    src/services/other_service.cpp
+    src/services/other_service.h
     src/services/overview_service.cpp
     src/services/overview_service.h
     src/services/package_manager_service.cpp
     src/services/package_manager_service.h
     src/services/performance_service.cpp
     src/services/performance_service.h
+    src/services/process_service.cpp
+    src/services/process_service.h
     src/services/recovery_service.cpp
     src/services/recovery_service.h
     src/services/scrcpy_service.cpp
@@ -56,8 +60,12 @@ qt_add_executable(${DESKTOP_TARGET}
     src/ui/pages/logcat_page.h
     src/ui/pages/mirroring_page.cpp
     src/ui/pages/mirroring_page.h
+    src/ui/pages/other_page.cpp
+    src/ui/pages/other_page.h
     src/ui/pages/overview_page.cpp
     src/ui/pages/overview_page.h
+    src/ui/pages/process_page.cpp
+    src/ui/pages/process_page.h
     src/ui/pages/terminal_page.cpp
     src/ui/pages/terminal_page.h
     src/ui/pages/terminal_bridge.cpp

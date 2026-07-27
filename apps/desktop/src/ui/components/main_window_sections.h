@@ -25,10 +25,12 @@ struct SidebarSection {
     QPushButton *packageManagerButton = nullptr;
     QPushButton *appsButton = nullptr;
     QPushButton *filesButton = nullptr;
+    QPushButton *processButton = nullptr;
     QPushButton *recoveryButton = nullptr;
     QPushButton *performanceButton = nullptr;
     QPushButton *layoutButton = nullptr;
     QPushButton *logcatButton = nullptr;
+    QPushButton *otherButton = nullptr;
     QLabel *statusDot = nullptr;
     QLabel *statusTitle = nullptr;
     QLabel *statusDetail = nullptr;
