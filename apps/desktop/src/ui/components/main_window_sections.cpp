@@ -67,7 +67,7 @@ QFrame *makeDivider(bool vertical = true)
 QFrame *makeNavItem(const QString &icon, const QString &labelText, bool selected = false)
 {
     auto *item = makePanel(selected ? "NavItemSelected" : "NavItem");
-    item->setFixedHeight(46);
+    item->setFixedHeight(34);
     auto *layout = new QHBoxLayout(item);
     layout->setContentsMargins(14, 0, 12, 0);
     layout->setSpacing(12);
@@ -91,7 +91,7 @@ QPushButton *makeWorkspaceNavButton(const QString &icon,
     auto *button = new QPushButton(icon + QStringLiteral("   ") + labelText);
     button->setObjectName("WorkspaceNavButton");
     button->setProperty("active", active);
-    button->setFixedHeight(46);
+    button->setFixedHeight(34);
     button->setCursor(Qt::PointingHandCursor);
     button->setFont(appFont(11, active ? QFont::DemiBold : QFont::Normal));
     return button;
@@ -140,7 +140,7 @@ SideStatus makeSideStatus()
 {
     SideStatus status;
     status.widget = makePanel("SideStatus");
-    status.widget->setFixedHeight(72);
+    status.widget->setFixedHeight(56);
     auto *layout = new QHBoxLayout(status.widget);
     layout->setContentsMargins(14, 10, 14, 10);
     layout->setSpacing(10);
@@ -311,10 +311,12 @@ SidebarSection createSidebar()
     section.widget = makePanel("Sidebar");
     section.widget->setFixedWidth(252);
     auto *layout = new QVBoxLayout(section.widget);
-    layout->setContentsMargins(26, 20, 26, 26);
-    layout->setSpacing(12);
+    layout->setContentsMargins(22, 6, 22, 8);
+    layout->setSpacing(2);
+    layout->setAlignment(Qt::AlignTop);
 
-    section.chatButton = makeWorkspaceNavButton(text("▣"), text("终端"), true);
+    section.overviewButton = makeWorkspaceNavButton(text("◫"), text("概览"), true);
+    section.chatButton = makeWorkspaceNavButton(text("▣"), text("终端"), false);
     section.deviceControlButton = makeWorkspaceNavButton(text("⌘"), text("设备控制"), false);
     section.packageManagerButton = makeWorkspaceNavButton(text("▤"), text("软件包管理器"), false);
     section.appsButton = makeWorkspaceNavButton(text("▦"), text("应用"), false);
@@ -322,6 +324,8 @@ SidebarSection createSidebar()
     section.recoveryButton = makeWorkspaceNavButton(text("Ⓡ"), text("Recovery"), false);
     section.performanceButton = makeWorkspaceNavButton(text("⌁"), text("性能"), false);
     section.layoutButton = makeWorkspaceNavButton(text("▦"), text("布局"), false);
+    section.logcatButton = makeWorkspaceNavButton(text("≡"), text("日志"), false);
+    layout->addWidget(section.overviewButton);
     layout->addWidget(section.chatButton);
     layout->addWidget(section.deviceControlButton);
     layout->addWidget(section.packageManagerButton);
@@ -330,7 +334,7 @@ SidebarSection createSidebar()
     layout->addWidget(section.recoveryButton);
     layout->addWidget(section.performanceButton);
     layout->addWidget(section.layoutButton);
-    layout->addStretch();
+    layout->addWidget(section.logcatButton);
     layout->addWidget(makeNavItem(text("⚙"), text("设置")));
     layout->addWidget(makeNavItem(text("i"), text("关于")));
     const SideStatus sideStatus = makeSideStatus();

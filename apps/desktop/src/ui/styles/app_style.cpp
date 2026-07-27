@@ -971,6 +971,77 @@ QString appStyleSheet()
             padding: 8px;
             font-weight: 600;
         }
+        QWidget#OverviewPage, QWidget#OverviewBody { background: #eef1f6; }
+        QWidget#OverviewToolbar, QWidget#LogcatToolbar {
+            background: #ffffff;
+            border: none;
+            border-bottom: 1px solid #dfe5ee;
+        }
+        QFrame#OverviewCard {
+            background: #ffffff;
+            border: 1px solid #ccd5e2;
+            border-radius: 8px;
+        }
+        QWidget#OverviewInfoItem { background: transparent; }
+        QLabel#OverviewValue {
+            color: #172033;
+            padding: 0;
+        }
+        QLabel#OverviewValue:hover { color: #2f6df6; }
+        QToolButton#OverviewToolButton, QToolButton#LogcatToolButton {
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            color: #435066;
+        }
+        QToolButton#OverviewToolButton:hover, QToolButton#LogcatToolButton:hover,
+        QToolButton#LogcatToolButton[active="true"] {
+            background: #eaf2ff;
+            color: #2f6df6;
+        }
+        QToolButton#OverviewToolButton:disabled, QToolButton#LogcatToolButton:disabled {
+            color: #b5bdc9;
+            background: transparent;
+        }
+        QWidget#LogcatPage, QWidget#LogcatEmpty { background: #f6f8fb; }
+        QLabel#LogcatStatus { color: #7b8798; padding-right: 4px; }
+        QLabel#LogcatEmptyLabel { color: #8b96a8; }
+        QComboBox#LogcatSelect, QLineEdit#LogcatFilterInput {
+            background: #ffffff;
+            border: 1px solid #cfd7e3;
+            border-radius: 5px;
+            color: #293243;
+            min-height: 32px;
+            padding: 0 9px;
+        }
+        QComboBox#LogcatSelect:focus, QLineEdit#LogcatFilterInput:focus {
+            border-color: #7da7ef;
+        }
+        QTableView#LogcatTable {
+            background: #fbfcfe;
+            alternate-background-color: #f5f7fa;
+            border: none;
+            color: #303846;
+            gridline-color: transparent;
+            outline: none;
+            selection-background-color: #dceaff;
+            selection-color: #172033;
+        }
+        QTableView#LogcatTable::item {
+            border: none;
+            border-bottom: 1px solid #edf0f4;
+            padding: 3px 6px;
+        }
+        QTableView#LogcatTable::item:selected { background: #dceaff; }
+        QTableView#LogcatTable QHeaderView::section {
+            background: #eef2f7;
+            color: #596579;
+            border: none;
+            border-right: 1px solid #dde3ec;
+            border-bottom: 1px solid #d6dde8;
+            padding: 7px 8px;
+            font-weight: 600;
+        }
     )");
 }
 

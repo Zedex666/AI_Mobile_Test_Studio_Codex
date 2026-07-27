@@ -8,6 +8,10 @@
 
 ### Added
 
+- 左侧导航新增“布局”工作区，直接嵌入 Appium Inspector 2026.5.1 官方浏览器前端，提供 Appium Server、云提供商、Capability Builder、Saved Capability Sets、Attach to Session、Source、Commands、Gestures、Recorder 和 Session Information 等完整工作区功能。
+- 新增随包 Appium Inspector 静态运行资源，包含官方脚本、样式、语言包、云提供商图标、Apache-2.0 许可证和来源说明；应用启动时不联网下载界面资源。
+- “布局”工作区新增 WebEngine 文件下载和外部链接处理：截图、源码及会话文件可通过本机保存对话框导出，Capabilities Documentation 等外部链接交由系统浏览器打开。
+- 缺少 Qt WebEngineWidgets 时保留 Qt Widgets 原生布局检查降级页，支持能力编辑、JSON 导入导出、Appium 会话创建、Source、Commands、Gestures、Recorder 和 Session Information 基础操作。
 - 新增统一 `TerminalSession` 契约，将 ADB shell 与 OpenCode 会话接入同一 `TerminalService`，设备切换只回收 ADB 标签。
 - 终端“+ / 下拉”新增 OpenCode 与 ADB Shell 类型菜单，标签按类型命名，OpenCode 在无设备时仍可创建。
 - 新增 `node-pty` ConPTY 终端宿主和二进制帧协议，支持 OpenCode 输入、输出、resize、停止和错误回传。
@@ -54,6 +58,8 @@
 
 ### Changed
 
+- CMake 构建、安装和增量链接依赖新增 `resources/appium-inspector/`，构建后自动复制到应用旁的 `runtime/appium-inspector/`；完整 Inspector 推荐使用包含 WebEngineWidgets 的 MSVC Qt 套件。
+- 更新开发与便携运行时文档，补充 Appium Inspector 资源版本、MSVC WebEngine 构建方式、运行目录和浏览器版连接 Appium Server 所需的 `--allow-cors` 配置。
 - Windows 构建默认自动 staging 锁定的 OpenCode 终端运行时；仍支持同时使用 `AI_MOBILE_TEST_OPENCODE_EXECUTABLE`、`AI_MOBILE_TEST_NODE_EXECUTABLE` 和 `AI_MOBILE_TEST_NODE_PTY_MODULE` 覆盖，禁止只覆盖其中一部分造成版本混用。
 - Windows 主程序链接后默认执行 `windeployqt`，将当前 Debug/Release 配置对应的 Qt DLL、平台插件、MSVC runtime、`QtWebEngineProcess`、Chromium resources 和 locales 部署到可执行文件旁。
 - xterm.js、ConPTY 宿主脚本和应用元数据 JAR 现在作为链接依赖参与增量构建；资源变化会触发重新复制，不再继续使用构建目录中的旧静态文件。
@@ -77,6 +83,8 @@
 
 ### Fixed
 
+- 修复 Appium Inspector 官方浏览器包从本地 `file://` 路径加载时语言资源定位错误、界面显示 `startSession` 和 `attachToSession` 等翻译键的问题。
+- 修复 Qt Widgets 降级页中根 Remote Path 被拼接为 `//session`、删除已保存能力集时行定位不可靠，以及能力值编辑器初始化时重复插入控件的问题。
 - 修复完整 Qt WebEngine 部署后终端区域变成白屏的问题；本地页面导航校验不再混用 Qt 规范路径的正斜杠和 Windows 目录分隔符，CSP 允许 xterm.js 必需的动态样式，`terminal-web/index.html`、xterm.js 与 QWebChannel 可以正常加载和渲染。
 - 修复 Qt Creator 中可以启动、但从构建目录双击主程序会依次提示缺少 `Qt6Widgetsd.dll`、`Qt6WebChanneld.dll` 和 `Qt6WebEngineCored.dll` 等运行库的问题；Windows 构建现在链接后自动执行 `windeployqt`，同时部署 WebEngine 进程和资源。
 - 修复终端页始终显示 OpenCode 入口、但默认构建未复制 `opencode.exe`、Node.js 和 `node-pty`，导致新建 OpenCode 标签立即报“未找到可执行程序”的问题；Windows 构建现在使用锁定版本和 SHA-256 自动 staging 完整 ConPTY 运行时。

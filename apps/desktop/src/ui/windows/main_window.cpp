@@ -3,6 +3,8 @@
 #include "services/adb_control_service.h"
 #include "services/apps_service.h"
 #include "services/file_manager_service.h"
+#include "services/logcat_service.h"
+#include "services/overview_service.h"
 #include "services/package_manager_service.h"
 #include "services/performance_service.h"
 #include "services/recovery_service.h"
@@ -16,6 +18,8 @@
 #include "ui/pages/performance_page.h"
 #include "ui/pages/recovery_page.h"
 #include "ui/pages/layout_page.h"
+#include "ui/pages/logcat_page.h"
+#include "ui/pages/overview_page.h"
 #include "ui/pages/terminal_page.h"
 #include "ui/styles/app_style.h"
 
@@ -142,6 +146,7 @@ void MainWindow::buildUi()
     contentLayout->setContentsMargins(0, 0, 0, 0);
     contentLayout->setSpacing(0);
     const ui::SidebarSection sidebar = ui::createSidebar();
+    m_overviewNavButton = sidebar.overviewButton;
     m_chatNavButton = sidebar.chatButton;
     m_deviceControlNavButton = sidebar.deviceControlButton;
     m_packageManagerNavButton = sidebar.packageManagerButton;
@@ -150,6 +155,7 @@ void MainWindow::buildUi()
     m_recoveryNavButton = sidebar.recoveryButton;
     m_performanceNavButton = sidebar.performanceButton;
     m_layoutNavButton = sidebar.layoutButton;
+    m_logcatNavButton = sidebar.logcatButton;
     m_sidebarStatusDot = sidebar.statusDot;
     m_sidebarStatusTitle = sidebar.statusTitle;
     m_sidebarStatusDetail = sidebar.statusDetail;
@@ -168,6 +174,8 @@ void MainWindow::buildUi()
 
     m_workspaceStack = new QStackedWidget;
     m_workspaceStack->setObjectName("WorkspaceStack");
+    m_overviewPage = new OverviewPage;
+    m_workspaceStack->addWidget(m_overviewPage);
     m_terminalPage = new TerminalPage;
     m_workspaceStack->addWidget(m_terminalPage);
     m_deviceControlPage = new DeviceControlPage;
@@ -184,6 +192,8 @@ void MainWindow::buildUi()
     m_workspaceStack->addWidget(m_performancePage);
     m_layoutPage = new LayoutPage;
     m_workspaceStack->addWidget(m_layoutPage);
+    m_logcatPage = new LogcatPage;
+    m_workspaceStack->addWidget(m_logcatPage);
     workspaceLayout->addWidget(m_workspaceStack, 1);
 
     contentLayout->addWidget(workspace, 1);
@@ -276,29 +286,35 @@ void MainWindow::configureDeviceControls()
             m_terminalPage,
             &TerminalPage::handleSessionClosed);
 
-    connect(m_chatNavButton, &QPushButton::clicked, this, [this] {
+    connect(m_overviewNavButton, &QPushButton::clicked, this, [this] {
         selectWorkspace(0);
     });
-    connect(m_deviceControlNavButton, &QPushButton::clicked, this, [this] {
+    connect(m_chatNavButton, &QPushButton::clicked, this, [this] {
         selectWorkspace(1);
     });
-    connect(m_packageManagerNavButton, &QPushButton::clicked, this, [this] {
+    connect(m_deviceControlNavButton, &QPushButton::clicked, this, [this] {
         selectWorkspace(2);
     });
-    connect(m_appsNavButton, &QPushButton::clicked, this, [this] {
+    connect(m_packageManagerNavButton, &QPushButton::clicked, this, [this] {
         selectWorkspace(3);
     });
-    connect(m_filesNavButton, &QPushButton::clicked, this, [this] {
+    connect(m_appsNavButton, &QPushButton::clicked, this, [this] {
         selectWorkspace(4);
     });
-    connect(m_recoveryNavButton, &QPushButton::clicked, this, [this] {
+    connect(m_filesNavButton, &QPushButton::clicked, this, [this] {
         selectWorkspace(5);
     });
-    connect(m_performanceNavButton, &QPushButton::clicked, this, [this] {
+    connect(m_recoveryNavButton, &QPushButton::clicked, this, [this] {
         selectWorkspace(6);
     });
-    connect(m_layoutNavButton, &QPushButton::clicked, this, [this] {
+    connect(m_performanceNavButton, &QPushButton::clicked, this, [this] {
         selectWorkspace(7);
+    });
+    connect(m_layoutNavButton, &QPushButton::clicked, this, [this] {
+        selectWorkspace(8);
+    });
+    connect(m_logcatNavButton, &QPushButton::clicked, this, [this] {
+        selectWorkspace(9);
     });
     connect(m_deviceControlPage,
             &DeviceControlPage::keyEventRequested,
@@ -590,6 +606,42 @@ void MainWindow::configureDeviceControls()
             m_performancePage,
             &PerformancePage::showSamplingError);
 
+    m_overviewService = new OverviewService(m_scrcpyService->adbExecutablePath(), this);
+    connect(m_overviewPage,
+            &OverviewPage::refreshRequested,
+            m_overviewService,
+            &OverviewService::refresh);
+    connect(m_overviewService,
+            &OverviewService::loadingChanged,
+            m_overviewPage,
+            &OverviewPage::setLoading);
+    connect(m_overviewService,
+            &OverviewService::overviewReady,
+            m_overviewPage,
+            &OverviewPage::setOverview);
+    connect(m_overviewService,
+            &OverviewService::overviewError,
+            m_overviewPage,
+            &OverviewPage::showError);
+
+    m_logcatService = new LogcatService(m_scrcpyService->adbExecutablePath(), this);
+    connect(m_logcatService,
+            &LogcatService::entryReady,
+            m_logcatPage,
+            &LogcatPage::appendEntry);
+    connect(m_logcatService,
+            &LogcatService::streamStateChanged,
+            m_logcatPage,
+            &LogcatPage::setStreamRunning);
+    connect(m_logcatService,
+            &LogcatService::streamError,
+            m_logcatPage,
+            &LogcatPage::showStreamError);
+    connect(m_logcatPage,
+            &LogcatPage::restartRequested,
+            m_logcatService,
+            &LogcatService::restart);
+
     const bool initialConnected = m_deviceState == ScrcpyService::DeviceState::Connected;
     m_terminalService->setDeviceSerial(initialConnected ? m_deviceSerial : QString());
     m_terminalPage->setDeviceConnected(initialConnected, m_deviceSerial);
@@ -605,6 +657,10 @@ void MainWindow::configureDeviceControls()
     m_recoveryService->setSideloadDeviceSerial(initialSideload ? m_deviceSerial : QString());
     m_performanceService->setDeviceSerial(
         m_deviceState == ScrcpyService::DeviceState::Connected ? m_deviceSerial : QString());
+    m_overviewService->setDeviceSerial(initialConnected ? m_deviceSerial : QString());
+    m_logcatService->setDeviceSerial(initialConnected ? m_deviceSerial : QString());
+    m_overviewPage->setDeviceConnected(initialConnected, m_deviceSerial);
+    m_logcatPage->setDeviceConnected(initialConnected, m_deviceSerial);
     m_deviceControlPage->setDeviceConnected(
         m_deviceState == ScrcpyService::DeviceState::Connected,
         m_deviceSerial);
@@ -630,56 +686,70 @@ void MainWindow::configureDeviceControls()
 void MainWindow::selectWorkspace(int index)
 {
     m_workspaceStack->setCurrentIndex(index);
-    m_chatNavButton->setProperty("active", index == 0);
-    m_deviceControlNavButton->setProperty("active", index == 1);
-    m_packageManagerNavButton->setProperty("active", index == 2);
-    m_appsNavButton->setProperty("active", index == 3);
-    m_filesNavButton->setProperty("active", index == 4);
-    m_recoveryNavButton->setProperty("active", index == 5);
-    m_performanceNavButton->setProperty("active", index == 6);
-    m_layoutNavButton->setProperty("active", index == 7);
-    m_chatNavButton->setFont(ui::appFont(11, index == 0 ? QFont::DemiBold : QFont::Normal));
+    m_overviewNavButton->setProperty("active", index == 0);
+    m_chatNavButton->setProperty("active", index == 1);
+    m_deviceControlNavButton->setProperty("active", index == 2);
+    m_packageManagerNavButton->setProperty("active", index == 3);
+    m_appsNavButton->setProperty("active", index == 4);
+    m_filesNavButton->setProperty("active", index == 5);
+    m_recoveryNavButton->setProperty("active", index == 6);
+    m_performanceNavButton->setProperty("active", index == 7);
+    m_layoutNavButton->setProperty("active", index == 8);
+    m_logcatNavButton->setProperty("active", index == 9);
+    m_overviewNavButton->setFont(
+        ui::appFont(11, index == 0 ? QFont::DemiBold : QFont::Normal));
+    m_chatNavButton->setFont(ui::appFont(11, index == 1 ? QFont::DemiBold : QFont::Normal));
     m_deviceControlNavButton->setFont(
-        ui::appFont(11, index == 1 ? QFont::DemiBold : QFont::Normal));
-    m_packageManagerNavButton->setFont(
         ui::appFont(11, index == 2 ? QFont::DemiBold : QFont::Normal));
-    m_appsNavButton->setFont(
+    m_packageManagerNavButton->setFont(
         ui::appFont(11, index == 3 ? QFont::DemiBold : QFont::Normal));
-    m_filesNavButton->setFont(
+    m_appsNavButton->setFont(
         ui::appFont(11, index == 4 ? QFont::DemiBold : QFont::Normal));
-    m_recoveryNavButton->setFont(
+    m_filesNavButton->setFont(
         ui::appFont(11, index == 5 ? QFont::DemiBold : QFont::Normal));
-    m_performanceNavButton->setFont(
+    m_recoveryNavButton->setFont(
         ui::appFont(11, index == 6 ? QFont::DemiBold : QFont::Normal));
-    m_layoutNavButton->setFont(
+    m_performanceNavButton->setFont(
         ui::appFont(11, index == 7 ? QFont::DemiBold : QFont::Normal));
-    for (QPushButton *button : {m_chatNavButton,
+    m_layoutNavButton->setFont(
+        ui::appFont(11, index == 8 ? QFont::DemiBold : QFont::Normal));
+    m_logcatNavButton->setFont(
+        ui::appFont(11, index == 9 ? QFont::DemiBold : QFont::Normal));
+    for (QPushButton *button : {m_overviewNavButton,
+                                m_chatNavButton,
                                 m_deviceControlNavButton,
                                 m_packageManagerNavButton,
                                 m_appsNavButton,
                                 m_filesNavButton,
                                 m_recoveryNavButton,
                                 m_performanceNavButton,
-                                m_layoutNavButton}) {
+                                m_layoutNavButton,
+                                m_logcatNavButton}) {
         button->style()->unpolish(button);
         button->style()->polish(button);
     }
-    if (index == 2) {
-        m_packageManagerPage->showOverview();
+    if (index == 0 && m_overviewPage != nullptr) {
+        m_overviewPage->activate();
     }
     if (index == 3) {
-        m_appsPage->activate();
+        m_packageManagerPage->showOverview();
     }
     if (index == 4) {
-        m_filesPage->activate();
+        m_appsPage->activate();
     }
     if (index == 5) {
+        m_filesPage->activate();
+    }
+    if (index == 6) {
         m_recoveryPage->showOverview();
     }
     if (m_performanceService != nullptr) {
-        m_performanceService->setActive(index == 6);
+        m_performanceService->setActive(index == 7);
     }
-    if (index == 0 && m_terminalPage != nullptr) {
+    if (m_logcatService != nullptr) {
+        m_logcatService->setActive(index == 9);
+    }
+    if (index == 1 && m_terminalPage != nullptr) {
         m_terminalPage->activate();
     }
 }
@@ -722,6 +792,17 @@ void MainWindow::updateDeviceUi(ScrcpyService::DeviceState state,
     if (m_performanceService != nullptr) {
         m_performanceService->setDeviceSerial(connected ? serial : QString());
         m_performancePage->setDeviceConnected(connected, serial);
+    }
+    if (m_overviewService != nullptr) {
+        m_overviewService->setDeviceSerial(connected ? serial : QString());
+        m_overviewPage->setDeviceConnected(connected, serial);
+        if (connected && m_workspaceStack->currentWidget() == m_overviewPage) {
+            m_overviewPage->activate();
+        }
+    }
+    if (m_logcatService != nullptr) {
+        m_logcatService->setDeviceSerial(connected ? serial : QString());
+        m_logcatPage->setDeviceConnected(connected, serial);
     }
     if (m_layoutPage != nullptr) {
         m_layoutPage->setDeviceConnected(connected, serial);

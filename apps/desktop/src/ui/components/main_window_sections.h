@@ -17,6 +17,7 @@ struct ToolbarSection {
 
 struct SidebarSection {
     QWidget *widget = nullptr;
+    QPushButton *overviewButton = nullptr;
     QPushButton *chatButton = nullptr;
     QPushButton *deviceControlButton = nullptr;
     QPushButton *packageManagerButton = nullptr;
@@ -25,6 +26,7 @@ struct SidebarSection {
     QPushButton *recoveryButton = nullptr;
     QPushButton *performanceButton = nullptr;
     QPushButton *layoutButton = nullptr;
+    QPushButton *logcatButton = nullptr;
     QLabel *statusDot = nullptr;
     QLabel *statusTitle = nullptr;
     QLabel *statusDetail = nullptr;

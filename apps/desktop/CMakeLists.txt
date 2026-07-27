@@ -13,6 +13,10 @@ qt_add_executable(${DESKTOP_TARGET}
     src/services/apps_service.h
     src/services/file_manager_service.cpp
     src/services/file_manager_service.h
+    src/services/logcat_service.cpp
+    src/services/logcat_service.h
+    src/services/overview_service.cpp
+    src/services/overview_service.h
     src/services/package_manager_service.cpp
     src/services/package_manager_service.h
     src/services/performance_service.cpp
@@ -44,6 +48,10 @@ qt_add_executable(${DESKTOP_TARGET}
     src/ui/pages/recovery_page.h
     src/ui/pages/layout_page.cpp
     src/ui/pages/layout_page.h
+    src/ui/pages/logcat_page.cpp
+    src/ui/pages/logcat_page.h
+    src/ui/pages/overview_page.cpp
+    src/ui/pages/overview_page.h
     src/ui/pages/terminal_page.cpp
     src/ui/pages/terminal_page.h
     src/ui/pages/terminal_bridge.cpp
