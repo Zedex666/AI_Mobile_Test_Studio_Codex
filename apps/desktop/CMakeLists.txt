@@ -11,6 +11,8 @@ qt_add_executable(${DESKTOP_TARGET}
     src/services/adb_shell_session.h
     src/services/apps_service.cpp
     src/services/apps_service.h
+    src/services/display_service.cpp
+    src/services/display_service.h
     src/services/file_manager_service.cpp
     src/services/file_manager_service.h
     src/services/logcat_service.cpp
@@ -36,6 +38,8 @@ qt_add_executable(${DESKTOP_TARGET}
     src/ui/components/main_window_sections.h
     src/ui/pages/device_control_page.cpp
     src/ui/pages/device_control_page.h
+    src/ui/pages/display_page.cpp
+    src/ui/pages/display_page.h
     src/ui/pages/apps_page.cpp
     src/ui/pages/apps_page.h
     src/ui/pages/files_page.cpp
@@ -50,6 +54,8 @@ qt_add_executable(${DESKTOP_TARGET}
     src/ui/pages/layout_page.h
     src/ui/pages/logcat_page.cpp
     src/ui/pages/logcat_page.h
+    src/ui/pages/mirroring_page.cpp
+    src/ui/pages/mirroring_page.h
     src/ui/pages/overview_page.cpp
     src/ui/pages/overview_page.h
     src/ui/pages/terminal_page.cpp

@@ -18,6 +18,7 @@ ScrcpyService::ScrcpyService(QString scrcpyPath, QObject *parent)
     , m_scrcpyPath(QDir::cleanPath(std::move(scrcpyPath)))
     , m_probeProcess(this)
     , m_mirrorProcess(this)
+    , m_cameraProcess(this)
     , m_pollTimer(this)
 {
     m_pollTimer.setInterval(kDevicePollIntervalMs);
@@ -55,16 +56,61 @@ ScrcpyService::ScrcpyService(QString scrcpyPath, QObject *parent)
             emit operationError(tr("scrcpy 启动失败：%1").arg(m_mirrorProcess.errorString()));
         }
     });
+
+    m_cameraProcess.setProcessChannelMode(QProcess::MergedChannels);
+    connect(&m_cameraProcess, &QProcess::readyReadStandardOutput, this, [this] {
+        m_cameraOutput += QString::fromLocal8Bit(m_cameraProcess.readAllStandardOutput());
+    });
+    connect(&m_cameraProcess,
+            qOverload<int, QProcess::ExitStatus>(&QProcess::finished),
+            this,
+            [this](int exitCode, QProcess::ExitStatus exitStatus) {
+                m_cameraOutput += QString::fromLocal8Bit(
+                    m_cameraProcess.readAllStandardOutput());
+                if (m_cameraQueryCancelled) {
+                    m_cameraQueryCancelled = false;
+                    m_cameraOutput.clear();
+                    return;
+                }
+                QStringList cameras;
+                const QStringList lines = m_cameraOutput.split(
+                    QRegularExpression(QStringLiteral("[\\r\\n]+")), Qt::SkipEmptyParts);
+                for (const QString &line : lines) {
+                    if (line.contains(QStringLiteral("--camera-id="))) {
+                        cameras.append(line.trimmed());
+                    }
+                }
+                cameras.removeDuplicates();
+                if (!cameras.isEmpty() || (exitStatus == QProcess::NormalExit && exitCode == 0)) {
+                    emit camerasLoaded(cameras);
+                } else {
+                    emit operationError(m_cameraOutput.trimmed().isEmpty()
+                                            ? tr("无法读取设备摄像头列表。")
+                                            : m_cameraOutput.trimmed().right(1200));
+                }
+            });
+    connect(&m_cameraProcess,
+            &QProcess::errorOccurred,
+            this,
+            [this](QProcess::ProcessError error) {
+                if (error == QProcess::FailedToStart) {
+                    emit operationError(tr("摄像头查询启动失败：%1")
+                                            .arg(m_cameraProcess.errorString()));
+                }
+            });
 }
 
 ScrcpyService::~ScrcpyService()
 {
     m_pollTimer.stop();
-    if (m_mirrorProcess.state() != QProcess::NotRunning) {
-        m_mirrorProcess.terminate();
-        if (!m_mirrorProcess.waitForFinished(1000)) {
-            m_mirrorProcess.kill();
-            m_mirrorProcess.waitForFinished(1000);
+    m_cameraQueryCancelled = true;
+    for (QProcess *process : {&m_mirrorProcess, &m_cameraProcess}) {
+        if (process->state() != QProcess::NotRunning) {
+            process->terminate();
+            if (!process->waitForFinished(1000)) {
+                process->kill();
+                process->waitForFinished(1000);
+            }
         }
     }
 }
@@ -130,7 +176,7 @@ void ScrcpyService::refreshDeviceState()
     m_probeProcess.start(currentAdbPath, {QStringLiteral("devices")});
 }
 
-void ScrcpyService::startMirror()
+void ScrcpyService::startMirror(const QStringList &extraArguments)
 {
     if (m_mirrorProcess.state() != QProcess::NotRunning) {
         return;
@@ -146,15 +192,32 @@ void ScrcpyService::startMirror()
         return;
     }
 
+    for (const QString &argument : extraArguments) {
+        if (argument == QStringLiteral("-s") || argument == QStringLiteral("--serial")
+            || argument.startsWith(QStringLiteral("--serial="))) {
+            emit operationError(tr("高级参数不能覆盖当前设备序列号。"));
+            return;
+        }
+        if (argument.startsWith(QStringLiteral("--record="))) {
+            const QFileInfo recordFile(argument.mid(QStringLiteral("--record=").size()));
+            const QString parentPath = recordFile.absolutePath();
+            if (!parentPath.isEmpty() && !QDir().mkpath(parentPath)) {
+                emit operationError(tr("无法创建录制目录：%1")
+                                        .arg(QDir::toNativeSeparators(parentPath)));
+                return;
+            }
+        }
+    }
+
     m_mirrorLog.clear();
     m_stopRequested = false;
     m_mirrorProcess.setWorkingDirectory(QFileInfo(m_scrcpyPath).absolutePath());
-    m_mirrorProcess.start(
-        m_scrcpyPath,
-        {QStringLiteral("--serial"),
-         m_deviceSerial,
-         QStringLiteral("--window-title"),
-         tr("AI Mobile Test Studio - %1").arg(m_deviceSerial)});
+    QStringList arguments = {QStringLiteral("--serial"),
+                             m_deviceSerial,
+                             QStringLiteral("--window-title"),
+                             tr("AI Mobile Test Studio - %1").arg(m_deviceSerial)};
+    arguments.append(extraArguments);
+    m_mirrorProcess.start(m_scrcpyPath, arguments);
 }
 
 void ScrcpyService::stopMirror()
@@ -170,6 +233,30 @@ void ScrcpyService::stopMirror()
             m_mirrorProcess.kill();
         }
     });
+}
+
+void ScrcpyService::queryCameras()
+{
+    if (m_cameraProcess.state() != QProcess::NotRunning) {
+        return;
+    }
+    if (m_deviceState != DeviceState::Connected || m_deviceSerial.isEmpty()) {
+        emit operationError(tr("请先连接 Android 设备。"));
+        return;
+    }
+    if (!QFileInfo::exists(m_scrcpyPath)) {
+        emit operationError(tr("未找到 scrcpy.exe：%1")
+                                .arg(QDir::toNativeSeparators(m_scrcpyPath)));
+        return;
+    }
+
+    m_cameraOutput.clear();
+    m_cameraQueryCancelled = false;
+    m_cameraProcess.setWorkingDirectory(QFileInfo(m_scrcpyPath).absolutePath());
+    m_cameraProcess.start(m_scrcpyPath,
+                          {QStringLiteral("--serial"),
+                           m_deviceSerial,
+                           QStringLiteral("--list-cameras")});
 }
 
 void ScrcpyService::handleProbeFinished(int exitCode, QProcess::ExitStatus exitStatus)
@@ -250,6 +337,10 @@ void ScrcpyService::setDeviceState(DeviceState state,
         return;
     }
 
+    if (m_deviceSerial != serial && m_cameraProcess.state() != QProcess::NotRunning) {
+        m_cameraQueryCancelled = true;
+        m_cameraProcess.kill();
+    }
     m_deviceState = state;
     m_deviceSerial = serial;
     m_deviceDetail = detail;

@@ -2,6 +2,7 @@
 
 #include "services/adb_control_service.h"
 #include "services/apps_service.h"
+#include "services/display_service.h"
 #include "services/file_manager_service.h"
 #include "services/logcat_service.h"
 #include "services/overview_service.h"
@@ -12,6 +13,7 @@
 #include "ui/common/widget_helpers.h"
 #include "ui/components/main_window_sections.h"
 #include "ui/pages/device_control_page.h"
+#include "ui/pages/display_page.h"
 #include "ui/pages/apps_page.h"
 #include "ui/pages/files_page.h"
 #include "ui/pages/package_manager_page.h"
@@ -19,6 +21,7 @@
 #include "ui/pages/recovery_page.h"
 #include "ui/pages/layout_page.h"
 #include "ui/pages/logcat_page.h"
+#include "ui/pages/mirroring_page.h"
 #include "ui/pages/overview_page.h"
 #include "ui/pages/terminal_page.h"
 #include "ui/styles/app_style.h"
@@ -147,6 +150,8 @@ void MainWindow::buildUi()
     contentLayout->setSpacing(0);
     const ui::SidebarSection sidebar = ui::createSidebar();
     m_overviewNavButton = sidebar.overviewButton;
+    m_displayNavButton = sidebar.displayButton;
+    m_mirroringNavButton = sidebar.mirroringButton;
     m_chatNavButton = sidebar.chatButton;
     m_deviceControlNavButton = sidebar.deviceControlButton;
     m_packageManagerNavButton = sidebar.packageManagerButton;
@@ -176,6 +181,10 @@ void MainWindow::buildUi()
     m_workspaceStack->setObjectName("WorkspaceStack");
     m_overviewPage = new OverviewPage;
     m_workspaceStack->addWidget(m_overviewPage);
+    m_displayPage = new DisplayPage;
+    m_workspaceStack->addWidget(m_displayPage);
+    m_mirroringPage = new MirroringPage;
+    m_workspaceStack->addWidget(m_mirroringPage);
     m_terminalPage = new TerminalPage;
     m_workspaceStack->addWidget(m_terminalPage);
     m_deviceControlPage = new DeviceControlPage;
@@ -232,8 +241,31 @@ void MainWindow::configureScrcpy()
             &ScrcpyService::mirrorRunningChanged,
             this,
             &MainWindow::updateMirrorUi);
+    connect(m_scrcpyService,
+            &ScrcpyService::mirrorRunningChanged,
+            m_mirroringPage,
+            &MirroringPage::setMirrorRunning);
+    connect(m_mirroringPage,
+            &MirroringPage::launchRequested,
+            m_scrcpyService,
+            &ScrcpyService::startMirror);
+    connect(m_mirroringPage,
+            &MirroringPage::stopRequested,
+            m_scrcpyService,
+            &ScrcpyService::stopMirror);
+    connect(m_mirroringPage,
+            &MirroringPage::cameraListRequested,
+            m_scrcpyService,
+            &ScrcpyService::queryCameras);
+    connect(m_scrcpyService,
+            &ScrcpyService::camerasLoaded,
+            m_mirroringPage,
+            &MirroringPage::setCameras);
     connect(m_scrcpyService, &ScrcpyService::operationError, this, [this](const QString &message) {
-        QMessageBox::warning(this, ui::text("scrcpy 运行错误"), message);
+        m_mirroringPage->showError(message);
+        if (m_workspaceStack->currentWidget() != m_mirroringPage) {
+            QMessageBox::warning(this, ui::text("scrcpy 运行错误"), message);
+        }
     });
 
     m_scrcpyService->startMonitoring();
@@ -289,32 +321,38 @@ void MainWindow::configureDeviceControls()
     connect(m_overviewNavButton, &QPushButton::clicked, this, [this] {
         selectWorkspace(0);
     });
-    connect(m_chatNavButton, &QPushButton::clicked, this, [this] {
+    connect(m_displayNavButton, &QPushButton::clicked, this, [this] {
         selectWorkspace(1);
     });
-    connect(m_deviceControlNavButton, &QPushButton::clicked, this, [this] {
+    connect(m_mirroringNavButton, &QPushButton::clicked, this, [this] {
         selectWorkspace(2);
     });
-    connect(m_packageManagerNavButton, &QPushButton::clicked, this, [this] {
+    connect(m_chatNavButton, &QPushButton::clicked, this, [this] {
         selectWorkspace(3);
     });
-    connect(m_appsNavButton, &QPushButton::clicked, this, [this] {
+    connect(m_deviceControlNavButton, &QPushButton::clicked, this, [this] {
         selectWorkspace(4);
     });
-    connect(m_filesNavButton, &QPushButton::clicked, this, [this] {
+    connect(m_packageManagerNavButton, &QPushButton::clicked, this, [this] {
         selectWorkspace(5);
     });
-    connect(m_recoveryNavButton, &QPushButton::clicked, this, [this] {
+    connect(m_appsNavButton, &QPushButton::clicked, this, [this] {
         selectWorkspace(6);
     });
-    connect(m_performanceNavButton, &QPushButton::clicked, this, [this] {
+    connect(m_filesNavButton, &QPushButton::clicked, this, [this] {
         selectWorkspace(7);
     });
-    connect(m_layoutNavButton, &QPushButton::clicked, this, [this] {
+    connect(m_recoveryNavButton, &QPushButton::clicked, this, [this] {
         selectWorkspace(8);
     });
-    connect(m_logcatNavButton, &QPushButton::clicked, this, [this] {
+    connect(m_performanceNavButton, &QPushButton::clicked, this, [this] {
         selectWorkspace(9);
+    });
+    connect(m_layoutNavButton, &QPushButton::clicked, this, [this] {
+        selectWorkspace(10);
+    });
+    connect(m_logcatNavButton, &QPushButton::clicked, this, [this] {
+        selectWorkspace(11);
     });
     connect(m_deviceControlPage,
             &DeviceControlPage::keyEventRequested,
@@ -496,6 +534,14 @@ void MainWindow::configureDeviceControls()
             m_appsPage,
             &AppsPage::setApps);
     connect(m_appsService,
+            &AppsService::appsLoaded,
+            m_mirroringPage,
+            &MirroringPage::setApplications);
+    connect(m_mirroringPage,
+            &MirroringPage::applicationListRequested,
+            m_appsService,
+            &AppsService::loadApps);
+    connect(m_appsService,
             &AppsService::appDetailsLoaded,
             m_appsPage,
             &AppsPage::setAppDetails);
@@ -606,11 +652,73 @@ void MainWindow::configureDeviceControls()
             m_performancePage,
             &PerformancePage::showSamplingError);
 
+    m_displayService = new DisplayService(m_scrcpyService->adbExecutablePath(), this);
+    connect(m_displayPage,
+            &DisplayPage::refreshRequested,
+            m_displayService,
+            &DisplayService::refresh);
+    connect(m_displayPage,
+            &DisplayPage::applyRequested,
+            m_displayService,
+            &DisplayService::applyDimensions);
+    connect(m_displayPage,
+            &DisplayPage::resetRequested,
+            m_displayService,
+            &DisplayService::resetDimensions);
+    connect(m_displayPage,
+            &DisplayPage::refreshRateRequested,
+            m_displayService,
+            &DisplayService::setRefreshRate);
+    connect(m_displayPage,
+            &DisplayPage::darkModeRequested,
+            m_displayService,
+            &DisplayService::setDarkMode);
+    connect(m_displayPage,
+            &DisplayPage::fontScaleRequested,
+            m_displayService,
+            &DisplayService::setFontScale);
+    connect(m_displayPage,
+            &DisplayPage::animationScaleRequested,
+            m_displayService,
+            &DisplayService::setAnimationScale);
+    connect(m_displayService,
+            &DisplayService::busyChanged,
+            m_displayPage,
+            &DisplayPage::setBusy);
+    connect(m_displayService,
+            &DisplayService::settingsLoaded,
+            m_displayPage,
+            &DisplayPage::setSettings);
+    connect(m_displayService,
+            &DisplayService::settingsError,
+            m_displayPage,
+            &DisplayPage::showError);
+    connect(m_displayService,
+            &DisplayService::operationFinished,
+            m_displayPage,
+            &DisplayPage::showOperationResult);
+
     m_overviewService = new OverviewService(m_scrcpyService->adbExecutablePath(), this);
     connect(m_overviewPage,
             &OverviewPage::refreshRequested,
             m_overviewService,
             &OverviewService::refresh);
+    connect(m_overviewPage,
+            &OverviewPage::refreshRequested,
+            m_overviewService,
+            &OverviewService::captureScreenshot);
+    connect(m_overviewPage,
+            &OverviewPage::screenshotRequested,
+            m_overviewService,
+            &OverviewService::captureScreenshot);
+    connect(m_overviewPage,
+            &OverviewPage::shizukuRequested,
+            m_overviewService,
+            &OverviewService::startShizuku);
+    connect(m_overviewPage,
+            &OverviewPage::powerRequested,
+            m_overviewService,
+            &OverviewService::togglePower);
     connect(m_overviewService,
             &OverviewService::loadingChanged,
             m_overviewPage,
@@ -619,6 +727,26 @@ void MainWindow::configureDeviceControls()
             &OverviewService::overviewReady,
             m_overviewPage,
             &OverviewPage::setOverview);
+    connect(m_overviewService,
+            &OverviewService::overviewReady,
+            m_filesPage,
+            &FilesPage::setDeviceOverview);
+    connect(m_filesPage,
+            &FilesPage::deviceInfoRequested,
+            m_overviewService,
+            &OverviewService::refresh);
+    connect(m_overviewService,
+            &OverviewService::screenshotLoadingChanged,
+            m_overviewPage,
+            &OverviewPage::setScreenshotLoading);
+    connect(m_overviewService,
+            &OverviewService::screenshotReady,
+            m_overviewPage,
+            &OverviewPage::setScreenshot);
+    connect(m_overviewService,
+            &OverviewService::actionFinished,
+            m_overviewPage,
+            &OverviewPage::showActionResult);
     connect(m_overviewService,
             &OverviewService::overviewError,
             m_overviewPage,
@@ -658,8 +786,12 @@ void MainWindow::configureDeviceControls()
     m_performanceService->setDeviceSerial(
         m_deviceState == ScrcpyService::DeviceState::Connected ? m_deviceSerial : QString());
     m_overviewService->setDeviceSerial(initialConnected ? m_deviceSerial : QString());
+    m_displayService->setDeviceSerial(initialConnected ? m_deviceSerial : QString());
     m_logcatService->setDeviceSerial(initialConnected ? m_deviceSerial : QString());
     m_overviewPage->setDeviceConnected(initialConnected, m_deviceSerial);
+    m_displayPage->setDeviceConnected(initialConnected, m_deviceSerial);
+    m_mirroringPage->setDeviceConnected(initialConnected, m_deviceSerial);
+    m_mirroringPage->setMirrorRunning(m_scrcpyService->mirrorRunning());
     m_logcatPage->setDeviceConnected(initialConnected, m_deviceSerial);
     m_deviceControlPage->setDeviceConnected(
         m_deviceState == ScrcpyService::DeviceState::Connected,
@@ -687,35 +819,43 @@ void MainWindow::selectWorkspace(int index)
 {
     m_workspaceStack->setCurrentIndex(index);
     m_overviewNavButton->setProperty("active", index == 0);
-    m_chatNavButton->setProperty("active", index == 1);
-    m_deviceControlNavButton->setProperty("active", index == 2);
-    m_packageManagerNavButton->setProperty("active", index == 3);
-    m_appsNavButton->setProperty("active", index == 4);
-    m_filesNavButton->setProperty("active", index == 5);
-    m_recoveryNavButton->setProperty("active", index == 6);
-    m_performanceNavButton->setProperty("active", index == 7);
-    m_layoutNavButton->setProperty("active", index == 8);
-    m_logcatNavButton->setProperty("active", index == 9);
+    m_displayNavButton->setProperty("active", index == 1);
+    m_mirroringNavButton->setProperty("active", index == 2);
+    m_chatNavButton->setProperty("active", index == 3);
+    m_deviceControlNavButton->setProperty("active", index == 4);
+    m_packageManagerNavButton->setProperty("active", index == 5);
+    m_appsNavButton->setProperty("active", index == 6);
+    m_filesNavButton->setProperty("active", index == 7);
+    m_recoveryNavButton->setProperty("active", index == 8);
+    m_performanceNavButton->setProperty("active", index == 9);
+    m_layoutNavButton->setProperty("active", index == 10);
+    m_logcatNavButton->setProperty("active", index == 11);
     m_overviewNavButton->setFont(
         ui::appFont(11, index == 0 ? QFont::DemiBold : QFont::Normal));
-    m_chatNavButton->setFont(ui::appFont(11, index == 1 ? QFont::DemiBold : QFont::Normal));
-    m_deviceControlNavButton->setFont(
+    m_displayNavButton->setFont(
+        ui::appFont(11, index == 1 ? QFont::DemiBold : QFont::Normal));
+    m_mirroringNavButton->setFont(
         ui::appFont(11, index == 2 ? QFont::DemiBold : QFont::Normal));
-    m_packageManagerNavButton->setFont(
-        ui::appFont(11, index == 3 ? QFont::DemiBold : QFont::Normal));
-    m_appsNavButton->setFont(
+    m_chatNavButton->setFont(ui::appFont(11, index == 3 ? QFont::DemiBold : QFont::Normal));
+    m_deviceControlNavButton->setFont(
         ui::appFont(11, index == 4 ? QFont::DemiBold : QFont::Normal));
-    m_filesNavButton->setFont(
+    m_packageManagerNavButton->setFont(
         ui::appFont(11, index == 5 ? QFont::DemiBold : QFont::Normal));
-    m_recoveryNavButton->setFont(
+    m_appsNavButton->setFont(
         ui::appFont(11, index == 6 ? QFont::DemiBold : QFont::Normal));
-    m_performanceNavButton->setFont(
+    m_filesNavButton->setFont(
         ui::appFont(11, index == 7 ? QFont::DemiBold : QFont::Normal));
-    m_layoutNavButton->setFont(
+    m_recoveryNavButton->setFont(
         ui::appFont(11, index == 8 ? QFont::DemiBold : QFont::Normal));
-    m_logcatNavButton->setFont(
+    m_performanceNavButton->setFont(
         ui::appFont(11, index == 9 ? QFont::DemiBold : QFont::Normal));
+    m_layoutNavButton->setFont(
+        ui::appFont(11, index == 10 ? QFont::DemiBold : QFont::Normal));
+    m_logcatNavButton->setFont(
+        ui::appFont(11, index == 11 ? QFont::DemiBold : QFont::Normal));
     for (QPushButton *button : {m_overviewNavButton,
+                                m_displayNavButton,
+                                m_mirroringNavButton,
                                 m_chatNavButton,
                                 m_deviceControlNavButton,
                                 m_packageManagerNavButton,
@@ -731,25 +871,31 @@ void MainWindow::selectWorkspace(int index)
     if (index == 0 && m_overviewPage != nullptr) {
         m_overviewPage->activate();
     }
-    if (index == 3) {
-        m_packageManagerPage->showOverview();
+    if (index == 1 && m_displayPage != nullptr) {
+        m_displayPage->activate();
     }
-    if (index == 4) {
-        m_appsPage->activate();
+    if (index == 2 && m_mirroringPage != nullptr) {
+        m_mirroringPage->activate();
     }
     if (index == 5) {
-        m_filesPage->activate();
+        m_packageManagerPage->showOverview();
     }
     if (index == 6) {
+        m_appsPage->activate();
+    }
+    if (index == 7) {
+        m_filesPage->activate();
+    }
+    if (index == 8) {
         m_recoveryPage->showOverview();
     }
     if (m_performanceService != nullptr) {
-        m_performanceService->setActive(index == 7);
+        m_performanceService->setActive(index == 9);
     }
     if (m_logcatService != nullptr) {
-        m_logcatService->setActive(index == 9);
+        m_logcatService->setActive(index == 11);
     }
-    if (index == 1 && m_terminalPage != nullptr) {
+    if (index == 3 && m_terminalPage != nullptr) {
         m_terminalPage->activate();
     }
 }
@@ -778,6 +924,20 @@ void MainWindow::updateDeviceUi(ScrcpyService::DeviceState state,
     if (m_appsService != nullptr) {
         m_appsService->setDeviceSerial(connected ? serial : QString());
         m_appsPage->setDeviceConnected(connected, serial);
+    }
+    if (m_displayService != nullptr) {
+        m_displayService->setDeviceSerial(connected ? serial : QString());
+        m_displayPage->setDeviceConnected(connected, serial);
+        if (connected && m_workspaceStack->currentWidget() == m_displayPage) {
+            m_displayPage->activate();
+        }
+    }
+    if (m_mirroringPage != nullptr) {
+        m_mirroringPage->setDeviceConnected(connected, serial);
+        m_mirroringPage->setMirrorRunning(m_scrcpyService->mirrorRunning());
+        if (connected && m_workspaceStack->currentWidget() == m_mirroringPage) {
+            m_mirroringPage->activate();
+        }
     }
     if (m_fileManagerService != nullptr) {
         m_fileManagerService->setDeviceSerial(connected ? serial : QString());

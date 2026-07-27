@@ -20,6 +20,8 @@ const QString kDensityMarker = QStringLiteral("__OVERVIEW_DENSITY__");
 const QString kFontMarker = QStringLiteral("__OVERVIEW_FONT__");
 const QString kWifiMarker = QStringLiteral("__OVERVIEW_WIFI__");
 const QString kNetworkMarker = QStringLiteral("__OVERVIEW_NETWORK__");
+const QString kBatteryMarker = QStringLiteral("__OVERVIEW_BATTERY__");
+const QString kUptimeMarker = QStringLiteral("__OVERVIEW_UPTIME__");
 
 QString overviewCommand()
 {
@@ -35,7 +37,9 @@ QString overviewCommand()
         "printf '__OVERVIEW_FONT__\\n'; settings get system font_scale 2>/dev/null; "
         "printf '__OVERVIEW_WIFI__\\n'; cmd wifi status 2>/dev/null; "
         "dumpsys wifi 2>/dev/null | grep -m 1 'mWifiInfo'; "
-        "printf '__OVERVIEW_NETWORK__\\n'; ip addr show wlan0 2>/dev/null;");
+        "printf '__OVERVIEW_NETWORK__\\n'; ip addr show wlan0 2>/dev/null; "
+        "printf '__OVERVIEW_BATTERY__\\n'; dumpsys battery 2>/dev/null; "
+        "printf '__OVERVIEW_UPTIME__\\n'; cat /proc/uptime 2>/dev/null;");
 }
 
 QHash<QString, QStringList> splitSections(const QString &output)
@@ -98,6 +102,40 @@ qint64 memoryKilobytes(const QStringList &lines, const QString &key)
     return 0;
 }
 
+int integerField(const QStringList &lines, const QString &key, int fallback = -1)
+{
+    const QString prefix = key + QLatin1Char(':');
+    for (const QString &line : lines) {
+        if (!line.startsWith(prefix, Qt::CaseInsensitive)) {
+            continue;
+        }
+        bool ok = false;
+        const int value = line.mid(prefix.size()).trimmed().toInt(&ok);
+        return ok ? value : fallback;
+    }
+    return fallback;
+}
+
+QString batteryHealthName(int health)
+{
+    switch (health) {
+    case 2:
+        return QObject::tr("良好");
+    case 3:
+        return QObject::tr("过热");
+    case 4:
+        return QObject::tr("故障");
+    case 5:
+        return QObject::tr("过压");
+    case 6:
+        return QObject::tr("异常");
+    case 7:
+        return QObject::tr("过冷");
+    default:
+        return QObject::tr("未知");
+    }
+}
+
 QString screenValue(const QStringList &lines, const QString &prefix)
 {
     for (const QString &line : lines) {
@@ -151,13 +189,77 @@ OverviewService::OverviewService(QString adbPath, QObject *parent)
             emit overviewError(tr("adb 启动失败：%1").arg(m_process.errorString()));
         }
     });
+
+    m_screenshotProcess.setProcessChannelMode(QProcess::SeparateChannels);
+    connect(&m_screenshotProcess, &QProcess::readyReadStandardOutput, this, [this] {
+        m_screenshotOutput += m_screenshotProcess.readAllStandardOutput();
+    });
+    connect(&m_screenshotProcess,
+            qOverload<int, QProcess::ExitStatus>(&QProcess::finished),
+            this,
+            [this](int exitCode, QProcess::ExitStatus exitStatus) {
+                m_screenshotOutput += m_screenshotProcess.readAllStandardOutput();
+                const QString error = QString::fromLocal8Bit(
+                    m_screenshotProcess.readAllStandardError()).trimmed();
+                emit screenshotLoadingChanged(false);
+                if (exitStatus == QProcess::NormalExit && exitCode == 0
+                    && !m_screenshotOutput.isEmpty()) {
+                    emit screenshotReady(m_screenshotOutput);
+                } else {
+                    emit overviewError(error.isEmpty()
+                                           ? tr("屏幕截图失败，退出码：%1").arg(exitCode)
+                                           : error.left(500));
+                }
+            });
+    connect(&m_screenshotProcess,
+            &QProcess::errorOccurred,
+            this,
+            [this](QProcess::ProcessError error) {
+                if (error == QProcess::FailedToStart) {
+                    emit screenshotLoadingChanged(false);
+                    emit overviewError(tr("截图命令启动失败：%1")
+                                           .arg(m_screenshotProcess.errorString()));
+                }
+            });
+
+    m_actionProcess.setProcessChannelMode(QProcess::MergedChannels);
+    connect(&m_actionProcess, &QProcess::readyReadStandardOutput, this, [this] {
+        m_actionOutput += m_actionProcess.readAllStandardOutput();
+    });
+    connect(&m_actionProcess,
+            qOverload<int, QProcess::ExitStatus>(&QProcess::finished),
+            this,
+            [this](int exitCode, QProcess::ExitStatus exitStatus) {
+                m_actionOutput += m_actionProcess.readAllStandardOutput();
+                const QString detail = QString::fromLocal8Bit(m_actionOutput).trimmed();
+                const bool success = exitStatus == QProcess::NormalExit && exitCode == 0;
+                emit actionFinished(success,
+                                    m_actionLabel,
+                                    detail.isEmpty()
+                                        ? (success ? tr("操作完成。")
+                                                   : tr("命令退出码：%1").arg(exitCode))
+                                        : detail.left(1000));
+            });
+    connect(&m_actionProcess,
+            &QProcess::errorOccurred,
+            this,
+            [this](QProcess::ProcessError error) {
+                if (error == QProcess::FailedToStart) {
+                    emit actionFinished(false,
+                                        m_actionLabel,
+                                        tr("adb 启动失败：%1")
+                                            .arg(m_actionProcess.errorString()));
+                }
+            });
 }
 
 OverviewService::~OverviewService()
 {
-    if (m_process.state() != QProcess::NotRunning) {
-        m_process.kill();
-        m_process.waitForFinished(1000);
+    for (QProcess *process : {&m_process, &m_screenshotProcess, &m_actionProcess}) {
+        if (process->state() != QProcess::NotRunning) {
+            process->kill();
+            process->waitForFinished(1000);
+        }
     }
 }
 
@@ -170,6 +272,13 @@ void OverviewService::setDeviceSerial(const QString &serial)
     m_refreshPending = false;
     if (m_process.state() != QProcess::NotRunning) {
         m_process.kill();
+    }
+    if (m_screenshotProcess.state() != QProcess::NotRunning) {
+        m_screenshotProcess.kill();
+        emit screenshotLoadingChanged(false);
+    }
+    if (m_actionProcess.state() != QProcess::NotRunning) {
+        m_actionProcess.kill();
     }
 }
 
@@ -196,6 +305,65 @@ void OverviewService::refresh()
                      m_deviceSerial,
                      QStringLiteral("shell"),
                      overviewCommand()});
+}
+
+void OverviewService::captureScreenshot()
+{
+    if (m_deviceSerial.isEmpty() || m_screenshotProcess.state() != QProcess::NotRunning) {
+        return;
+    }
+    if (!QFileInfo::exists(m_adbPath)) {
+        emit overviewError(tr("未找到 adb：%1").arg(QDir::toNativeSeparators(m_adbPath)));
+        return;
+    }
+
+    m_screenshotOutput.clear();
+    emit screenshotLoadingChanged(true);
+    m_screenshotProcess.setWorkingDirectory(QFileInfo(m_adbPath).absolutePath());
+    m_screenshotProcess.start(m_adbPath,
+                              {QStringLiteral("-s"),
+                               m_deviceSerial,
+                               QStringLiteral("exec-out"),
+                               QStringLiteral("screencap"),
+                               QStringLiteral("-p")});
+}
+
+void OverviewService::startShizuku()
+{
+    runAction(tr("启动 Shizuku"),
+              QStringLiteral("sh /sdcard/Android/data/moe.shizuku.privileged.api/start.sh"));
+}
+
+void OverviewService::togglePower()
+{
+    runAction(tr("切换电源状态"), QStringLiteral("input keyevent 26"));
+}
+
+void OverviewService::runAction(const QString &label, const QString &shellCommand)
+{
+    if (m_deviceSerial.isEmpty()) {
+        emit actionFinished(false, label, tr("请先连接 Android 设备。"));
+        return;
+    }
+    if (m_actionProcess.state() != QProcess::NotRunning) {
+        emit actionFinished(false, label, tr("另一项设备操作正在执行。"));
+        return;
+    }
+    if (!QFileInfo::exists(m_adbPath)) {
+        emit actionFinished(false,
+                            label,
+                            tr("未找到 adb：%1").arg(QDir::toNativeSeparators(m_adbPath)));
+        return;
+    }
+
+    m_actionLabel = label;
+    m_actionOutput.clear();
+    m_actionProcess.setWorkingDirectory(QFileInfo(m_adbPath).absolutePath());
+    m_actionProcess.start(m_adbPath,
+                          {QStringLiteral("-s"),
+                           m_deviceSerial,
+                           QStringLiteral("shell"),
+                           shellCommand});
 }
 
 void OverviewService::handleFinished(int exitCode, QProcess::ExitStatus exitStatus)
@@ -236,15 +404,24 @@ DeviceOverview OverviewService::parseOverview(const QString &output)
          QStringLiteral("ro.vendor.oplus.market.enname"),
          QStringLiteral("ro.vivo.market.name"),
          QStringLiteral("ro.product.marketname"),
-         QStringLiteral("ro.asus.product.mkt_name"),
-         QStringLiteral("ro.product.name")});
-    overview.brand = firstProperty(
-        properties,
-        {QStringLiteral("ro.product.brand"), QStringLiteral("ro.product.manufacturer")});
+         QStringLiteral("ro.asus.product.mkt_name")});
+    overview.brand = properties.value(QStringLiteral("ro.product.brand"));
+    overview.manufacturer = properties.value(QStringLiteral("ro.product.manufacturer"));
+    if (overview.brand.isEmpty()) {
+        overview.brand = overview.manufacturer;
+    }
     overview.model = properties.value(QStringLiteral("ro.product.model"));
     if (overview.name.isEmpty()) {
         overview.name = (overview.brand + QLatin1Char(' ') + overview.model).trimmed();
     }
+    const QString characteristics = properties.value(
+        QStringLiteral("ro.build.characteristics"));
+    overview.deviceType = characteristics.contains(QStringLiteral("tablet"),
+                                                    Qt::CaseInsensitive)
+        ? QObject::tr("平板电脑")
+        : QObject::tr("手机");
+    overview.product = properties.value(QStringLiteral("ro.product.name"));
+    overview.codename = properties.value(QStringLiteral("ro.product.device"));
     overview.serialNumber = firstProperty(
         properties,
         {QStringLiteral("ro.serialno"), QStringLiteral("ro.boot.serialno")});
@@ -252,7 +429,10 @@ DeviceOverview OverviewService::parseOverview(const QString &output)
     overview.sdkVersion = properties.value(QStringLiteral("ro.build.version.sdk"));
     overview.processor = firstProperty(
         properties,
-        {QStringLiteral("ro.product.board"), QStringLiteral("ro.hardware")});
+        {QStringLiteral("ro.soc.model"),
+         QStringLiteral("ro.board.platform"),
+         QStringLiteral("ro.hardware"),
+         QStringLiteral("ro.product.board")});
     overview.abi = properties.value(QStringLiteral("ro.product.cpu.abi"));
 
     const QStringList kernelLines = sections.value(kKernelMarker);
@@ -285,6 +465,32 @@ DeviceOverview OverviewService::parseOverview(const QString &output)
     overview.memoryTotalBytes = memoryKilobytes(sections.value(kMemoryMarker),
                                                  QStringLiteral("MemTotal"))
         * 1024;
+    qint64 availableKb = memoryKilobytes(sections.value(kMemoryMarker),
+                                        QStringLiteral("MemAvailable"));
+    if (availableKb <= 0) {
+        availableKb = memoryKilobytes(sections.value(kMemoryMarker),
+                                      QStringLiteral("MemFree"))
+            + memoryKilobytes(sections.value(kMemoryMarker), QStringLiteral("Buffers"))
+            + memoryKilobytes(sections.value(kMemoryMarker), QStringLiteral("Cached"));
+    }
+    overview.memoryUsedBytes = std::max<qint64>(0,
+                                               overview.memoryTotalBytes
+                                                   - availableKb * 1024);
+
+    const QStringList batteryLines = sections.value(kBatteryMarker);
+    overview.batteryLevel = integerField(batteryLines, QStringLiteral("level"));
+    overview.batteryHealth = batteryHealthName(
+        integerField(batteryLines, QStringLiteral("health")));
+
+    const QStringList uptimeLines = sections.value(kUptimeMarker);
+    if (!uptimeLines.isEmpty()) {
+        bool ok = false;
+        const double seconds = uptimeLines.first().section(QLatin1Char(' '), 0, 0)
+                                   .toDouble(&ok);
+        if (ok && seconds >= 0.0) {
+            overview.uptimeSeconds = static_cast<qint64>(seconds);
+        }
+    }
     const QStringList sizeLines = sections.value(kSizeMarker);
     overview.physicalResolution = screenValue(sizeLines, QStringLiteral("Physical size"));
     overview.resolution = screenValue(sizeLines, QStringLiteral("Override size"));

@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QProcess>
 #include <QString>
+#include <QStringList>
 #include <QTimer>
 
 class ScrcpyService : public QObject
@@ -34,14 +35,16 @@ public:
 
 public slots:
     void refreshDeviceState();
-    void startMirror();
+    void startMirror(const QStringList &extraArguments = QStringList());
     void stopMirror();
+    void queryCameras();
 
 signals:
     void deviceStateChanged(ScrcpyService::DeviceState state,
                             const QString &serial,
                             const QString &detail);
     void mirrorRunningChanged(bool running);
+    void camerasLoaded(const QStringList &cameras);
     void operationError(const QString &message);
 
 private:
@@ -56,11 +59,14 @@ private:
     QString m_deviceSerial;
     QString m_deviceDetail;
     QString m_mirrorLog;
+    QString m_cameraOutput;
     DeviceState m_deviceState = DeviceState::ToolUnavailable;
     bool m_mirrorRunning = false;
     bool m_stopRequested = false;
+    bool m_cameraQueryCancelled = false;
     QProcess m_probeProcess;
     QProcess m_mirrorProcess;
+    QProcess m_cameraProcess;
     QTimer m_pollTimer;
 };
 

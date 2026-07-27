@@ -316,16 +316,20 @@ SidebarSection createSidebar()
     layout->setAlignment(Qt::AlignTop);
 
     section.overviewButton = makeWorkspaceNavButton(text("◫"), text("概览"), true);
+    section.displayButton = makeWorkspaceNavButton(text("↔"), QStringLiteral("Display"), false);
+    section.mirroringButton = makeWorkspaceNavButton(text("▣"), QStringLiteral("Mirroring"), false);
     section.chatButton = makeWorkspaceNavButton(text("▣"), text("终端"), false);
     section.deviceControlButton = makeWorkspaceNavButton(text("⌘"), text("设备控制"), false);
     section.packageManagerButton = makeWorkspaceNavButton(text("▤"), text("软件包管理器"), false);
     section.appsButton = makeWorkspaceNavButton(text("▦"), text("应用"), false);
-    section.filesButton = makeWorkspaceNavButton(text("▱"), text("Files"), false);
+    section.filesButton = makeWorkspaceNavButton(text("▱"), text("文件"), false);
     section.recoveryButton = makeWorkspaceNavButton(text("Ⓡ"), text("Recovery"), false);
     section.performanceButton = makeWorkspaceNavButton(text("⌁"), text("性能"), false);
     section.layoutButton = makeWorkspaceNavButton(text("▦"), text("布局"), false);
     section.logcatButton = makeWorkspaceNavButton(text("≡"), text("日志"), false);
     layout->addWidget(section.overviewButton);
+    layout->addWidget(section.displayButton);
+    layout->addWidget(section.mirroringButton);
     layout->addWidget(section.chatButton);
     layout->addWidget(section.deviceControlButton);
     layout->addWidget(section.packageManagerButton);

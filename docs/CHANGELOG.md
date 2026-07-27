@@ -8,6 +8,10 @@
 
 ### Added
 
+- 左侧导航新增 `Display` 工作区，参考 ADB-App 提供物理显示摘要、推荐分辨率、尺寸/密度/超时设置、刷新率、浅色/深色模式、字体缩放和动画速度控制。
+- 新增 `DisplayService`，通过异步 ADB 查询和串行动作队列读写真实设备显示设置，并在写入成功后自动回读状态。
+- 左侧导航新增 `Mirroring` 工作区，参考 ADB-App 提供主屏幕、虚拟屏幕和摄像头三种 scrcpy 来源，以及图像、录制、输入、音频、启动应用和高级参数配置。
+- `ScrcpyService` 新增结构化参数启动、摄像头查询、录制目录创建和设备切换取消处理；`Mirroring` 与顶部镜像按钮共享运行状态。
 - 左侧导航新增“布局”工作区，直接嵌入 Appium Inspector 2026.5.1 官方浏览器前端，提供 Appium Server、云提供商、Capability Builder、Saved Capability Sets、Attach to Session、Source、Commands、Gestures、Recorder 和 Session Information 等完整工作区功能。
 - 新增随包 Appium Inspector 静态运行资源，包含官方脚本、样式、语言包、云提供商图标、Apache-2.0 许可证和来源说明；应用启动时不联网下载界面资源。
 - “布局”工作区新增 WebEngine 文件下载和外部链接处理：截图、源码及会话文件可通过本机保存对话框导出，Capabilities Documentation 等外部链接交由系统浏览器打开。
@@ -58,6 +62,8 @@
 
 ### Changed
 
+- “概览”主工作区参考 ADB-App Home 重建为设备标题、电池/RAM/存储指标、设备属性卡片和实时屏幕截图布局，并补充电源切换与 Shizuku 启动入口。
+- 侧边栏 `Files` 更名为“文件”；文件主工作区参考 ADB Explorer 重建双层资源管理器工具栏、设备驱动器主页、文件列表/网格和右侧详情面板，同时保留原有真实文件操作能力。
 - CMake 构建、安装和增量链接依赖新增 `resources/appium-inspector/`，构建后自动复制到应用旁的 `runtime/appium-inspector/`；完整 Inspector 推荐使用包含 WebEngineWidgets 的 MSVC Qt 套件。
 - 更新开发与便携运行时文档，补充 Appium Inspector 资源版本、MSVC WebEngine 构建方式、运行目录和浏览器版连接 Appium Server 所需的 `--allow-cors` 配置。
 - Windows 构建默认自动 staging 锁定的 OpenCode 终端运行时；仍支持同时使用 `AI_MOBILE_TEST_OPENCODE_EXECUTABLE`、`AI_MOBILE_TEST_NODE_EXECUTABLE` 和 `AI_MOBILE_TEST_NODE_PTY_MODULE` 覆盖，禁止只覆盖其中一部分造成版本混用。

@@ -2,14 +2,17 @@
 #define AI_MOBILE_TEST_STUDIO_FILES_PAGE_H
 
 #include "services/file_manager_service.h"
+#include "services/overview_service.h"
 
 #include <QStringList>
 #include <QWidget>
 
 class QLabel;
+class QFrame;
 class QLineEdit;
 class QListWidget;
 class QListWidgetItem;
+class QProgressBar;
 class QPushButton;
 class QStackedWidget;
 class QTableWidget;
@@ -30,6 +33,7 @@ public slots:
     void refresh();
     void setBusy(bool busy);
     void setDirectory(const QString &path, const QVector<DeviceFileEntry> &entries);
+    void setDeviceOverview(const DeviceOverview &overview);
     void showOperationStarted(const QString &label, const QString &displayCommand);
     void showOperationFinished(bool success, const QString &label, const QString &detail);
 
@@ -42,6 +46,7 @@ signals:
     void duplicateRequested(const QString &sourcePath, const QString &destinationPath);
     void permissionsRequested(const QStringList &remotePaths, const QString &mode);
     void deleteRequested(const QStringList &remotePaths);
+    void deviceInfoRequested();
 
 private:
     enum class ViewMode {
@@ -53,10 +58,12 @@ private:
     void goBack();
     void goForward();
     void goUp();
+    void showDeviceHome();
     void applyFilter();
     void setViewMode(ViewMode mode);
     void openEntry(int index);
     void updateSelection();
+    void updateDetails();
     void updateControls();
     QVector<int> selectedIndexes() const;
     QStringList selectedRemotePaths() const;
@@ -84,6 +91,7 @@ private:
     int m_historyIndex = 0;
     QVector<DeviceFileEntry> m_entries;
     ViewMode m_viewMode = ViewMode::List;
+    bool m_showingDeviceHome = true;
 
     QLabel *m_deviceDot = nullptr;
     QLabel *m_deviceStatus = nullptr;
@@ -91,6 +99,7 @@ private:
     QLabel *m_selectionStatus = nullptr;
     QLabel *m_operationStatus = nullptr;
     QToolButton *m_backButton = nullptr;
+    QToolButton *m_homeButton = nullptr;
     QToolButton *m_forwardButton = nullptr;
     QToolButton *m_upButton = nullptr;
     QToolButton *m_refreshButton = nullptr;
@@ -106,8 +115,23 @@ private:
     QToolButton *m_permissionsButton = nullptr;
     QToolButton *m_deleteButton = nullptr;
     QStackedWidget *m_viewStack = nullptr;
+    QStackedWidget *m_contentStack = nullptr;
     QTableWidget *m_table = nullptr;
     QListWidget *m_grid = nullptr;
+    QPushButton *m_rootDriveButton = nullptr;
+    QPushButton *m_internalDriveButton = nullptr;
+    QLabel *m_internalDriveSpace = nullptr;
+    QProgressBar *m_internalDriveProgress = nullptr;
+    QLabel *m_detailsIcon = nullptr;
+    QLabel *m_detailsName = nullptr;
+    QLabel *m_detailsHint = nullptr;
+    QLabel *m_detailType = nullptr;
+    QLabel *m_detailPath = nullptr;
+    QLabel *m_detailSize = nullptr;
+    QLabel *m_detailPermissions = nullptr;
+    QLabel *m_detailModified = nullptr;
+    QLabel *m_deviceBatteryStatus = nullptr;
+    QLabel *m_androidStatus = nullptr;
 };
 
 #endif // AI_MOBILE_TEST_STUDIO_FILES_PAGE_H

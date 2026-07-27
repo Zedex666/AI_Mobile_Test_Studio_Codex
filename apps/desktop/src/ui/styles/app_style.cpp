@@ -299,6 +299,7 @@ QString appStyleSheet()
             border-color: #e4e8ee;
             color: #aab3c2;
         }
+    )") + QString::fromUtf8(R"(
         QScrollArea#PackageCatalogScroll {
             background: transparent;
             border: none;
@@ -594,19 +595,69 @@ QString appStyleSheet()
             padding: 10px;
             selection-background-color: #315b8c;
         }
+    )") + QString::fromUtf8(R"(
         QFrame#FilesExplorer {
             background: #ffffff;
             border: 1px solid #dfe7f3;
-            border-radius: 8px;
+            border-radius: 6px;
         }
+        QWidget#FilesPage { background: #f2f6fb; }
         QWidget#FilesNavigationBar, QWidget#FilesActionBar, QWidget#FilesStatusBar {
-            background: #f8fafd;
+            background: #ffffff;
             border: none;
         }
         QWidget#FilesNavigationBar, QWidget#FilesActionBar {
             border-bottom: 1px solid #e1e8f2;
         }
         QWidget#FilesStatusBar { border-top: 1px solid #e1e8f2; }
+        QWidget#FilesContentArea, QWidget#FilesDeviceHome,
+        QStackedWidget#FilesContentStack { background: #f8fafc; }
+        QFrame#FilesDriveCard {
+            background: #ffffff;
+            border: 1px solid #d8dee8;
+            border-radius: 6px;
+        }
+        QFrame#FilesDriveCard:hover { border-color: #9db9dc; }
+        QLabel#FilesDriveIcon {
+            background: #f4f6f9;
+            border: 1px solid #d8dee8;
+            border-radius: 6px;
+        }
+        QPushButton#FilesDriveButton {
+            background: transparent;
+            border: none;
+            color: #2d3138;
+            font-size: 14px;
+            font-weight: 600;
+            padding: 0;
+            text-align: left;
+        }
+        QPushButton#FilesDriveButton:hover { color: #1f72bd; }
+        QProgressBar#FilesDriveProgress::chunk {
+            background: #258bcb;
+            border-radius: 2px;
+        }
+        QFrame#FilesDetailsPane {
+            background: #f6f6f6;
+            border: none;
+            border-left: 1px solid #e0e4ea;
+            border-radius: 0;
+        }
+        QLabel#FilesDetailsIcon {
+            background: #f8fafc;
+            border: none;
+            border-bottom: 1px solid #e4e7eb;
+        }
+        QLabel#FilesDetailsHint {
+            background: #fafafa;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            padding: 10px;
+        }
+        QWidget#FilesDetailRow {
+            background: transparent;
+            border: none;
+        }
         QToolButton#FilesToolButton, QToolButton#FilesViewButton {
             background: transparent;
             border: none;
@@ -843,6 +894,7 @@ QString appStyleSheet()
             height: 0px;
         }
     )") + QString::fromUtf8(R"(
+    )") + QString::fromUtf8(R"(
         QWidget#LayoutPage, QWidget#LayoutSessionBuilder, QWidget#LayoutSessionInspector {
             background: #f7f7f7;
         }
@@ -971,23 +1023,84 @@ QString appStyleSheet()
             padding: 8px;
             font-weight: 600;
         }
-        QWidget#OverviewPage, QWidget#OverviewBody { background: #eef1f6; }
+        QWidget#OverviewPage, QWidget#OverviewBody { background: #f5f4f8; }
+        QScrollArea#OverviewScroll {
+            background: transparent;
+            border: none;
+        }
+        QFrame#OverviewHero, QFrame#OverviewMetricCard {
+            background: #f0eef3;
+            border: none;
+            border-radius: 8px;
+        }
+        QFrame#OverviewFactCard {
+            background: #faf9fb;
+            border: 1px solid #d8d4df;
+            border-radius: 8px;
+        }
+        QLabel#OverviewMetricIcon, QLabel#OverviewFactIcon {
+            background: #e1d9ef;
+            border: none;
+            border-radius: 7px;
+        }
+        QProgressBar#OverviewMetricProgress, QProgressBar#FilesDriveProgress {
+            background: #d9d6df;
+            border: none;
+            border-radius: 2px;
+        }
+        QProgressBar#OverviewMetricProgress::chunk {
+            background: #5e438d;
+            border-radius: 2px;
+        }
+        QPushButton#OverviewShizukuButton {
+            background: #dfd6ef;
+            border: none;
+            border-radius: 7px;
+            color: #352547;
+            padding: 0 14px;
+        }
+        QPushButton#OverviewShizukuButton:hover { background: #d4c8e9; }
+        QToolButton#OverviewPowerButton, QToolButton#OverviewRefreshButton {
+            background: #e2daef;
+            border: none;
+            border-radius: 21px;
+            color: #352547;
+            font-size: 18px;
+        }
+        QToolButton#OverviewPowerButton:hover, QToolButton#OverviewRefreshButton:hover {
+            background: #d5c9e8;
+        }
+        QFrame#OverviewPreviewPanel {
+            background: #ffffff;
+            border: 1px solid #dedbe4;
+            border-radius: 8px;
+        }
+        QFrame#OverviewPhoneFrame {
+            background: #14121b;
+            border: 2px solid #383443;
+            border-radius: 8px;
+        }
+        QLabel#OverviewScreenshot { background: #08070b; border-radius: 5px; }
+        QPushButton#OverviewScreenshotButton {
+            background: #f8f7fa;
+            border: 1px solid #d3cedb;
+            border-radius: 7px;
+            color: #5e438d;
+        }
+        QPushButton#OverviewScreenshotButton:hover { background: #ebe6f2; }
+        QPushButton#OverviewShizukuButton:disabled,
+        QPushButton#OverviewScreenshotButton:disabled,
+        QToolButton#OverviewPowerButton:disabled,
+        QToolButton#OverviewRefreshButton:disabled {
+            background: #e9e7eb;
+            color: #aaa5b0;
+        }
+        QLabel#OverviewFactValue:hover { color: #5e438d; }
         QWidget#OverviewToolbar, QWidget#LogcatToolbar {
             background: #ffffff;
             border: none;
             border-bottom: 1px solid #dfe5ee;
         }
-        QFrame#OverviewCard {
-            background: #ffffff;
-            border: 1px solid #ccd5e2;
-            border-radius: 8px;
-        }
-        QWidget#OverviewInfoItem { background: transparent; }
-        QLabel#OverviewValue {
-            color: #172033;
-            padding: 0;
-        }
-        QLabel#OverviewValue:hover { color: #2f6df6; }
         QToolButton#OverviewToolButton, QToolButton#LogcatToolButton {
             background: transparent;
             border: none;
@@ -1041,6 +1154,218 @@ QString appStyleSheet()
             border-bottom: 1px solid #d6dde8;
             padding: 7px 8px;
             font-weight: 600;
+        }
+        QWidget#DisplayPage, QWidget#DisplayBody,
+        QWidget#MirroringPage, QWidget#MirroringContent {
+            background: #eef1f6;
+        }
+        QWidget#DisplayToolbar, QWidget#MirroringToolbar,
+        QWidget#MirrorModeBar, QWidget#MirroringFooter {
+            background: #ffffff;
+            border: none;
+            border-bottom: 1px solid #dfe5ee;
+        }
+        QLabel#DisplayStatus, QLabel#MirroringStatus { color: #7b8798; }
+        QToolButton#DisplayToolButton, QToolButton#MirrorIconButton {
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            color: #435066;
+        }
+        QToolButton#DisplayToolButton:hover, QToolButton#MirrorIconButton:hover {
+            background: #eaf2ff;
+            color: #2f6df6;
+        }
+        QToolButton#DisplayToolButton:disabled, QToolButton#MirrorIconButton:disabled {
+            color: #b5bdc9;
+            background: transparent;
+        }
+        QFrame#DisplayInfoCard, QFrame#DisplayPanel,
+        QFrame#MirrorCard {
+            background: #ffffff;
+            border: 1px solid #ccd5e2;
+            border-radius: 8px;
+        }
+        QLabel#DisplayInfoIcon, QLabel#MirrorCardIcon {
+            background: #eaf2ff;
+            color: #2f6df6;
+            border: none;
+            border-radius: 6px;
+        }
+        QLabel#DisplayInfoLabel, QLabel#DisplayFieldLabel,
+        QLabel#MirrorFieldLabel, QLabel#DisplayInputSuffix,
+        QLabel#DisplaySliderLabel, QLabel#DisplayRatesEmpty,
+        QLabel#MirroringFooterInfo {
+            color: #657185;
+        }
+    )") + QString::fromUtf8(R"(
+        QLabel#DisplayInfoValue, QLabel#DisplayPanelTitle,
+        QLabel#MirrorCardTitle {
+            color: #172033;
+        }
+        QFrame#DisplayInputFrame {
+            background: #ffffff;
+            border: 1px solid #cbd4e1;
+            border-radius: 6px;
+        }
+        QFrame#DisplayInputFrame:focus-within { border-color: #6f9ced; }
+        QLineEdit#DisplayInput {
+            background: transparent;
+            border: none;
+            color: #172033;
+            padding: 0;
+        }
+        QPushButton#DisplaySuggestionChip, QPushButton#DisplayRateChip {
+            background: #f5f7fa;
+            border: 1px solid #cbd4e1;
+            border-radius: 6px;
+            color: #435066;
+            padding: 0 10px;
+        }
+        QPushButton#DisplaySuggestionChip:hover,
+        QPushButton#DisplayRateChip:hover,
+        QPushButton#DisplayRateChip[selected="true"] {
+            background: #eaf2ff;
+            border-color: #9bbcf4;
+            color: #2f6df6;
+        }
+        QPushButton#DisplayResetButton {
+            min-width: 70px;
+            min-height: 38px;
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            color: #2f6df6;
+        }
+        QPushButton#DisplayResetButton:hover { background: #eef5ff; }
+        QPushButton#DisplayApplyButton {
+            min-width: 86px;
+            min-height: 38px;
+            background: #2f6df6;
+            border: none;
+            border-radius: 7px;
+            color: #ffffff;
+            padding: 0 16px;
+        }
+        QPushButton#DisplayApplyButton:hover { background: #245fe0; }
+        QPushButton#DisplayApplyButton:disabled,
+        QPushButton#DisplayResetButton:disabled {
+            background: #e8edf5;
+            color: #9aa5b5;
+        }
+        QFrame#DisplaySegment {
+            background: #f7f9fc;
+            border: 1px solid #cbd4e1;
+            border-radius: 7px;
+        }
+        QToolButton#DisplaySegmentButton {
+            background: transparent;
+            border: none;
+            border-right: 1px solid #d8dee8;
+            color: #293243;
+            padding: 0 8px;
+        }
+        QToolButton#DisplaySegmentButton:hover { background: #eef5ff; }
+        QToolButton#DisplaySegmentButton:checked,
+        QToolButton#DisplaySegmentButton[selected="true"] {
+            background: #dceaff;
+            color: #245fe0;
+        }
+        QSlider#DisplaySlider::groove:horizontal {
+            height: 5px;
+            background: #d7deea;
+            border-radius: 2px;
+        }
+        QSlider#DisplaySlider::sub-page:horizontal {
+            background: #2f6df6;
+            border-radius: 2px;
+        }
+        QSlider#DisplaySlider::handle:horizontal {
+            width: 16px;
+            margin: -6px 0;
+            background: #2f6df6;
+            border: 2px solid #ffffff;
+            border-radius: 8px;
+        }
+        QToolButton#MirrorModeButton {
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: #596579;
+            padding: 8px 12px;
+        }
+        QToolButton#MirrorModeButton:hover {
+            background: #f4f7fb;
+            color: #2f6df6;
+        }
+        QToolButton#MirrorModeButton:checked {
+            border-bottom-color: #2f6df6;
+            color: #2f6df6;
+        }
+        QLineEdit#MirrorInput, QComboBox#MirrorSelect {
+            min-height: 36px;
+            background: #ffffff;
+            border: 1px solid #cbd4e1;
+            border-radius: 6px;
+            color: #172033;
+            padding: 0 10px;
+        }
+        QLineEdit#MirrorInput:focus, QComboBox#MirrorSelect:focus {
+            border-color: #6f9ced;
+        }
+        QCheckBox#MirrorToggle {
+            min-height: 40px;
+            background: #f5f7fa;
+            border: none;
+            border-radius: 7px;
+            color: #293243;
+            padding: 0 12px;
+            spacing: 9px;
+        }
+        QCheckBox#MirrorToggle:hover { background: #eef5ff; }
+        QCheckBox#MirrorToggle::indicator {
+            width: 17px;
+            height: 17px;
+            background: #ffffff;
+            border: 1px solid #9ca8b9;
+            border-radius: 8px;
+        }
+        QCheckBox#MirrorToggle::indicator:checked {
+            background: #2f6df6;
+            border-color: #2f6df6;
+        }
+        QWidget#MirroringFooter {
+            border-top: 1px solid #d5dce7;
+            border-bottom: none;
+        }
+        QPushButton#MirrorSecondaryButton {
+            min-height: 40px;
+            background: #ffffff;
+            border: 1px solid #8e9bae;
+            border-radius: 7px;
+            color: #435066;
+            padding: 0 14px;
+        }
+        QPushButton#MirrorSecondaryButton:hover {
+            background: #eef5ff;
+            border-color: #6f9ced;
+            color: #2f6df6;
+        }
+        QPushButton#MirrorLaunchButton {
+            min-height: 42px;
+            background: #2f6df6;
+            border: none;
+            border-radius: 7px;
+            color: #ffffff;
+            padding: 0 18px;
+        }
+        QPushButton#MirrorLaunchButton:hover { background: #245fe0; }
+        QPushButton#MirrorLaunchButton[running="true"] { background: #293243; }
+        QPushButton#MirrorLaunchButton:disabled,
+        QPushButton#MirrorSecondaryButton:disabled {
+            background: #e8edf5;
+            border-color: #d8dee8;
+            color: #9aa5b5;
         }
     )");
 }

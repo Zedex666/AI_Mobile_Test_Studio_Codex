@@ -6,14 +6,17 @@
 #include <QBoxLayout>
 #include <QClipboard>
 #include <QEvent>
-#include <QFrame>
 #include <QFontMetrics>
+#include <QFrame>
 #include <QGridLayout>
 #include <QLabel>
 #include <QLocale>
-#include <QMouseEvent>
+#include <QProgressBar>
+#include <QPushButton>
 #include <QRegularExpression>
 #include <QResizeEvent>
+#include <QScrollArea>
+#include <QStackedLayout>
 #include <QToolButton>
 
 #include <algorithm>
@@ -51,13 +54,77 @@ QString formatBytes(qint64 bytes)
     }
     const int precision = value >= 100.0 ? 1 : 2;
     return QLocale::c().toString(value, 'f', precision)
-        .remove(QRegularExpression(QStringLiteral("\\.?0+$")))
-        + units[unit];
+               .remove(QRegularExpression(QStringLiteral("\\.?0+$")))
+        + QLatin1Char(' ') + units[unit];
 }
 
 QString valueOrUnknown(const QString &value)
 {
     return value.trimmed().isEmpty() ? ui::text("未知") : value.trimmed();
+}
+
+QString formatUptime(qint64 seconds)
+{
+    if (seconds <= 0) {
+        return QStringLiteral("--");
+    }
+    const qint64 days = seconds / 86400;
+    const qint64 hours = (seconds % 86400) / 3600;
+    const qint64 minutes = (seconds % 3600) / 60;
+    if (days > 0) {
+        return ui::text("%1 天 %2 小时").arg(days).arg(hours);
+    }
+    return ui::text("%1 小时 %2 分钟").arg(hours).arg(minutes);
+}
+
+int percentage(qint64 used, qint64 total)
+{
+    if (total <= 0) {
+        return 0;
+    }
+    return std::clamp(qRound(static_cast<double>(used) * 100.0
+                             / static_cast<double>(total)),
+                      0,
+                      100);
+}
+
+QFrame *makeMetricCard(const QString &icon,
+                       const QString &title,
+                       QLabel **value,
+                       QLabel **detail,
+                       QProgressBar **progress)
+{
+    auto *card = ui::makePanel("OverviewMetricCard");
+    card->setMinimumHeight(150);
+    card->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    auto *layout = new QHBoxLayout(card);
+    layout->setContentsMargins(22, 20, 22, 18);
+    layout->setSpacing(16);
+
+    auto *iconLabel = makeLabel(icon, 24, QFont::DemiBold, QStringLiteral("#59418d"));
+    iconLabel->setObjectName("OverviewMetricIcon");
+    iconLabel->setFixedSize(50, 50);
+    iconLabel->setAlignment(Qt::AlignCenter);
+    layout->addWidget(iconLabel, 0, Qt::AlignVCenter);
+
+    auto *content = new QWidget;
+    auto *contentLayout = new QVBoxLayout(content);
+    contentLayout->setContentsMargins(0, 0, 0, 0);
+    contentLayout->setSpacing(5);
+    contentLayout->addWidget(makeLabel(title, 9, QFont::Normal, QStringLiteral("#666174")));
+    *value = makeLabel(QStringLiteral("--"), 19, QFont::DemiBold, QStringLiteral("#1f1d28"));
+    contentLayout->addWidget(*value);
+    *detail = makeLabel(QStringLiteral("--"), 8, QFont::Normal, QStringLiteral("#777182"));
+    contentLayout->addWidget(*detail);
+    *progress = new QProgressBar;
+    (*progress)->setObjectName("OverviewMetricProgress");
+    (*progress)->setRange(0, 100);
+    (*progress)->setValue(0);
+    (*progress)->setTextVisible(false);
+    (*progress)->setFixedHeight(5);
+    contentLayout->addWidget(*progress);
+    layout->addWidget(content, 1);
+    return card;
 }
 
 } // namespace
@@ -66,85 +133,183 @@ OverviewPage::OverviewPage(QWidget *parent)
     : QWidget(parent)
 {
     setObjectName("OverviewPage");
-    auto *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(0);
+    auto *pageLayout = new QHBoxLayout(this);
+    pageLayout->setContentsMargins(22, 18, 22, 20);
+    pageLayout->setSpacing(18);
 
-    auto *toolbar = new QWidget;
-    toolbar->setObjectName("OverviewToolbar");
-    toolbar->setFixedHeight(48);
-    auto *toolbarLayout = new QHBoxLayout(toolbar);
-    toolbarLayout->setContentsMargins(22, 0, 18, 0);
-    toolbarLayout->setSpacing(12);
-    auto *title = makeLabel(ui::text("设备概览"), 11, QFont::DemiBold, QStringLiteral("#172033"));
-    m_statusLabel = makeLabel(ui::text("等待设备连接"),
-                              9,
-                              QFont::Normal,
-                              QStringLiteral("#7b8798"));
+    auto *scroll = new QScrollArea;
+    scroll->setObjectName("OverviewScroll");
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+    auto *leftContent = new QWidget;
+    leftContent->setObjectName("OverviewBody");
+    auto *leftLayout = new QVBoxLayout(leftContent);
+    leftLayout->setContentsMargins(0, 0, 4, 0);
+    leftLayout->setSpacing(16);
+
+    auto *hero = ui::makePanel("OverviewHero");
+    hero->setMinimumHeight(154);
+    auto *heroLayout = new QHBoxLayout(hero);
+    heroLayout->setContentsMargins(24, 20, 24, 20);
+    heroLayout->setSpacing(14);
+
+    auto *identity = new QWidget;
+    auto *identityLayout = new QVBoxLayout(identity);
+    identityLayout->setContentsMargins(0, 0, 0, 0);
+    identityLayout->setSpacing(8);
+    m_deviceName = makeLabel(ui::text("等待设备连接"),
+                             20,
+                             QFont::DemiBold,
+                             QStringLiteral("#211f29"));
+    m_deviceSubtitle = makeLabel(ui::text("连接 Android 设备后读取详细信息"),
+                                 9,
+                                 QFont::Normal,
+                                 QStringLiteral("#696475"));
+    m_deviceSubtitle->setWordWrap(true);
+    m_shizukuButton = new QPushButton(ui::text("●  启动 Shizuku"));
+    m_shizukuButton->setObjectName("OverviewShizukuButton");
+    m_shizukuButton->setCursor(Qt::PointingHandCursor);
+    m_shizukuButton->setFixedSize(156, 40);
+    m_shizukuButton->setEnabled(false);
+    identityLayout->addWidget(m_deviceName);
+    identityLayout->addWidget(m_deviceSubtitle);
+    identityLayout->addStretch();
+    identityLayout->addWidget(m_shizukuButton, 0, Qt::AlignLeft);
+    heroLayout->addWidget(identity, 1);
+
+    auto *actions = new QVBoxLayout;
+    actions->setContentsMargins(0, 0, 0, 0);
+    actions->setSpacing(8);
+    m_powerButton = new QToolButton;
+    m_powerButton->setObjectName("OverviewPowerButton");
+    m_powerButton->setText(QStringLiteral("⏻"));
+    m_powerButton->setToolTip(ui::text("切换设备电源状态"));
+    m_powerButton->setFixedSize(42, 42);
+    m_powerButton->setCursor(Qt::PointingHandCursor);
+    m_powerButton->setEnabled(false);
     m_refreshButton = new QToolButton;
-    m_refreshButton->setObjectName("OverviewToolButton");
+    m_refreshButton->setObjectName("OverviewRefreshButton");
     m_refreshButton->setText(QStringLiteral("↻"));
-    m_refreshButton->setToolTip(ui::text("刷新设备信息"));
-    m_refreshButton->setFixedSize(34, 34);
-    m_refreshButton->setFont(ui::appFont(15, QFont::DemiBold));
+    m_refreshButton->setToolTip(ui::text("刷新概览"));
+    m_refreshButton->setFixedSize(42, 42);
     m_refreshButton->setCursor(Qt::PointingHandCursor);
     m_refreshButton->setEnabled(false);
-    connect(m_refreshButton, &QToolButton::clicked, this, &OverviewPage::refreshRequested);
-    toolbarLayout->addWidget(title);
-    toolbarLayout->addWidget(m_statusLabel);
-    toolbarLayout->addStretch();
-    toolbarLayout->addWidget(m_refreshButton);
-    layout->addWidget(toolbar);
+    actions->addWidget(m_powerButton);
+    actions->addWidget(m_refreshButton);
+    actions->addStretch();
+    heroLayout->addLayout(actions);
+    leftLayout->addWidget(hero);
 
-    auto *body = new QWidget;
-    body->setObjectName("OverviewBody");
-    auto *bodyLayout = new QVBoxLayout(body);
-    bodyLayout->setContentsMargins(28, 24, 28, 24);
-    bodyLayout->setSpacing(0);
+    auto *metrics = new QWidget;
+    metrics->setObjectName("OverviewMetrics");
+    auto *metricsLayout = new QHBoxLayout(metrics);
+    metricsLayout->setContentsMargins(0, 0, 0, 0);
+    metricsLayout->setSpacing(14);
+    metricsLayout->addWidget(makeMetricCard(QStringLiteral("▣"),
+                                            ui::text("电池"),
+                                            &m_batteryValue,
+                                            &m_batteryDetail,
+                                            &m_batteryProgress));
+    metricsLayout->addWidget(makeMetricCard(QStringLiteral("▦"),
+                                            QStringLiteral("RAM"),
+                                            &m_memoryValue,
+                                            &m_memoryDetail,
+                                            &m_memoryProgress));
+    metricsLayout->addWidget(makeMetricCard(QStringLiteral("▤"),
+                                            ui::text("存储"),
+                                            &m_storageValue,
+                                            &m_storageDetail,
+                                            &m_storageProgress));
+    leftLayout->addWidget(metrics);
 
-    m_card = new QFrame;
-    m_card->setObjectName("OverviewCard");
-    m_card->setMinimumWidth(620);
-    m_card->setMaximumWidth(1260);
-    m_card->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
-    auto *grid = new QGridLayout(m_card);
-    grid->setContentsMargins(26, 22, 26, 22);
-    grid->setHorizontalSpacing(28);
-    grid->setVerticalSpacing(14);
-    for (int column = 0; column < 3; ++column) {
-        grid->setColumnStretch(column, 1);
+    auto *facts = new QWidget;
+    facts->setObjectName("OverviewFacts");
+    auto *factsLayout = new QGridLayout(facts);
+    factsLayout->setContentsMargins(0, 0, 0, 0);
+    factsLayout->setHorizontalSpacing(14);
+    factsLayout->setVerticalSpacing(14);
+    for (int column = 0; column < 4; ++column) {
+        factsLayout->setColumnStretch(column, 1);
     }
+    addFactCard(factsLayout, 0, 0, QStringLiteral("android"), QStringLiteral("⌁"), ui::text("Android"));
+    addFactCard(factsLayout, 0, 1, QStringLiteral("type"), QStringLiteral("▣"), ui::text("类型"));
+    addFactCard(factsLayout, 0, 2, QStringLiteral("model"), QStringLiteral("▯"), ui::text("型号"));
+    addFactCard(factsLayout, 0, 3, QStringLiteral("manufacturer"), QStringLiteral("▦"), ui::text("制造商"));
+    addFactCard(factsLayout, 1, 0, QStringLiteral("brand"), QStringLiteral("◇"), ui::text("品牌"));
+    addFactCard(factsLayout, 1, 1, QStringLiteral("abi"), QStringLiteral("▥"), ui::text("架构"));
+    addFactCard(factsLayout, 1, 2, QStringLiteral("product"), QStringLiteral("▤"), ui::text("产品"));
+    addFactCard(factsLayout, 1, 3, QStringLiteral("codename"), QStringLiteral("#"), ui::text("代号"));
+    addFactCard(factsLayout, 2, 0, QStringLiteral("serial"), QStringLiteral("№"), ui::text("序列号"));
+    addFactCard(factsLayout, 2, 1, QStringLiteral("uptime"), QStringLiteral("◷"), ui::text("运行时间"));
+    addFactCard(factsLayout, 2, 2, QStringLiteral("display"), QStringLiteral("▭"), ui::text("分辨率"));
+    addFactCard(factsLayout, 2, 3, QStringLiteral("kernel"), QStringLiteral("⌘"), ui::text("内核"));
+    leftLayout->addWidget(facts);
 
-    addInfoItem(grid, 0, 0, QStringLiteral("name"), QStringLiteral("▯"), ui::text("名称"));
-    addInfoItem(grid, 0, 1, QStringLiteral("brand"), QStringLiteral("i"), ui::text("品牌"));
-    addInfoItem(grid, 0, 2, QStringLiteral("model"), QStringLiteral("◇"), ui::text("型号"));
-    addInfoItem(grid, 1, 0, QStringLiteral("serial"), QStringLiteral("№"), ui::text("序列号"));
-    addInfoItem(grid, 1, 1, QStringLiteral("android"), QStringLiteral("⌁"), ui::text("Android 版本"));
-    addInfoItem(grid, 1, 2, QStringLiteral("kernel"), QStringLiteral("⌁"), ui::text("内核版本"));
-    addInfoItem(grid, 2, 0, QStringLiteral("processor"), QStringLiteral("▦"), ui::text("处理器"));
-    addInfoItem(grid, 2, 1, QStringLiteral("storage"), QStringLiteral("▤"), ui::text("存储"));
-    addInfoItem(grid, 2, 2, QStringLiteral("memory"), QStringLiteral("▥"), ui::text("内存"));
-    addInfoItem(grid, 3, 0, QStringLiteral("physical"), QStringLiteral("▯"), ui::text("物理分辨率"));
-    addInfoItem(grid, 3, 1, QStringLiteral("resolution"), QStringLiteral("▯"), ui::text("分辨率"));
-    addInfoItem(grid, 3, 2, QStringLiteral("font"), QStringLiteral("A"), ui::text("字体缩放"));
-    addInfoItem(grid, 4, 0, QStringLiteral("wifi"), QStringLiteral("⌁"), QStringLiteral("Wi-Fi"));
-    addInfoItem(grid, 4, 1, QStringLiteral("ip"), QStringLiteral("◎"), ui::text("IP 地址"));
-    addInfoItem(grid, 4, 2, QStringLiteral("mac"), QStringLiteral("◎"), ui::text("MAC 地址"));
+    m_statusLabel = makeLabel(ui::text("等待设备连接"),
+                              8,
+                              QFont::Normal,
+                              QStringLiteral("#777182"));
+    m_statusLabel->setObjectName("OverviewStatus");
+    leftLayout->addWidget(m_statusLabel);
+    leftLayout->addStretch();
+    scroll->setWidget(leftContent);
+    pageLayout->addWidget(scroll, 1);
 
-    auto *cardRow = new QHBoxLayout;
-    cardRow->setContentsMargins(0, 0, 0, 0);
-    cardRow->addWidget(m_card, 0, Qt::AlignLeft | Qt::AlignTop);
-    bodyLayout->addLayout(cardRow);
+    auto *preview = ui::makePanel("OverviewPreviewPanel");
+    preview->setMinimumWidth(260);
+    preview->setMaximumWidth(380);
+    auto *previewLayout = new QVBoxLayout(preview);
+    previewLayout->setContentsMargins(14, 14, 14, 16);
+    previewLayout->setSpacing(12);
+    auto *previewHeader = new QHBoxLayout;
+    previewHeader->addWidget(makeLabel(ui::text("实时屏幕"),
+                                       10,
+                                       QFont::DemiBold,
+                                       QStringLiteral("#302b3a")));
+    previewHeader->addStretch();
+    auto *previewState = makeLabel(ui::text("ADB 截图"),
+                                   8,
+                                   QFont::Normal,
+                                   QStringLiteral("#777182"));
+    previewHeader->addWidget(previewState);
+    previewLayout->addLayout(previewHeader);
 
-    m_emptyLabel = makeLabel(ui::text("连接 Android 设备后显示设备信息"),
-                             10,
-                             QFont::Normal,
-                             QStringLiteral("#8b96a8"));
-    m_emptyLabel->setAlignment(Qt::AlignCenter);
-    bodyLayout->addSpacing(12);
-    bodyLayout->addWidget(m_emptyLabel);
-    bodyLayout->addStretch();
-    layout->addWidget(body, 1);
+    auto *phone = ui::makePanel("OverviewPhoneFrame");
+    phone->setMinimumSize(220, 400);
+    auto *phoneLayout = new QVBoxLayout(phone);
+    phoneLayout->setContentsMargins(7, 7, 7, 7);
+    phoneLayout->setSpacing(0);
+    m_screenshotLabel = new QLabel;
+    m_screenshotLabel->setObjectName("OverviewScreenshot");
+    m_screenshotLabel->setAlignment(Qt::AlignCenter);
+    m_screenshotLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    m_screenshotLabel->installEventFilter(this);
+    m_screenshotPlaceholder = makeLabel(ui::text("连接设备后\n显示屏幕预览"),
+                                        10,
+                                        QFont::Normal,
+                                        QStringLiteral("#928c9d"));
+    m_screenshotPlaceholder->setAlignment(Qt::AlignCenter);
+    auto *phoneStack = new QStackedLayout;
+    phoneStack->setStackingMode(QStackedLayout::StackAll);
+    phoneStack->addWidget(m_screenshotLabel);
+    phoneStack->addWidget(m_screenshotPlaceholder);
+    phoneLayout->addLayout(phoneStack);
+    previewLayout->addWidget(phone, 1);
+
+    m_screenshotButton = new QPushButton(ui::text("▣  截图"));
+    m_screenshotButton->setObjectName("OverviewScreenshotButton");
+    m_screenshotButton->setCursor(Qt::PointingHandCursor);
+    m_screenshotButton->setFixedSize(128, 38);
+    m_screenshotButton->setEnabled(false);
+    previewLayout->addWidget(m_screenshotButton, 0, Qt::AlignHCenter);
+    pageLayout->addWidget(preview);
+
+    connect(m_refreshButton, &QToolButton::clicked, this, &OverviewPage::refreshRequested);
+    connect(m_screenshotButton, &QPushButton::clicked, this, &OverviewPage::screenshotRequested);
+    connect(m_shizukuButton, &QPushButton::clicked, this, &OverviewPage::shizukuRequested);
+    connect(m_powerButton, &QToolButton::clicked, this, &OverviewPage::powerRequested);
     resetValues();
 }
 
@@ -160,16 +325,26 @@ void OverviewPage::setDeviceConnected(bool connected, const QString &serial)
     const bool deviceChanged = m_serial != serial;
     m_connected = connected;
     m_serial = connected ? serial : QString();
-    m_refreshButton->setEnabled(connected);
-    m_statusLabel->setText(connected ? ui::text("已连接 · %1").arg(serial)
-                                     : ui::text("等待设备连接"));
-    m_statusLabel->setStyleSheet(connected ? QStringLiteral("color:#4f8f3d;")
-                                           : QStringLiteral("color:#7b8798;"));
+    for (QWidget *control : {static_cast<QWidget *>(m_refreshButton),
+                             static_cast<QWidget *>(m_powerButton),
+                             static_cast<QWidget *>(m_shizukuButton),
+                             static_cast<QWidget *>(m_screenshotButton)}) {
+        control->setEnabled(connected);
+    }
     if (!connected || deviceChanged) {
         m_hasData = false;
+        m_screenshot = QPixmap();
         resetValues();
     }
-    m_emptyLabel->setVisible(!connected);
+    m_deviceName->setText(connected ? serial : ui::text("等待设备连接"));
+    m_deviceSubtitle->setText(connected ? ui::text("正在读取设备信息…")
+                                         : ui::text("连接 Android 设备后读取详细信息"));
+    m_statusLabel->setText(connected ? ui::text("已连接 · %1").arg(serial)
+                                     : ui::text("等待设备连接"));
+    m_screenshotPlaceholder->setText(connected ? ui::text("正在获取屏幕截图…")
+                                                : ui::text("连接设备后\n显示屏幕预览"));
+    m_screenshotPlaceholder->setVisible(m_screenshot.isNull());
+    updateScreenshotPixmap();
 }
 
 void OverviewPage::setLoading(bool loading)
@@ -177,7 +352,7 @@ void OverviewPage::setLoading(bool loading)
     m_refreshButton->setEnabled(m_connected && !loading);
     if (loading) {
         m_statusLabel->setText(ui::text("正在读取设备信息…"));
-        m_statusLabel->setStyleSheet(QStringLiteral("color:#596579;"));
+        m_statusLabel->setStyleSheet(QStringLiteral("color:#696475;"));
     } else if (m_connected) {
         m_statusLabel->setText(m_hasData ? ui::text("设备信息已更新")
                                          : ui::text("已连接 · %1").arg(m_serial));
@@ -188,53 +363,94 @@ void OverviewPage::setLoading(bool loading)
 void OverviewPage::setOverview(const DeviceOverview &overview)
 {
     m_hasData = true;
-    setValue(QStringLiteral("name"), valueOrUnknown(overview.name));
-    setValue(QStringLiteral("brand"), valueOrUnknown(overview.brand));
-    setValue(QStringLiteral("model"), valueOrUnknown(overview.model));
-    setValue(QStringLiteral("serial"), valueOrUnknown(overview.serialNumber));
+    m_deviceName->setText(valueOrUnknown(overview.name));
+    QStringList subtitle;
+    const QString vendorModel = (overview.manufacturer + QLatin1Char(' ')
+                                 + overview.model).trimmed();
+    if (!vendorModel.isEmpty()) {
+        subtitle.append(vendorModel);
+    }
+    if (!overview.processor.isEmpty()) {
+        subtitle.append(overview.processor);
+    }
+    QString summary = subtitle.join(QStringLiteral(" · "));
+    if (!overview.codename.isEmpty()) {
+        summary += QStringLiteral(" (%1)").arg(overview.codename);
+    }
+    m_deviceSubtitle->setText(summary.isEmpty() ? m_serial : summary);
+
+    m_batteryValue->setText(overview.batteryLevel >= 0
+                                ? QStringLiteral("%1%").arg(overview.batteryLevel)
+                                : QStringLiteral("--"));
+    m_batteryDetail->setText(ui::text("健康状态：%1")
+                                 .arg(valueOrUnknown(overview.batteryHealth)));
+    m_batteryProgress->setValue(std::max(0, overview.batteryLevel));
+    m_memoryValue->setText(formatBytes(overview.memoryUsedBytes));
+    m_memoryDetail->setText(ui::text("总计：%1").arg(formatBytes(overview.memoryTotalBytes)));
+    m_memoryProgress->setValue(percentage(overview.memoryUsedBytes,
+                                          overview.memoryTotalBytes));
+    m_storageValue->setText(formatBytes(overview.storageUsedBytes));
+    m_storageDetail->setText(ui::text("总计：%1").arg(formatBytes(overview.storageTotalBytes)));
+    m_storageProgress->setValue(percentage(overview.storageUsedBytes,
+                                           overview.storageTotalBytes));
+
     setValue(QStringLiteral("android"),
              overview.androidVersion.isEmpty()
                  ? ui::text("未知")
-                 : QStringLiteral("Android %1 (API %2)")
+                 : QStringLiteral("%1 (API %2)")
                        .arg(overview.androidVersion,
                             overview.sdkVersion.isEmpty() ? QStringLiteral("--")
                                                           : overview.sdkVersion));
-    setValue(QStringLiteral("kernel"), valueOrUnknown(overview.kernelVersion));
-    setValue(QStringLiteral("processor"),
-             ui::text("%1 %2 核 (%3)")
-                 .arg(valueOrUnknown(overview.processor))
-                 .arg(overview.cpuCount > 0 ? QString::number(overview.cpuCount)
-                                            : QStringLiteral("--"))
-                 .arg(valueOrUnknown(overview.abi)));
-    setValue(QStringLiteral("storage"),
-             overview.storageTotalBytes > 0
-                 ? QStringLiteral("%1 / %2")
-                       .arg(formatBytes(overview.storageUsedBytes),
-                            formatBytes(overview.storageTotalBytes))
-                 : QStringLiteral("--"));
-    setValue(QStringLiteral("memory"), formatBytes(overview.memoryTotalBytes));
-    setValue(QStringLiteral("physical"),
-             overview.physicalResolution.isEmpty()
-                 ? ui::text("未知")
-                 : QStringLiteral("%1 (%2dpi)")
-                       .arg(overview.physicalResolution,
-                            overview.physicalDensity.isEmpty() ? QStringLiteral("--")
-                                                               : overview.physicalDensity));
-    setValue(QStringLiteral("resolution"),
+    setValue(QStringLiteral("type"), valueOrUnknown(overview.deviceType));
+    setValue(QStringLiteral("model"), valueOrUnknown(overview.model));
+    setValue(QStringLiteral("manufacturer"), valueOrUnknown(overview.manufacturer));
+    setValue(QStringLiteral("brand"), valueOrUnknown(overview.brand));
+    setValue(QStringLiteral("abi"), valueOrUnknown(overview.abi));
+    setValue(QStringLiteral("product"), valueOrUnknown(overview.product));
+    setValue(QStringLiteral("codename"), valueOrUnknown(overview.codename));
+    setValue(QStringLiteral("serial"), valueOrUnknown(overview.serialNumber));
+    setValue(QStringLiteral("uptime"), formatUptime(overview.uptimeSeconds));
+    setValue(QStringLiteral("display"),
              overview.resolution.isEmpty()
-                 ? ui::text("未知")
-                 : QStringLiteral("%1 (%2dpi)")
-                       .arg(overview.resolution,
-                            overview.density.isEmpty() ? QStringLiteral("--")
-                                                       : overview.density));
-    QString fontScale = QLocale::c().toString(overview.fontScale, 'f', 2);
-    fontScale.remove(QRegularExpression(QStringLiteral("\\.?0+$")));
-    setValue(QStringLiteral("font"), fontScale + QStringLiteral("x"));
-    setValue(QStringLiteral("wifi"), valueOrUnknown(overview.wifi));
-    setValue(QStringLiteral("ip"), valueOrUnknown(overview.ipAddress));
-    setValue(QStringLiteral("mac"), valueOrUnknown(overview.macAddress));
-    m_emptyLabel->setVisible(false);
+                 ? valueOrUnknown(overview.physicalResolution)
+                 : overview.resolution);
+    setValue(QStringLiteral("kernel"), valueOrUnknown(overview.kernelVersion));
     setLoading(false);
+}
+
+void OverviewPage::setScreenshotLoading(bool loading)
+{
+    m_screenshotButton->setEnabled(m_connected && !loading);
+    if (loading && m_screenshot.isNull()) {
+        m_screenshotPlaceholder->setText(ui::text("正在获取屏幕截图…"));
+        m_screenshotPlaceholder->setVisible(true);
+    }
+}
+
+void OverviewPage::setScreenshot(const QByteArray &pngData)
+{
+    QPixmap screenshot;
+    if (!screenshot.loadFromData(pngData, "PNG")) {
+        showError(ui::text("设备返回了无效的截图数据。"));
+        return;
+    }
+    m_screenshot = screenshot;
+    m_screenshotPlaceholder->setVisible(false);
+    updateScreenshotPixmap();
+}
+
+void OverviewPage::showActionResult(bool success,
+                                    const QString &label,
+                                    const QString &detail)
+{
+    m_statusLabel->setStyleSheet(success ? QStringLiteral("color:#4f8f3d;")
+                                          : QStringLiteral("color:#c84f55;"));
+    m_statusLabel->setText(success ? ui::text("%1完成").arg(label)
+                                   : ui::text("%1失败：%2").arg(label, detail.left(100)));
+    m_statusLabel->setToolTip(detail);
+    if (success && label.contains(QStringLiteral("电源"))) {
+        emit screenshotRequested();
+    }
 }
 
 void OverviewPage::showError(const QString &message)
@@ -242,29 +458,23 @@ void OverviewPage::showError(const QString &message)
     if (!m_connected) {
         return;
     }
-    m_statusLabel->setText(ui::text("读取失败：%1").arg(message.left(80)));
+    m_statusLabel->setText(ui::text("读取失败：%1").arg(message.left(100)));
     m_statusLabel->setToolTip(message);
-    m_statusLabel->setStyleSheet(QStringLiteral("color:#d45b5b;"));
+    m_statusLabel->setStyleSheet(QStringLiteral("color:#c84f55;"));
 }
 
 bool OverviewPage::eventFilter(QObject *watched, QEvent *event)
 {
-    auto *label = qobject_cast<QLabel *>(watched);
-    if (event->type() == QEvent::Resize && label != nullptr) {
-        const QString value = label->property("copyValue").toString();
-        if (!value.isEmpty()) {
-            label->setText(QFontMetrics(label->font()).elidedText(
-                value, Qt::ElideRight, label->width()));
-        }
+    if (watched == m_screenshotLabel && event->type() == QEvent::Resize) {
+        updateScreenshotPixmap();
     }
-    if (event->type() == QEvent::MouseButtonRelease) {
-        if (label != nullptr) {
-            const QString value = label->property("copyValue").toString();
-            if (!value.isEmpty() && value != QStringLiteral("--") && value != ui::text("未知")) {
-                QApplication::clipboard()->setText(value);
-                m_statusLabel->setText(ui::text("已复制：%1").arg(value.left(48)));
-                m_statusLabel->setStyleSheet(QStringLiteral("color:#2f6df6;"));
-            }
+    auto *label = qobject_cast<QLabel *>(watched);
+    if (label != nullptr && event->type() == QEvent::MouseButtonRelease) {
+        const QString value = label->property("copyValue").toString();
+        if (!value.isEmpty() && value != QStringLiteral("--") && value != ui::text("未知")) {
+            QApplication::clipboard()->setText(value);
+            m_statusLabel->setText(ui::text("已复制：%1").arg(value.left(48)));
+            m_statusLabel->setStyleSheet(QStringLiteral("color:#5b458f;"));
         }
     }
     return QWidget::eventFilter(watched, event);
@@ -273,50 +483,41 @@ bool OverviewPage::eventFilter(QObject *watched, QEvent *event)
 void OverviewPage::resizeEvent(QResizeEvent *event)
 {
     QWidget::resizeEvent(event);
-    if (m_card != nullptr) {
-        const int availableWidth = qRound(event->size().width()
-                                          / std::max<qreal>(1.0, devicePixelRatioF()))
-            - 56;
-        m_card->setFixedWidth(std::clamp(availableWidth, 620, 1260));
-    }
+    updateScreenshotPixmap();
 }
 
-QLabel *OverviewPage::addInfoItem(QGridLayout *layout,
-                                  int row,
-                                  int column,
-                                  const QString &key,
-                                  const QString &icon,
-                                  const QString &title)
+void OverviewPage::addFactCard(QGridLayout *layout,
+                               int row,
+                               int column,
+                               const QString &key,
+                               const QString &icon,
+                               const QString &title)
 {
-    auto *item = new QWidget;
-    item->setObjectName("OverviewInfoItem");
-    item->setMinimumWidth(0);
-    item->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
-    auto *itemLayout = new QVBoxLayout(item);
-    itemLayout->setContentsMargins(0, 0, 0, 0);
-    itemLayout->setSpacing(7);
-    auto *titleLabel = makeLabel(icon + QStringLiteral("  ") + title,
-                                 10,
-                                 QFont::Normal,
-                                 QStringLiteral("#596579"));
-    titleLabel->setMinimumWidth(0);
-    titleLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
-    auto *valueLabel = makeLabel(QStringLiteral("--"),
-                                 12,
-                                 QFont::Normal,
-                                 QStringLiteral("#172033"));
-    valueLabel->setMinimumWidth(0);
-    valueLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
-    valueLabel->setObjectName("OverviewValue");
-    valueLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    valueLabel->setCursor(Qt::PointingHandCursor);
-    valueLabel->setToolTip(ui::text("单击复制"));
-    valueLabel->installEventFilter(this);
-    itemLayout->addWidget(titleLabel);
-    itemLayout->addWidget(valueLabel);
-    layout->addWidget(item, row, column);
-    m_values.insert(key, valueLabel);
-    return valueLabel;
+    auto *card = ui::makePanel("OverviewFactCard");
+    card->setMinimumSize(132, 152);
+    card->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    auto *cardLayout = new QVBoxLayout(card);
+    cardLayout->setContentsMargins(18, 16, 18, 16);
+    cardLayout->setSpacing(8);
+    auto *iconLabel = makeLabel(icon, 19, QFont::DemiBold, QStringLiteral("#382653"));
+    iconLabel->setObjectName("OverviewFactIcon");
+    iconLabel->setFixedSize(46, 46);
+    iconLabel->setAlignment(Qt::AlignCenter);
+    cardLayout->addWidget(iconLabel);
+    cardLayout->addWidget(makeLabel(title, 9, QFont::DemiBold, QStringLiteral("#625d6e")));
+    auto *value = makeLabel(QStringLiteral("--"),
+                            13,
+                            QFont::DemiBold,
+                            QStringLiteral("#24212c"));
+    value->setObjectName("OverviewFactValue");
+    value->setMinimumWidth(0);
+    value->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    value->setCursor(Qt::PointingHandCursor);
+    value->installEventFilter(this);
+    cardLayout->addWidget(value);
+    cardLayout->addStretch();
+    layout->addWidget(card, row, column);
+    m_values.insert(key, value);
 }
 
 void OverviewPage::resetValues()
@@ -324,8 +525,18 @@ void OverviewPage::resetValues()
     for (QLabel *label : std::as_const(m_values)) {
         label->setText(QStringLiteral("--"));
         label->setProperty("copyValue", QString());
-        label->setToolTip(ui::text("单击复制"));
+        label->setToolTip(QString());
     }
+    for (QLabel *label : {m_batteryValue, m_memoryValue, m_storageValue}) {
+        label->setText(QStringLiteral("--"));
+    }
+    for (QLabel *label : {m_batteryDetail, m_memoryDetail, m_storageDetail}) {
+        label->setText(QStringLiteral("--"));
+    }
+    for (QProgressBar *progress : {m_batteryProgress, m_memoryProgress, m_storageProgress}) {
+        progress->setValue(0);
+    }
+    m_screenshotLabel->clear();
 }
 
 void OverviewPage::setValue(const QString &key, const QString &value)
@@ -335,9 +546,19 @@ void OverviewPage::setValue(const QString &key, const QString &value)
         return;
     }
     label->setProperty("copyValue", value);
-    label->setText(label->width() > 0
-                       ? QFontMetrics(label->font()).elidedText(
-                             value, Qt::ElideRight, label->width())
-                       : value);
+    label->setText(QFontMetrics(label->font()).elidedText(value,
+                                                          Qt::ElideRight,
+                                                          std::max(80, label->width())));
     label->setToolTip(value);
+}
+
+void OverviewPage::updateScreenshotPixmap()
+{
+    if (m_screenshot.isNull() || m_screenshotLabel->size().isEmpty()) {
+        m_screenshotLabel->clear();
+        return;
+    }
+    m_screenshotLabel->setPixmap(m_screenshot.scaled(m_screenshotLabel->size(),
+                                                      Qt::KeepAspectRatio,
+                                                      Qt::SmoothTransformation));
 }

@@ -34,7 +34,8 @@ flowchart TB
 
 | Service | 当前职责 |
 | --- | --- |
-| `ScrcpyService` | ADB 设备轮询、镜像进程启动停止和错误处理 |
+| `ScrcpyService` | ADB 设备轮询、主屏幕/虚拟屏幕/摄像头镜像、录制和错误处理 |
+| `DisplayService` | 分辨率、密度、超时、刷新率、主题、字体和动画设置的异步读写 |
 | `TerminalService` | ADB transport、`shell,v2`/legacy、多终端会话和 resize |
 | `AdbControlService` | Android KEYCODE、电源和系统快捷操作 |
 | `PackageManagerService` | 软件包查询、详情、安装、卸载、启停用和清数据 |
