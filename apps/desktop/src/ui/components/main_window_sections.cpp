@@ -97,42 +97,29 @@ QPushButton *makeWorkspaceNavButton(const QString &icon,
     return button;
 }
 
-QWidget *makeToolbarAction(const QString &icon, const QString &labelText)
-{
-    auto *widget = new QWidget;
-    widget->setFixedWidth(72);
-    auto *layout = new QVBoxLayout(widget);
-    layout->setContentsMargins(0, 4, 0, 2);
-    layout->setSpacing(2);
-
-    auto *iconLabel = makeLabel(icon, 16, QFont::DemiBold, "#172033");
-    iconLabel->setAlignment(Qt::AlignCenter);
-    auto *textLabel = makeLabel(labelText, 8, QFont::Normal, "#172033");
-    textLabel->setAlignment(Qt::AlignCenter);
-
-    layout->addWidget(iconLabel);
-    layout->addWidget(textLabel);
-    return widget;
-}
-
 DeviceSelector makeDeviceSelector()
 {
     DeviceSelector selector;
     selector.widget = makePanel("DeviceSelector");
-    selector.widget->setFixedSize(250, 44);
+    selector.widget->setFixedHeight(44);
+    selector.widget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     auto *layout = new QHBoxLayout(selector.widget);
-    layout->setContentsMargins(14, 0, 12, 0);
-    layout->setSpacing(10);
+    layout->setContentsMargins(10, 0, 9, 0);
+    layout->setSpacing(6);
 
-    layout->addWidget(makeLabel(text("▯"), 17, QFont::DemiBold, "#1f2937"));
-    selector.nameLabel = makeLabel(text("正在检测设备"), 10, QFont::DemiBold, "#172033");
-    layout->addWidget(selector.nameLabel);
-    layout->addStretch();
-    selector.statusDot = makeLabel(text("●"), 13, QFont::DemiBold, "#aab3c2");
-    selector.statusLabel = makeLabel(text("检测中"), 10, QFont::Normal, "#596579");
+    auto *deviceIcon = makeLabel(text("▯"), 14, QFont::DemiBold, "#1f2937");
+    deviceIcon->setFixedWidth(18);
+    deviceIcon->setAlignment(Qt::AlignCenter);
+    layout->addWidget(deviceIcon);
+    selector.nameLabel = makeLabel(text("正在检测设备"), 9, QFont::DemiBold, "#172033");
+    selector.nameLabel->setMinimumWidth(0);
+    selector.nameLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    layout->addWidget(selector.nameLabel, 1);
+    selector.statusDot = makeLabel(text("●"), 10, QFont::DemiBold, "#aab3c2");
+    selector.statusLabel = makeLabel(text("检测中"), 8, QFont::Normal, "#596579");
     layout->addWidget(selector.statusDot);
     layout->addWidget(selector.statusLabel);
-    layout->addWidget(makeLabel(text("⌄"), 12, QFont::Normal, "#7b8798"));
+    layout->addWidget(makeLabel(text("⌄"), 10, QFont::Normal, "#7b8798"));
     return selector;
 }
 
@@ -311,9 +298,21 @@ SidebarSection createSidebar()
     section.widget = makePanel("Sidebar");
     section.widget->setFixedWidth(252);
     auto *layout = new QVBoxLayout(section.widget);
-    layout->setContentsMargins(22, 6, 22, 8);
-    layout->setSpacing(2);
-    layout->setAlignment(Qt::AlignTop);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0);
+
+    auto *navigationScroll = new QScrollArea;
+    navigationScroll->setObjectName("SidebarNavigationScroll");
+    navigationScroll->setWidgetResizable(true);
+    navigationScroll->setFrameShape(QFrame::NoFrame);
+    navigationScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    navigationScroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    auto *navigation = new QWidget;
+    navigation->setObjectName("SidebarNavigation");
+    auto *navigationLayout = new QVBoxLayout(navigation);
+    navigationLayout->setContentsMargins(22, 6, 22, 6);
+    navigationLayout->setSpacing(1);
+    navigationLayout->setAlignment(Qt::AlignTop);
 
     section.overviewButton = makeWorkspaceNavButton(text("◫"), text("概览"), true);
     section.displayButton = makeWorkspaceNavButton(text("↔"), QStringLiteral("Display"), false);
@@ -329,61 +328,42 @@ SidebarSection createSidebar()
     section.layoutButton = makeWorkspaceNavButton(text("▦"), text("布局"), false);
     section.logcatButton = makeWorkspaceNavButton(text("≡"), text("日志"), false);
     section.otherButton = makeWorkspaceNavButton(text("</>"), text("其它"), false);
-    layout->addWidget(section.overviewButton);
-    layout->addWidget(section.displayButton);
-    layout->addWidget(section.mirroringButton);
-    layout->addWidget(section.chatButton);
-    layout->addWidget(section.deviceControlButton);
-    layout->addWidget(section.packageManagerButton);
-    layout->addWidget(section.appsButton);
-    layout->addWidget(section.filesButton);
-    layout->addWidget(section.processButton);
-    layout->addWidget(section.recoveryButton);
-    layout->addWidget(section.performanceButton);
-    layout->addWidget(section.layoutButton);
-    layout->addWidget(section.logcatButton);
-    layout->addWidget(section.otherButton);
-    layout->addWidget(makeNavItem(text("⚙"), text("设置")));
-    layout->addWidget(makeNavItem(text("i"), text("关于")));
+    navigationLayout->addWidget(section.overviewButton);
+    navigationLayout->addWidget(section.displayButton);
+    navigationLayout->addWidget(section.mirroringButton);
+    navigationLayout->addWidget(section.chatButton);
+    navigationLayout->addWidget(section.deviceControlButton);
+    navigationLayout->addWidget(section.packageManagerButton);
+    navigationLayout->addWidget(section.appsButton);
+    navigationLayout->addWidget(section.filesButton);
+    navigationLayout->addWidget(section.processButton);
+    navigationLayout->addWidget(section.recoveryButton);
+    navigationLayout->addWidget(section.performanceButton);
+    navigationLayout->addWidget(section.layoutButton);
+    navigationLayout->addWidget(section.logcatButton);
+    navigationLayout->addWidget(section.otherButton);
+    navigationLayout->addWidget(makeNavItem(text("⚙"), text("设置")));
+    navigationLayout->addWidget(makeNavItem(text("i"), text("关于")));
+    navigationLayout->addStretch();
+    navigationScroll->setWidget(navigation);
+    layout->addWidget(navigationScroll, 1);
+
+    auto *footer = new QWidget;
+    footer->setObjectName("SidebarFooter");
+    auto *footerLayout = new QVBoxLayout(footer);
+    footerLayout->setContentsMargins(22, 4, 22, 8);
+    footerLayout->setSpacing(3);
     const SideStatus sideStatus = makeSideStatus();
     section.statusDot = sideStatus.statusDot;
     section.statusTitle = sideStatus.statusTitle;
     section.statusDetail = sideStatus.statusDetail;
-    layout->addWidget(sideStatus.widget);
-    return section;
-}
-
-ToolbarSection createToolbar()
-{
-    ToolbarSection section;
-    section.widget = makePanel("Toolbar");
-    section.widget->setFixedHeight(76);
-    auto *layout = new QHBoxLayout(section.widget);
-    layout->setContentsMargins(18, 14, 18, 14);
-    layout->setSpacing(18);
-
+    footerLayout->addWidget(sideStatus.widget);
     const DeviceSelector selector = makeDeviceSelector();
     section.deviceNameLabel = selector.nameLabel;
     section.deviceStatusDot = selector.statusDot;
     section.deviceStatusLabel = selector.statusLabel;
-    layout->addWidget(selector.widget);
-
-    section.mirrorButton = new QPushButton(text("▶  启动镜像"));
-    section.mirrorButton->setObjectName("MirrorButton");
-    section.mirrorButton->setFixedSize(118, 44);
-    section.mirrorButton->setCursor(Qt::PointingHandCursor);
-    section.mirrorButton->setToolTip(text("启动 scrcpy 手机镜像"));
-    section.mirrorButton->setFont(appFont(10, QFont::DemiBold));
-    section.mirrorButton->setEnabled(false);
-    layout->addWidget(section.mirrorButton);
-
-    layout->addWidget(makeDivider());
-    layout->addWidget(makeToolbarAction(text("↻"), text("刷新")));
-    layout->addWidget(makeToolbarAction(text("▣"), text("截图")));
-    layout->addWidget(makeToolbarAction(text("▰"), text("录屏")));
-    layout->addWidget(makeToolbarAction(text("…"), text("更多")));
-    layout->addWidget(makeDivider());
-    layout->addStretch();
+    footerLayout->addWidget(selector.widget);
+    layout->addWidget(footer);
     return section;
 }
 

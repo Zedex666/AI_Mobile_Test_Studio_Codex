@@ -66,6 +66,7 @@
 
 ### Changed
 
+- 移除主工作区顶部设备与快捷操作栏，将设备选择和连接状态控件迁移到侧边栏底部；镜像启动与停止继续由 `Mirroring` 工作区提供。
 - “概览”主工作区参考 ADB-App Home 重建为设备标题、电池/RAM/存储指标、设备属性卡片和实时屏幕截图布局，并补充电源切换与 Shizuku 启动入口。
 - 侧边栏 `Files` 更名为“文件”；文件主工作区参考 ADB Explorer 重建双层资源管理器工具栏、设备驱动器主页、文件列表/网格和右侧详情面板，同时保留原有真实文件操作能力。
 - CMake 构建、安装和增量链接依赖新增 `resources/appium-inspector/`，构建后自动复制到应用旁的 `runtime/appium-inspector/`；完整 Inspector 推荐使用包含 WebEngineWidgets 的 MSVC Qt 套件。

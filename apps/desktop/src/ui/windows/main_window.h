@@ -51,7 +51,6 @@ private:
     void updateDeviceUi(ScrcpyService::DeviceState state,
                         const QString &serial,
                         const QString &detail);
-    void updateMirrorUi(bool running);
 
     ScrcpyService *m_scrcpyService = nullptr;
     AdbControlService *m_adbControlService = nullptr;
@@ -95,7 +94,6 @@ private:
     QPushButton *m_layoutNavButton = nullptr;
     QPushButton *m_logcatNavButton = nullptr;
     QPushButton *m_otherNavButton = nullptr;
-    QPushButton *m_mirrorButton = nullptr;
     QLabel *m_deviceNameLabel = nullptr;
     QLabel *m_deviceStatusDot = nullptr;
     QLabel *m_deviceStatusLabel = nullptr;

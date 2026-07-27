@@ -170,18 +170,15 @@ void MainWindow::buildUi()
     m_sidebarStatusDot = sidebar.statusDot;
     m_sidebarStatusTitle = sidebar.statusTitle;
     m_sidebarStatusDetail = sidebar.statusDetail;
+    m_deviceNameLabel = sidebar.deviceNameLabel;
+    m_deviceStatusDot = sidebar.deviceStatusDot;
+    m_deviceStatusLabel = sidebar.deviceStatusLabel;
     contentLayout->addWidget(sidebar.widget);
 
     auto *workspace = new QWidget;
     auto *workspaceLayout = new QVBoxLayout(workspace);
     workspaceLayout->setContentsMargins(0, 0, 0, 0);
     workspaceLayout->setSpacing(0);
-    const ui::ToolbarSection toolbar = ui::createToolbar();
-    m_mirrorButton = toolbar.mirrorButton;
-    m_deviceNameLabel = toolbar.deviceNameLabel;
-    m_deviceStatusDot = toolbar.deviceStatusDot;
-    m_deviceStatusLabel = toolbar.deviceStatusLabel;
-    workspaceLayout->addWidget(toolbar.widget);
 
     m_workspaceStack = new QStackedWidget;
     m_workspaceStack->setObjectName("WorkspaceStack");
@@ -236,21 +233,10 @@ void MainWindow::configureScrcpy()
 
     m_scrcpyService = new ScrcpyService(scrcpyPath, this);
 
-    connect(m_mirrorButton, &QPushButton::clicked, this, [this] {
-        if (m_scrcpyService->mirrorRunning()) {
-            m_scrcpyService->stopMirror();
-        } else {
-            m_scrcpyService->startMirror();
-        }
-    });
     connect(m_scrcpyService,
             &ScrcpyService::deviceStateChanged,
             this,
             &MainWindow::updateDeviceUi);
-    connect(m_scrcpyService,
-            &ScrcpyService::mirrorRunningChanged,
-            this,
-            &MainWindow::updateMirrorUi);
     connect(m_scrcpyService,
             &ScrcpyService::mirrorRunningChanged,
             m_mirroringPage,
@@ -1099,21 +1085,4 @@ void MainWindow::updateDeviceUi(ScrcpyService::DeviceState state,
     m_sidebarStatusDot->setStyleSheet(QStringLiteral("color:%1;").arg(statusColor));
     m_sidebarStatusTitle->setText(sidebarTitle);
     m_sidebarStatusDetail->setText(sidebarDetail);
-    m_mirrorButton->setEnabled(m_scrcpyService->mirrorRunning()
-                               || state == ScrcpyService::DeviceState::Connected);
-}
-
-void MainWindow::updateMirrorUi(bool running)
-{
-    m_mirrorButton->setProperty("running", running);
-    m_mirrorButton->setText(running ? ui::text("■  停止镜像") : ui::text("▶  启动镜像"));
-    m_mirrorButton->style()->unpolish(m_mirrorButton);
-    m_mirrorButton->style()->polish(m_mirrorButton);
-
-    if (running) {
-        m_mirrorButton->setEnabled(true);
-        return;
-    }
-
-    updateDeviceUi(m_deviceState, m_deviceSerial, m_deviceDetail);
 }

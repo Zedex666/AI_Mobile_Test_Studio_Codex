@@ -20,9 +20,25 @@ QString appStyleSheet()
             background: #fbfdff;
             border-right: 1px solid #dfe7f3;
         }
-        QFrame#Toolbar {
-            background: #ffffff;
-            border-bottom: 1px solid #dfe7f3;
+        QScrollArea#SidebarNavigationScroll,
+        QWidget#SidebarNavigation,
+        QWidget#SidebarFooter {
+            background: #fbfdff;
+            border: none;
+        }
+        QScrollArea#SidebarNavigationScroll QScrollBar:vertical {
+            width: 7px;
+            background: transparent;
+            margin: 3px 1px;
+        }
+        QScrollArea#SidebarNavigationScroll QScrollBar::handle:vertical {
+            min-height: 24px;
+            background: #cbd4e1;
+            border-radius: 3px;
+        }
+        QScrollArea#SidebarNavigationScroll QScrollBar::add-line:vertical,
+        QScrollArea#SidebarNavigationScroll QScrollBar::sub-line:vertical {
+            height: 0;
         }
         QFrame#Panel, QFrame#DevicePane, QFrame#ChatPane, QFrame#PhoneHost {
             background: #ffffff;
@@ -79,23 +95,6 @@ QString appStyleSheet()
             color: #172033;
         }
         QPushButton#IconButton:hover { background: #eef5ff; }
-        QPushButton#MirrorButton {
-            background: #2f6df6;
-            border: none;
-            border-radius: 8px;
-            color: #ffffff;
-            padding: 0 12px;
-        }
-        QPushButton#MirrorButton:hover { background: #245fe0; }
-        QPushButton#MirrorButton:disabled {
-            background: #e8edf5;
-            color: #9aa5b5;
-        }
-        QPushButton#MirrorButton[running="true"] {
-            background: #293243;
-            color: #ffffff;
-        }
-        QPushButton#MirrorButton[running="true"]:hover { background: #1d2533; }
         QFrame#AssistantBubble, QFrame#AssistantBubbleLarge {
             background: #f2f5fa;
             border: 1px solid #edf2f8;

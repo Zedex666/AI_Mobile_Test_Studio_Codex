@@ -7,14 +7,6 @@ class QPushButton;
 
 namespace ui {
 
-struct ToolbarSection {
-    QWidget *widget = nullptr;
-    QPushButton *mirrorButton = nullptr;
-    QLabel *deviceNameLabel = nullptr;
-    QLabel *deviceStatusDot = nullptr;
-    QLabel *deviceStatusLabel = nullptr;
-};
-
 struct SidebarSection {
     QWidget *widget = nullptr;
     QPushButton *overviewButton = nullptr;
@@ -34,11 +26,13 @@ struct SidebarSection {
     QLabel *statusDot = nullptr;
     QLabel *statusTitle = nullptr;
     QLabel *statusDetail = nullptr;
+    QLabel *deviceNameLabel = nullptr;
+    QLabel *deviceStatusDot = nullptr;
+    QLabel *deviceStatusLabel = nullptr;
 };
 
 QWidget *createHeader();
 SidebarSection createSidebar();
-ToolbarSection createToolbar();
 QWidget *createChatPane();
 
 } // namespace ui
