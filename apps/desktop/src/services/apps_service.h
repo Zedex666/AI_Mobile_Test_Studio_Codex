@@ -65,6 +65,7 @@ public:
 
 public slots:
     void loadApps();
+    void loadAppMetadata(const QStringList &packageNames);
     void loadAppDetails(const QString &packageName);
     void installPackages(const QStringList &apkFiles,
                          bool replaceExisting,
@@ -86,6 +87,7 @@ public slots:
 signals:
     void busyChanged(bool busy);
     void appsLoaded(const QVector<AndroidAppSummary> &apps);
+    void appMetadataLoaded(const QVector<AndroidAppSummary> &apps);
     void appDetailsLoaded(const AndroidAppDetails &details);
     void operationStarted(const QString &label, const QString &displayCommand);
     void operationFinished(bool success, const QString &label, const QString &detail);
@@ -113,7 +115,7 @@ private:
     void failRequest(const QString &detail);
     void startNextInstall();
     void resetInstallBatch();
-    void beginMetadataLoad(QVector<AndroidAppSummary> apps);
+    void beginMetadataLoad(QVector<AndroidAppSummary> apps, bool publishAppList);
     void startNextMetadataBatch();
     int applyMetadataResponse(const QString &output);
     void resetMetadataLoad();
@@ -145,10 +147,12 @@ private:
     bool m_installBypassLowTargetSdk = true;
     QVector<AndroidAppSummary> m_metadataApps;
     QStringList m_pendingMetadataPackages;
+    QStringList m_queuedMetadataPackages;
     QHash<QString, QString> m_labelCache;
     QHash<QString, QByteArray> m_iconCache;
     int m_metadataRequested = 0;
     int m_metadataLoaded = 0;
+    bool m_metadataPublishesAppList = false;
 };
 
 #endif // AI_MOBILE_TEST_STUDIO_APPS_SERVICE_H

@@ -35,10 +35,13 @@ QTermWidget 不作为 Windows 方案：其官方兼容列表为 BSD、Linux 和 
 - 设备断开、切换、会话重启和退出处理。
 - 多标签、键盘输入、复制粘贴、清空、重置和快捷命令。
 - 统一 `TerminalSession` 契约和 `adb-shell` / `opencode` 会话路由。
-- Windows Terminal 风格的“+ / 下拉”新建菜单，ADB 与 OpenCode 标签独立编号。
+- Windows Terminal 风格的“+”新建菜单，ADB 与 OpenCode 标签独立编号；不再保留重复的下拉选择按钮。
 - OpenCode 会话不随 Android 设备断开或切换而终止。
 - `node-pty` ConPTY 宿主的输入、输出、resize 和退出帧协议，并有自动化冒烟测试。
 - 本地 xterm.js 6.0.0、FitAddon 0.11.0、QWebChannel 桥接、CSP 和复制粘贴逻辑。
+- xterm.js 写入完成回执和真实背压：C++ 每次最多投递 32KB，收到 `term.write()` 回调后再以 8ms 间隔发送下一块，待处理缓冲上限为 4MB。
+- ConPTY 宿主按 8ms/64KB 合并 PTY 输出；终端页隐藏或标签进入后台时暂停向 WebView 投递。
+- 终端字体随中英文设置动态切换，英文使用随包 JetBrains Mono，中文使用随包霞鹜文楷。
 - Qt WebEngine 可用时启用 xterm.js；缺少 WebEngine 依赖的工具链保留基础 ANSI/CSI 降级显示。
 - 锁定 OpenCode 1.18.5、Node.js 24.18.0 和 `node-pty` 1.1.0；Windows 构建默认下载、校验、staging，并自动注册 ConPTY 冒烟测试。
 - 已使用真实 `opencode.exe` 通过 `node-pty`/ConPTY 完成版本启动冒烟。
@@ -46,7 +49,7 @@ QTermWidget 不作为 Windows 方案：其官方兼容列表为 BSD、Linux 和 
 当前限制：
 
 - 二进制仍不提交到 Git；首次 Windows 构建需要网络获取锁定归档，之后复用构建目录缓存，也可显式提供三个本地 runtime 覆盖。
-- 当前 Qt WebEngine 分支已可编译，但尚未完成真实 OpenCode + xterm.js 的交互式 TUI、IME、鼠标和备用屏幕端到端验收。
+- 当前 Qt WebEngine 构建已经跑通 ConPTY 手动回显和随包 OpenCode 1.18.5 启动；IME、鼠标、备用屏幕和长时间高输出仍需完成发布级兼容性矩阵。
 - `QPlainTextEdit` 降级显示不保证备用屏幕、鼠标、复杂 Unicode 宽度和样式正确；正式 OpenCode TUI 必须使用 WebEngine/xterm.js 构建。
 - OpenCode Server/SDK、会话认证和结构化 Agent 状态仍未接入。
 
@@ -134,8 +137,8 @@ Qt 集成：
 
 - `QWebEngineView` 作为普通 QWidget 放入终端页。
 - `QWebChannel` 暴露最小 `write`、`resize`、`copy`、`paste`、`focus` 和 session 控制接口。
-- MVP 可以使用 QWebChannel 传输 UTF-8 数据；大输出场景经性能测试后再决定是否引入本机 WebSocket 数据通道。
-- 一个 WebView 可以管理多个 xterm 实例，也可以每个标签一个实例；首版优先单 WebView、多实例，减少 WebEngine 进程和内存开销。
+- QWebChannel 使用 Base64 承载原始终端字节；每次只允许一个 xterm 写入在途，前端回调 `outputConsumed()` 后才能继续投递。
+- 每个标签使用独立 `TerminalView`；只有当前可见标签启用输出投递，后台标签继续保留有上限的 C++ 缓冲。
 
 ## 6. ADB 后端
 
@@ -157,8 +160,9 @@ OpenCode TUI 需要真正的 Windows pseudo console：
 2. 宿主通过经过生产验证的 `node-pty` 原生模块创建 Windows ConPTY 并启动随包 OpenCode。
 3. Qt 到宿主的 stdin 使用 `type + uint32 little-endian length + payload` 帧；输入、resize 和停止分别使用 `i`、`r`、`x` 类型。
 4. 宿主 stdout 只承载原始终端字节，stderr 只承载 `READY` 和 Base64 错误控制消息。
-5. xterm.js 输入不经 Shell 转义，resize 以字符列/行发送给 `node-pty`。
-6. 标签关闭或应用退出时终止宿主；宿主关闭 PTY，避免残留 OpenCode/ConPTY 进程。
+5. 宿主在 8ms 窗口内合并 PTY 输出，每批最多 64KB，减少进程间消息数量。
+6. xterm.js 输入不经 Shell 转义，resize 以字符列/行发送给 `node-pty`。
+7. 标签关闭或应用退出时终止宿主；宿主关闭 PTY，避免残留 OpenCode/ConPTY 进程。
 
 不得直接用普通 `QProcess` 的 stdout/stdin 启动 OpenCode。当前 `QProcess` 的子进程是终端宿主，真正的 OpenCode 子进程始终由 `node-pty` 放入 ConPTY。
 
@@ -225,7 +229,7 @@ OpenCode 官方架构中，TUI 是 Server 的客户端；Server 暴露 OpenAPI 3
 2. **已完成**：新增本地 xterm.js、QWebChannel 输入输出和 resize 闭环。
 3. **已完成**：实现 `node-pty` ConPTY 宿主，并用真实帮助进程验证输入、输出、resize 和退出。
 4. **部分完成**：已锁定并在 Windows 开发构建中装配 Node.js、`node-pty` 和 OpenCode；完整发布包的 Qt WebEngine 依赖和许可证产物仍在进行中。
-5. **进行中**：在带 Qt Positioning/WebEngine 的构建机上完成真实 OpenCode、`vim`、IME、鼠标和备用屏幕验收。
+5. **部分完成**：Qt WebEngine 构建已通过 ConPTY 回显和 OpenCode 1.18.5 基本交互链路；继续完成 `vim`、IME、鼠标、备用屏幕和长时间高输出验收。
 6. **待开始**：接入 `RuntimeLocator`、manifest 校验和启动自检。
 7. **待开始**：接入 OpenCode Server/SDK，停止解析终端文字。
 8. **待开始**：加入搜索、链接、Unicode11、WebGL、可访问性和性能测试，随后删除降级解析器。

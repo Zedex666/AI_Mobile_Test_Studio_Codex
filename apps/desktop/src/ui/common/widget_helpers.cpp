@@ -1,19 +1,24 @@
 #include "ui/common/widget_helpers.h"
 
+#include "ui/common/app_preferences.h"
+
 #include <QFrame>
 
 namespace ui {
 
 QString text(const char *value)
 {
-    return QString::fromUtf8(value);
+    return AppPreferences::instance().translate(value);
 }
 
 QFont appFont(int pointSize, QFont::Weight weight)
 {
-    QFont font(text("Microsoft YaHei UI"));
+    QFont font(AppPreferences::instance().fontFamily());
     font.setPointSize(pointSize);
     font.setWeight(weight);
+    font.setStyleHint(AppPreferences::instance().language() == AppLanguage::English
+                          ? QFont::Monospace
+                          : QFont::SansSerif);
     return font;
 }
 

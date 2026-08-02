@@ -8,10 +8,12 @@
 
 ### Added
 
+- 新增 Apple 风格前端设计规范，统一浅色材质、圆角、阴影、响应式布局、页面过渡和按钮自然动效。
+- 新增设置工作区，支持中英文即时切换、语言字体自动加载和动态效果偏好持久化。
 - 左侧导航新增“其它”工作区，参考 QtAdb 提供自定义 ADB Shell、账户查询、网络验证服务器、动画缩放、系统栏和震动强度工具目录。
 - 新增 `OtherService`，异步执行其它工具页提交的真实设备命令，并统一回传执行状态与输出。
 - 左侧导航新增“进程”工作区，参考 AYA 展示进程名称、CPU、CPU 时间、内存、PID 和用户，支持排序、文本过滤、仅显示应用及强制停止选中应用。
-- 新增 `ProcessService`，异步缓存设备软件包并每 5 秒采样 `top`，离开进程页后自动停止采集，同时兼容不支持结构化列参数的旧版 `top`。
+- 新增 `ProcessService`，异步缓存设备软件包并每 8 秒采样 `top`，离开进程页后自动停止采集，同时兼容不支持结构化列参数的旧版 `top`。
 - 左侧导航新增 `Display` 工作区，参考 ADB-App 提供物理显示摘要、推荐分辨率、尺寸/密度/超时设置、刷新率、浅色/深色模式、字体缩放和动画速度控制。
 - 新增 `DisplayService`，通过异步 ADB 查询和串行动作队列读写真实设备显示设置，并在写入成功后自动回读状态。
 - 左侧导航新增 `Mirroring` 工作区，参考 ADB-App 提供主屏幕、虚拟屏幕和摄像头三种 scrcpy 来源，以及图像、录制、输入、音频、启动应用和高级参数配置。
@@ -21,7 +23,7 @@
 - “布局”工作区新增 WebEngine 文件下载和外部链接处理：截图、源码及会话文件可通过本机保存对话框导出，Capabilities Documentation 等外部链接交由系统浏览器打开。
 - 缺少 Qt WebEngineWidgets 时保留 Qt Widgets 原生布局检查降级页，支持能力编辑、JSON 导入导出、Appium 会话创建、Source、Commands、Gestures、Recorder 和 Session Information 基础操作。
 - 新增统一 `TerminalSession` 契约，将 ADB shell 与 OpenCode 会话接入同一 `TerminalService`，设备切换只回收 ADB 标签。
-- 终端“+ / 下拉”新增 OpenCode 与 ADB Shell 类型菜单，标签按类型命名，OpenCode 在无设备时仍可创建。
+- 终端“+”新建菜单支持 OpenCode 与 ADB Shell，标签按类型命名，OpenCode 在无设备时仍可创建。
 - 新增 `node-pty` ConPTY 终端宿主和二进制帧协议，支持 OpenCode 输入、输出、resize、停止和错误回传。
 - 新增本地 xterm.js 6.0.0、FitAddon 0.11.0、Qt WebChannel 桥接、离线 CSP、复制粘贴和暗色终端主题；缺少 WebEngine 时保留基础显示降级。
 - 新增 `tools/runtime/runtime-lock.json`，锁定 Windows x64 OpenCode 1.18.5、Node.js 24.18.0 和 `node-pty` 1.1.0 的版本、官方来源、SHA-256 与许可证信息。
@@ -94,6 +96,11 @@
 
 ### Fixed
 
+- 修复进程列表刷新和应用图标加载导致的滚动卡顿：模型改为按 PID 差量增删改，应用元数据小批次提取，PNG 图标按 8ms 间隔逐个解码并只刷新命中行；滚动期间暂存最新采样，停止滚动 180ms 后再合并。
+- 修复文件工作区“根目录”和“内部存储”卡片点击无响应的问题；驱动器入口改为整卡按钮，分别进入 `/` 与 `/sdcard`。
+- 修复 OpenCode/xterm.js 高频输出时界面卡顿的问题：WebChannel 增加 xterm 写入完成回执和单帧在途背压，输出按 32KB/8ms 分块；ConPTY 宿主按 64KB/8ms 合并输出，隐藏页面和后台终端标签暂停前端投递。
+- 移除终端工具栏中重复的下拉选择按钮，终端类型统一从“+”按钮菜单创建。
+- 修复英文模式仅加载部分 JetBrains Mono 字体的问题；构建和安装现在复制英文目录内全部 32 个 TTF，原生 Qt 控件、xterm.js 与 Appium Inspector 均按当前语言使用本地字体。
 - 修复 Appium Inspector 官方浏览器包从本地 `file://` 路径加载时语言资源定位错误、界面显示 `startSession` 和 `attachToSession` 等翻译键的问题。
 - 修复 Qt Widgets 降级页中根 Remote Path 被拼接为 `//session`、删除已保存能力集时行定位不可靠，以及能力值编辑器初始化时重复插入控件的问题。
 - 修复完整 Qt WebEngine 部署后终端区域变成白屏的问题；本地页面导航校验不再混用 Qt 规范路径的正斜杠和 Windows 目录分隔符，CSP 允许 xterm.js 必需的动态样式，`terminal-web/index.html`、xterm.js 与 QWebChannel 可以正常加载和渲染。

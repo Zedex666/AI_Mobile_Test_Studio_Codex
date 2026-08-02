@@ -2,6 +2,8 @@
 
 const FRAME_HEADER_SIZE = 5;
 const MAX_FRAME_SIZE = 16 * 1024 * 1024;
+const OUTPUT_BATCH_BYTES = 64 * 1024;
+const OUTPUT_BATCH_DELAY_MS = 8;
 
 function fail(error) {
   const message = error instanceof Error ? error.message : String(error);
@@ -50,18 +52,47 @@ try {
   });
 
   let ready = false;
+  let outputBuffers = [];
+  let outputBytes = 0;
+  let outputTimer = null;
+  const flushOutput = (afterFlush = null) => {
+    if (outputTimer !== null) {
+      clearTimeout(outputTimer);
+      outputTimer = null;
+    }
+    if (outputBytes === 0) {
+      if (afterFlush) {
+        afterFlush();
+      }
+      return;
+    }
+    const output = outputBuffers.length === 1
+      ? outputBuffers[0]
+      : Buffer.concat(outputBuffers, outputBytes);
+    outputBuffers = [];
+    outputBytes = 0;
+    const writable = process.stdout.write(output, afterFlush ?? undefined);
+    if (!writable && !afterFlush) {
+      terminal.pause();
+      process.stdout.once('drain', () => terminal.resume());
+    }
+  };
   terminal.onData((data) => {
     if (!ready) {
       ready = true;
       process.stderr.write('READY\n');
     }
-    if (!process.stdout.write(Buffer.from(data, 'utf8'))) {
-      terminal.pause();
-      process.stdout.once('drain', () => terminal.resume());
+    const output = Buffer.from(data, 'utf8');
+    outputBuffers.push(output);
+    outputBytes += output.length;
+    if (outputBytes >= OUTPUT_BATCH_BYTES) {
+      flushOutput();
+    } else if (outputTimer === null) {
+      outputTimer = setTimeout(flushOutput, OUTPUT_BATCH_DELAY_MS);
     }
   });
   terminal.onExit(({ exitCode }) => {
-    process.exit(exitCode ?? 0);
+    flushOutput(() => process.exit(exitCode ?? 0));
   });
 
   let input = Buffer.alloc(0);

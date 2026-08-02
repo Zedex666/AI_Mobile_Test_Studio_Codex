@@ -6,11 +6,11 @@
     convertEol: false,
     cursorBlink: true,
     cursorStyle: 'bar',
-    fontFamily: 'Cascadia Mono, Cascadia Code, Consolas, monospace',
+    fontFamily: '"AI JetBrains Mono", monospace',
     fontSize: 15,
     letterSpacing: 0,
     lineHeight: 1.15,
-    scrollback: 10000,
+    scrollback: 5000,
     smoothScrollDuration: 0,
     theme: {
       background: '#0c0c0c',
@@ -46,9 +46,6 @@
     cancelAnimationFrame(resizeFrame);
     resizeFrame = requestAnimationFrame(() => {
       fitAddon.fit();
-      if (bridge) {
-        bridge.resizeTerminal(terminal.cols, terminal.rows);
-      }
     });
   };
 
@@ -112,7 +109,14 @@
 
   new QWebChannel(qt.webChannelTransport, (channel) => {
     bridge = channel.objects.terminalBridge;
-    bridge.outputData.connect((encoded) => terminal.write(decodeBase64(encoded)));
+    terminal.options.fontFamily = bridge.fontFamily;
+    bridge.fontFamilyChanged.connect((fontFamily) => {
+      terminal.options.fontFamily = fontFamily;
+      fit();
+    });
+    bridge.outputData.connect((encoded) => {
+      terminal.write(decodeBase64(encoded), () => bridge.outputConsumed());
+    });
     bridge.statusMessage.connect((message) => {
       terminal.write(`\r\n\x1b[38;5;245m[${message}]\x1b[0m\r\n`);
     });

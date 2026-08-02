@@ -1,5 +1,6 @@
 #include "ui/pages/apps_page.h"
 
+#include "ui/common/app_preferences.h"
 #include "ui/common/widget_helpers.h"
 
 #include <QBoxLayout>
@@ -10,6 +11,7 @@
 #include <QFileDialog>
 #include <QFormLayout>
 #include <QGridLayout>
+#include <QHash>
 #include <QIcon>
 #include <QLabel>
 #include <QLineEdit>
@@ -64,6 +66,126 @@ QIcon appIcon(const AndroidAppSummary &app, QStyle *style)
         return QIcon(pixmap);
     }
     return style->standardIcon(QStyle::SP_ComputerIcon);
+}
+
+QString permissionDisplayName(const QString &permissionName)
+{
+    const QString shortName = permissionName.section(QLatin1Char('.'), -1);
+    if (ui::AppPreferences::instance().language() != ui::AppLanguage::Chinese) {
+        return shortName;
+    }
+
+    static const QHash<QString, QString> labels = {
+        {QStringLiteral("ACCEPT_HANDOVER"), QStringLiteral("接听转移通话")},
+        {QStringLiteral("ACCESS_BACKGROUND_LOCATION"), QStringLiteral("后台位置信息")},
+        {QStringLiteral("ACCESS_COARSE_LOCATION"), QStringLiteral("大致位置信息")},
+        {QStringLiteral("ACCESS_FINE_LOCATION"), QStringLiteral("精确位置信息")},
+        {QStringLiteral("ACCESS_LOCATION_EXTRA_COMMANDS"), QStringLiteral("位置扩展命令")},
+        {QStringLiteral("ACCESS_MEDIA_LOCATION"), QStringLiteral("媒体位置信息")},
+        {QStringLiteral("ACCESS_NETWORK_STATE"), QStringLiteral("查看网络状态")},
+        {QStringLiteral("ACCESS_NOTIFICATION_POLICY"), QStringLiteral("管理勿扰模式")},
+        {QStringLiteral("ACCESS_WIFI_STATE"), QStringLiteral("查看 Wi-Fi 状态")},
+        {QStringLiteral("ACTIVITY_RECOGNITION"), QStringLiteral("身体活动识别")},
+        {QStringLiteral("ADD_VOICEMAIL"), QStringLiteral("添加语音邮件")},
+        {QStringLiteral("AD_ID"), QStringLiteral("广告标识符")},
+        {QStringLiteral("ANSWER_PHONE_CALLS"), QStringLiteral("接听电话")},
+        {QStringLiteral("BLUETOOTH"), QStringLiteral("使用蓝牙")},
+        {QStringLiteral("BLUETOOTH_ADMIN"), QStringLiteral("管理蓝牙")},
+        {QStringLiteral("BLUETOOTH_ADVERTISE"), QStringLiteral("蓝牙广播")},
+        {QStringLiteral("BLUETOOTH_CONNECT"), QStringLiteral("连接蓝牙设备")},
+        {QStringLiteral("BLUETOOTH_SCAN"), QStringLiteral("扫描蓝牙设备")},
+        {QStringLiteral("BODY_SENSORS"), QStringLiteral("身体传感器")},
+        {QStringLiteral("BODY_SENSORS_BACKGROUND"), QStringLiteral("后台身体传感器")},
+        {QStringLiteral("CALL_PHONE"), QStringLiteral("拨打电话")},
+        {QStringLiteral("CAMERA"), QStringLiteral("相机")},
+        {QStringLiteral("CHANGE_NETWORK_STATE"), QStringLiteral("更改网络连接")},
+        {QStringLiteral("CHANGE_WIFI_MULTICAST_STATE"), QStringLiteral("使用 Wi-Fi 多播")},
+        {QStringLiteral("CHANGE_WIFI_STATE"), QStringLiteral("更改 Wi-Fi 状态")},
+        {QStringLiteral("DETECT_SCREEN_CAPTURE"), QStringLiteral("检测屏幕截图")},
+        {QStringLiteral("DISABLE_KEYGUARD"), QStringLiteral("停用锁屏")},
+        {QStringLiteral("DOWNLOAD_WITHOUT_NOTIFICATION"), QStringLiteral("静默下载文件")},
+        {QStringLiteral("EXPAND_STATUS_BAR"), QStringLiteral("展开状态栏")},
+        {QStringLiteral("FLASHLIGHT"), QStringLiteral("手电筒")},
+        {QStringLiteral("FOREGROUND_SERVICE"), QStringLiteral("运行前台服务")},
+        {QStringLiteral("FOREGROUND_SERVICE_CAMERA"), QStringLiteral("相机前台服务")},
+        {QStringLiteral("FOREGROUND_SERVICE_CONNECTED_DEVICE"), QStringLiteral("连接设备前台服务")},
+        {QStringLiteral("FOREGROUND_SERVICE_DATA_SYNC"), QStringLiteral("数据同步前台服务")},
+        {QStringLiteral("FOREGROUND_SERVICE_HEALTH"), QStringLiteral("健康数据前台服务")},
+        {QStringLiteral("FOREGROUND_SERVICE_LOCATION"), QStringLiteral("定位前台服务")},
+        {QStringLiteral("FOREGROUND_SERVICE_MEDIA_PLAYBACK"), QStringLiteral("媒体播放前台服务")},
+        {QStringLiteral("FOREGROUND_SERVICE_MEDIA_PROJECTION"), QStringLiteral("屏幕投射前台服务")},
+        {QStringLiteral("FOREGROUND_SERVICE_MICROPHONE"), QStringLiteral("麦克风前台服务")},
+        {QStringLiteral("FOREGROUND_SERVICE_PHONE_CALL"), QStringLiteral("通话前台服务")},
+        {QStringLiteral("FOREGROUND_SERVICE_REMOTE_MESSAGING"), QStringLiteral("远程消息前台服务")},
+        {QStringLiteral("FOREGROUND_SERVICE_SPECIAL_USE"), QStringLiteral("特殊用途前台服务")},
+        {QStringLiteral("GET_ACCOUNTS"), QStringLiteral("获取设备账户")},
+        {QStringLiteral("GET_PACKAGE_SIZE"), QStringLiteral("获取应用存储空间")},
+        {QStringLiteral("INTERNET"), QStringLiteral("访问互联网")},
+        {QStringLiteral("KILL_BACKGROUND_PROCESSES"), QStringLiteral("结束后台进程")},
+        {QStringLiteral("MANAGE_EXTERNAL_STORAGE"), QStringLiteral("管理所有文件")},
+        {QStringLiteral("MANAGE_ACCOUNTS"), QStringLiteral("管理设备账户")},
+        {QStringLiteral("MANAGE_OWN_CALLS"), QStringLiteral("管理自身通话")},
+        {QStringLiteral("MODIFY_AUDIO_SETTINGS"), QStringLiteral("修改音频设置")},
+        {QStringLiteral("MOUNT_FORMAT_FILESYSTEMS"), QStringLiteral("格式化文件系统")},
+        {QStringLiteral("MOUNT_UNMOUNT_FILESYSTEMS"), QStringLiteral("挂载文件系统")},
+        {QStringLiteral("NEARBY_WIFI_DEVICES"), QStringLiteral("附近的 Wi-Fi 设备")},
+        {QStringLiteral("NFC"), QStringLiteral("使用 NFC")},
+        {QStringLiteral("PACKAGE_USAGE_STATS"), QStringLiteral("应用使用情况")},
+        {QStringLiteral("POST_NOTIFICATIONS"), QStringLiteral("发送通知")},
+        {QStringLiteral("PROCESS_OUTGOING_CALLS"), QStringLiteral("处理拨出电话")},
+        {QStringLiteral("QUERY_ALL_PACKAGES"), QStringLiteral("查询所有应用")},
+        {QStringLiteral("READ_BASIC_PHONE_STATE"), QStringLiteral("读取基本电话状态")},
+        {QStringLiteral("READ_CALENDAR"), QStringLiteral("读取日历")},
+        {QStringLiteral("READ_CALL_LOG"), QStringLiteral("读取通话记录")},
+        {QStringLiteral("READ_CONTACTS"), QStringLiteral("读取联系人")},
+        {QStringLiteral("READ_EXTERNAL_STORAGE"), QStringLiteral("读取外部存储")},
+        {QStringLiteral("READ_LOGS"), QStringLiteral("读取系统日志")},
+        {QStringLiteral("READ_MEDIA_AUDIO"), QStringLiteral("读取音频")},
+        {QStringLiteral("READ_MEDIA_IMAGES"), QStringLiteral("读取图片")},
+        {QStringLiteral("READ_MEDIA_VIDEO"), QStringLiteral("读取视频")},
+        {QStringLiteral("READ_MEDIA_VISUAL_USER_SELECTED"), QStringLiteral("读取用户选择的照片和视频")},
+        {QStringLiteral("READ_PHONE_NUMBERS"), QStringLiteral("读取电话号码")},
+        {QStringLiteral("READ_PHONE_STATE"), QStringLiteral("读取电话状态")},
+        {QStringLiteral("READ_PRIVILEGED_PHONE_STATE"), QStringLiteral("读取完整电话状态")},
+        {QStringLiteral("READ_SMS"), QStringLiteral("读取短信")},
+        {QStringLiteral("READ_SYNC_SETTINGS"), QStringLiteral("读取同步设置")},
+        {QStringLiteral("READ_SYNC_STATS"), QStringLiteral("读取同步统计")},
+        {QStringLiteral("RECEIVE_BOOT_COMPLETED"), QStringLiteral("开机启动")},
+        {QStringLiteral("RECEIVE_MMS"), QStringLiteral("接收彩信")},
+        {QStringLiteral("RECEIVE_SMS"), QStringLiteral("接收短信")},
+        {QStringLiteral("RECEIVE_WAP_PUSH"), QStringLiteral("接收 WAP 推送")},
+        {QStringLiteral("RECORD_AUDIO"), QStringLiteral("录音")},
+        {QStringLiteral("REORDER_TASKS"), QStringLiteral("调整任务顺序")},
+        {QStringLiteral("REQUEST_DELETE_PACKAGES"), QStringLiteral("请求卸载应用")},
+        {QStringLiteral("REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"), QStringLiteral("忽略电池优化")},
+        {QStringLiteral("REQUEST_INSTALL_PACKAGES"), QStringLiteral("安装未知应用")},
+        {QStringLiteral("REQUEST_COMPANION_RUN_IN_BACKGROUND"), QStringLiteral("配套设备后台运行")},
+        {QStringLiteral("REQUEST_COMPANION_USE_DATA_IN_BACKGROUND"), QStringLiteral("配套设备后台使用数据")},
+        {QStringLiteral("SCHEDULE_EXACT_ALARM"), QStringLiteral("设置精确闹钟")},
+        {QStringLiteral("SEND_SMS"), QStringLiteral("发送短信")},
+        {QStringLiteral("SET_ALARM"), QStringLiteral("设置闹钟")},
+        {QStringLiteral("SET_WALLPAPER"), QStringLiteral("设置壁纸")},
+        {QStringLiteral("SYSTEM_ALERT_WINDOW"), QStringLiteral("显示悬浮窗")},
+        {QStringLiteral("TRANSMIT_IR"), QStringLiteral("使用红外发射器")},
+        {QStringLiteral("TURN_SCREEN_ON"), QStringLiteral("点亮屏幕")},
+        {QStringLiteral("USE_BIOMETRIC"), QStringLiteral("使用生物识别")},
+        {QStringLiteral("USE_CREDENTIALS"), QStringLiteral("使用账户凭据")},
+        {QStringLiteral("USE_EXACT_ALARM"), QStringLiteral("使用精确闹钟")},
+        {QStringLiteral("USE_FINGERPRINT"), QStringLiteral("使用指纹")},
+        {QStringLiteral("USE_FULL_SCREEN_INTENT"), QStringLiteral("使用全屏通知")},
+        {QStringLiteral("USE_SIP"), QStringLiteral("使用 SIP 通话")},
+        {QStringLiteral("UWB_RANGING"), QStringLiteral("超宽带测距")},
+        {QStringLiteral("VIBRATE"), QStringLiteral("控制振动")},
+        {QStringLiteral("WAKE_LOCK"), QStringLiteral("防止设备休眠")},
+        {QStringLiteral("WRITE_CALENDAR"), QStringLiteral("修改日历")},
+        {QStringLiteral("WRITE_CALL_LOG"), QStringLiteral("修改通话记录")},
+        {QStringLiteral("WRITE_CONTACTS"), QStringLiteral("修改联系人")},
+        {QStringLiteral("WRITE_EXTERNAL_STORAGE"), QStringLiteral("写入外部存储")},
+        {QStringLiteral("WRITE_SECURE_SETTINGS"), QStringLiteral("修改安全设置")},
+        {QStringLiteral("WRITE_SETTINGS"), QStringLiteral("修改系统设置")},
+        {QStringLiteral("WRITE_SYNC_SETTINGS"), QStringLiteral("修改同步设置")},
+    };
+    return labels.value(shortName, shortName);
 }
 
 } // namespace
@@ -328,6 +450,14 @@ AppsPage::AppsPage(QWidget *parent)
                 if (!m_selectedPackage.isEmpty() && index >= 0 && !m_busy) {
                     emit backgroundModeRequested(m_selectedPackage,
                                                  m_backgroundMode->itemData(index).toString());
+                }
+            });
+    connect(&ui::AppPreferences::instance(),
+            &ui::AppPreferences::languageChanged,
+            this,
+            [this](ui::AppLanguage) {
+                if (!m_selectedPackage.isEmpty()) {
+                    rebuildPermissions();
                 }
             });
     updateControls();
@@ -631,7 +761,7 @@ void AppsPage::rebuildPermissions()
         auto *layout = new QHBoxLayout(row);
         layout->setContentsMargins(10, 7, 10, 7);
         layout->setSpacing(8);
-        auto *name = makeLabel(permission.name.section(QLatin1Char('.'), -1),
+        auto *name = makeLabel(permissionDisplayName(permission.name),
                                8,
                                QFont::DemiBold,
                                "#293243");

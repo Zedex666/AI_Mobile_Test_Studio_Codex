@@ -38,6 +38,8 @@ qt_add_executable(${DESKTOP_TARGET}
     src/services/terminal_session.h
     src/ui/common/widget_helpers.cpp
     src/ui/common/widget_helpers.h
+    src/ui/common/app_preferences.cpp
+    src/ui/common/app_preferences.h
     src/ui/components/main_window_sections.cpp
     src/ui/components/main_window_sections.h
     src/ui/pages/device_control_page.cpp
@@ -54,6 +56,8 @@ qt_add_executable(${DESKTOP_TARGET}
     src/ui/pages/performance_page.h
     src/ui/pages/recovery_page.cpp
     src/ui/pages/recovery_page.h
+    src/ui/pages/settings_page.cpp
+    src/ui/pages/settings_page.h
     src/ui/pages/layout_page.cpp
     src/ui/pages/layout_page.h
     src/ui/pages/logcat_page.cpp
@@ -72,11 +76,20 @@ qt_add_executable(${DESKTOP_TARGET}
     src/ui/pages/terminal_bridge.h
     src/ui/styles/app_style.cpp
     src/ui/styles/app_style.h
+    src/ui/motion/ui_motion_controller.cpp
+    src/ui/motion/ui_motion_controller.h
+    src/ui/motion/motion_controller.h
     src/ui/widgets/brand_badges.cpp
     src/ui/widgets/brand_badges.h
     src/ui/windows/main_window.cpp
     src/ui/windows/main_window.h
 )
+
+set_source_files_properties(
+    src/ui/motion/ui_motion_controller.cpp
+    src/ui/motion/ui_motion_controller.h
+    src/ui/motion/motion_controller.h
+    PROPERTIES SKIP_AUTOUIC ON)
 
 target_compile_features(${DESKTOP_TARGET} PRIVATE cxx_std_17)
 target_include_directories(${DESKTOP_TARGET} PRIVATE src)
@@ -85,7 +98,8 @@ set(APP_METADATA_JAR "${CMAKE_SOURCE_DIR}/resources/tools/java/app_metadata.jar"
 file(GLOB_RECURSE TERMINAL_RUNTIME_RESOURCE_FILES CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/resources/terminal-host/*"
     "${CMAKE_SOURCE_DIR}/resources/terminal-web/*"
-    "${CMAKE_SOURCE_DIR}/resources/appium-inspector/*")
+    "${CMAKE_SOURCE_DIR}/resources/appium-inspector/*"
+    "${CMAKE_SOURCE_DIR}/resources/font/*")
 set_property(TARGET ${DESKTOP_TARGET} APPEND PROPERTY LINK_DEPENDS
     "${APP_METADATA_JAR}"
     ${TERMINAL_RUNTIME_RESOURCE_FILES})
@@ -104,6 +118,19 @@ add_custom_command(TARGET ${DESKTOP_TARGET} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_SOURCE_DIR}/resources/appium-inspector"
         "$<TARGET_FILE_DIR:${DESKTOP_TARGET}>/runtime/appium-inspector"
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        "$<TARGET_FILE_DIR:${DESKTOP_TARGET}>/runtime/fonts/cn"
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        "$<TARGET_FILE_DIR:${DESKTOP_TARGET}>/runtime/fonts/us/JetBrainsMono-2.304/fonts/ttf"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_SOURCE_DIR}/resources/font/cn/LXGWWenKai-Regular.ttf"
+        "$<TARGET_FILE_DIR:${DESKTOP_TARGET}>/runtime/fonts/cn/LXGWWenKai-Regular.ttf"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_SOURCE_DIR}/resources/font/cn/LXGWWenKai-Medium.ttf"
+        "$<TARGET_FILE_DIR:${DESKTOP_TARGET}>/runtime/fonts/cn/LXGWWenKai-Medium.ttf"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/resources/font/us/JetBrainsMono-2.304/fonts/ttf"
+        "$<TARGET_FILE_DIR:${DESKTOP_TARGET}>/runtime/fonts/us/JetBrainsMono-2.304/fonts/ttf"
     VERBATIM
 )
 
@@ -226,6 +253,14 @@ install(DIRECTORY "${CMAKE_SOURCE_DIR}/resources/terminal-host/"
     DESTINATION "runtime/terminal-host")
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/resources/appium-inspector/"
     DESTINATION "runtime/appium-inspector")
+install(FILES
+    "${CMAKE_SOURCE_DIR}/resources/font/cn/LXGWWenKai-Regular.ttf"
+    "${CMAKE_SOURCE_DIR}/resources/font/cn/LXGWWenKai-Medium.ttf"
+    DESTINATION "runtime/fonts/cn")
+install(DIRECTORY
+    "${CMAKE_SOURCE_DIR}/resources/font/us/JetBrainsMono-2.304/fonts/ttf/"
+    DESTINATION "runtime/fonts/us/JetBrainsMono-2.304/fonts/ttf"
+    FILES_MATCHING PATTERN "*.ttf")
 if(AI_MOBILE_TEST_OPENCODE_RUNTIME_EXECUTABLE)
     install(PROGRAMS "${AI_MOBILE_TEST_OPENCODE_RUNTIME_EXECUTABLE}"
         DESTINATION "runtime/opencode")

@@ -1,5 +1,6 @@
 #include "ui/pages/layout_page.h"
 
+#include "ui/common/app_preferences.h"
 #include "ui/common/widget_helpers.h"
 
 #ifdef AI_MOBILE_TEST_STUDIO_HAS_WEBENGINE
@@ -119,6 +120,63 @@ protected:
 private:
     QString m_contentRoot;
 };
+
+QString javaScriptString(const QString &value)
+{
+    const QByteArray json = QJsonDocument(QJsonArray{value}).toJson(QJsonDocument::Compact);
+    return QString::fromUtf8(json.mid(1, json.size() - 2));
+}
+
+void applyInspectorFont(QWebEnginePage *page, ui::AppLanguage language)
+{
+    if (page == nullptr) {
+        return;
+    }
+
+    const QDir runtime(QCoreApplication::applicationDirPath());
+    const bool english = language == ui::AppLanguage::English;
+    const QString family = english ? QStringLiteral("AI JetBrains Mono")
+                                   : QStringLiteral("AI LXGW WenKai");
+    const QString regularPath = runtime.filePath(
+        english
+            ? QStringLiteral(
+                  "runtime/fonts/us/JetBrainsMono-2.304/fonts/ttf/JetBrainsMono-Regular.ttf")
+            : QStringLiteral("runtime/fonts/cn/LXGWWenKai-Regular.ttf"));
+    const QString mediumPath = runtime.filePath(
+        english
+            ? QStringLiteral(
+                  "runtime/fonts/us/JetBrainsMono-2.304/fonts/ttf/JetBrainsMono-Medium.ttf")
+            : QStringLiteral("runtime/fonts/cn/LXGWWenKai-Medium.ttf"));
+    const QString boldPath = runtime.filePath(
+        english
+            ? QStringLiteral(
+                  "runtime/fonts/us/JetBrainsMono-2.304/fonts/ttf/JetBrainsMono-Bold.ttf")
+            : QStringLiteral("runtime/fonts/cn/LXGWWenKai-Medium.ttf"));
+    const auto fontUrl = [](const QString &path) {
+        return QUrl::fromLocalFile(path).toString(QUrl::FullyEncoded);
+    };
+    const QString css = QStringLiteral(
+                            "@font-face{font-family:'%1';src:url('%2') format('truetype');"
+                            "font-style:normal;font-weight:400;font-display:block;}"
+                            "@font-face{font-family:'%1';src:url('%3') format('truetype');"
+                            "font-style:normal;font-weight:500 600;font-display:block;}"
+                            "@font-face{font-family:'%1';src:url('%4') format('truetype');"
+                            "font-style:normal;font-weight:700 900;font-display:block;}"
+                            "html,body,#root,#root *{font-family:'%1' !important;"
+                            "letter-spacing:0 !important;}")
+                            .arg(family,
+                                 fontUrl(regularPath),
+                                 fontUrl(mediumPath),
+                                 fontUrl(boldPath));
+    const QString script = QStringLiteral(
+                               "(()=>{let style=document.getElementById("
+                               "'ai-mobile-test-studio-font');"
+                               "if(!style){style=document.createElement('style');"
+                               "style.id='ai-mobile-test-studio-font';"
+                               "document.head.appendChild(style);}style.textContent=%1;})()")
+                               .arg(javaScriptString(css));
+    page->runJavaScript(script);
+}
 #endif
 
 QLabel *label(const QString &value,
@@ -269,10 +327,12 @@ LayoutPage::LayoutPage(QWidget *parent)
                                     .filePath(QStringLiteral("runtime/appium-inspector"));
     const QString entryPath = QDir(contentRoot).filePath(QStringLiteral("index.html"));
     if (QFileInfo::exists(entryPath)) {
+        setProperty("skipWorkspaceTransition", true);
         auto *webView = new QWebEngineView;
         webView->setObjectName(QStringLiteral("AppiumInspectorWebView"));
         webView->setContextMenuPolicy(Qt::DefaultContextMenu);
         auto *page = new AppiumInspectorPage(contentRoot, webView);
+        page->setBackgroundColor(QColor(QStringLiteral("#f7faff")));
         webView->setPage(page);
         webView->settings()->setAttribute(QWebEngineSettings::JavascriptEnabled, true);
         webView->settings()->setAttribute(QWebEngineSettings::JavascriptCanOpenWindows, true);
@@ -296,6 +356,21 @@ LayoutPage::LayoutPage(QWidget *parent)
                     download->setDownloadDirectory(target.absolutePath());
                     download->setDownloadFileName(target.fileName());
                     download->accept();
+                });
+        connect(webView,
+                &QWebEngineView::loadFinished,
+                webView,
+                [page](bool loaded) {
+                    if (loaded) {
+                        applyInspectorFont(page,
+                                           ui::AppPreferences::instance().language());
+                    }
+                });
+        connect(&ui::AppPreferences::instance(),
+                &ui::AppPreferences::languageChanged,
+                webView,
+                [page](ui::AppLanguage language) {
+                    applyInspectorFont(page, language);
                 });
         webView->load(QUrl::fromLocalFile(entryPath));
         layout->addWidget(webView);
@@ -544,7 +619,7 @@ QWidget *LayoutPage::buildCapabilityBuilderTab()
     m_capabilityJson = new QPlainTextEdit;
     m_capabilityJson->setObjectName(QStringLiteral("LayoutJsonEditor"));
     m_capabilityJson->setReadOnly(true);
-    m_capabilityJson->setFont(QFont(QStringLiteral("Cascadia Mono"), 10));
+    m_capabilityJson->setFont(ui::appFont(10));
     jsonLayout->addWidget(m_capabilityJson, 1);
 
     layout->addWidget(leftPanel, 1);
@@ -597,7 +672,7 @@ LayoutPage::CapabilityRow LayoutPage::addCapabilityRow(const QString &name,
     layout->setSpacing(7);
     row.name = new QLineEdit(name);
     row.name->setPlaceholderText(QStringLiteral("Name"));
-    row.name->setFont(QFont(QStringLiteral("Cascadia Mono"), 10));
+    row.name->setFont(ui::appFont(10));
     row.name->setMinimumHeight(38);
     row.type = new QComboBox;
     row.type->addItem(QStringLiteral("text"), QStringLiteral("text"));
@@ -645,7 +720,7 @@ void LayoutPage::rebuildCapabilityValue(CapabilityRow &row, const QVariant &valu
     } else {
         auto *edit = new QLineEdit;
         edit->setMinimumHeight(38);
-        edit->setFont(QFont(QStringLiteral("Cascadia Mono"), 10));
+        edit->setFont(ui::appFont(10));
         edit->setPlaceholderText(QStringLiteral("Value"));
         edit->setText(value.isValid() ? value.toString() : QString());
         connect(edit, &QLineEdit::textChanged, this, [this] { updateCapabilityJson(); });
@@ -766,7 +841,7 @@ QWidget *LayoutPage::buildSavedCapabilitiesTab()
     previewLayout->addWidget(label(QStringLiteral("JSON Representation"), 13, QFont::DemiBold));
     auto *previewJson = new QPlainTextEdit;
     previewJson->setReadOnly(true);
-    previewJson->setFont(QFont(QStringLiteral("Cascadia Mono"), 10));
+    previewJson->setFont(ui::appFont(10));
     previewLayout->addWidget(previewJson, 1);
     connect(m_savedTable, &QTableWidget::currentCellChanged, this,
             [this, previewJson](int currentRow, int, int, int) {
@@ -1238,7 +1313,7 @@ QWidget *LayoutPage::buildSessionInfoTab()
     panelLayout->addWidget(label(QStringLiteral("Session Information"), 13, QFont::DemiBold));
     auto *info = new QPlainTextEdit;
     info->setReadOnly(true);
-    info->setFont(QFont(QStringLiteral("Cascadia Mono"), 10));
+    info->setFont(ui::appFont(10));
     info->setPlainText(QStringLiteral("{\n  \"platformName\": \"Android\",\n  \"appium:automationName\": \"UiAutomator2\",\n  \"appium:deviceName\": \"459c8df8\",\n  \"driver\": \"UiAutomator2\",\n  \"context\": \"NATIVE_APP\"\n}"));
     panelLayout->addWidget(info, 1);
     layout->addWidget(panel, 1);

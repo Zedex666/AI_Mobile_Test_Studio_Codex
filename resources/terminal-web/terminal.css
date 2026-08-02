@@ -1,3 +1,35 @@
+@font-face {
+  font-family: "AI JetBrains Mono";
+  src: url("../fonts/us/JetBrainsMono-2.304/fonts/ttf/JetBrainsMono-Regular.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+}
+
+@font-face {
+  font-family: "AI JetBrains Mono";
+  src: url("../fonts/us/JetBrainsMono-2.304/fonts/ttf/JetBrainsMono-Bold.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+}
+
+@font-face {
+  font-family: "AI LXGW WenKai";
+  src: url("../fonts/cn/LXGWWenKai-Regular.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+}
+
+@font-face {
+  font-family: "AI LXGW WenKai";
+  src: url("../fonts/cn/LXGWWenKai-Medium.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 600;
+  font-display: block;
+}
+
 :root {
   color-scheme: dark;
   background: #0c0c0c;

@@ -1,6 +1,6 @@
 # 文档导航
 
-本目录是 AI Mobile Test Studio 的工程事实和目标设计入口。文档基线日期为 2026-07-26。
+本目录是 AI Mobile Test Studio 的工程事实和目标设计入口。文档基线日期为 2026-08-02。
 
 ## 状态约定
 
@@ -16,15 +16,19 @@
 - Android 设备发现、连接状态和 scrcpy 镜像进程管理。
 - 持久 ADB `shell,v2` 终端、多标签、输入输出、尺寸同步和快捷命令。
 - ADB/OpenCode 统一终端会话、新建类型菜单和 `node-pty` ConPTY 宿主。
-- 随包 xterm.js/QWebChannel 前端资源；Qt WebEngine 依赖完整时自动启用，其他工具链使用基础显示降级。
+- 随包 xterm.js/QWebChannel 前端资源、写入回执和分块背压；Qt WebEngine 依赖完整时自动启用，其他工具链使用基础显示降级。
 - 设备按键控制、软件包管理、应用管理、文件管理、Recovery sideload。
 - 电池、CPU、内存、温度和前台应用 FPS 性能观测。
+- 进程监控、文本过滤、应用图标、按 PID 差量刷新和应用强制停止。
 - Android 应用名称与图标元数据提取器。
+- Apple 风格桌面界面、设置页、中英文即时切换，以及中文霞鹜文楷和英文 JetBrains Mono 本地字体。
+- 随包 Appium Inspector 2026.5.1 工作区，并支持语言对应字体、文件下载和外部链接。
+- 文件工作区设备主页，以及可直接进入 `/` 和 `/sdcard` 的驱动器入口。
 
 尚未实现完整产品闭环的部分：
 
 - Python 自动化服务、Appium Server 和测试 Runner。
-- 完整 Qt WebEngine 部署、OpenCode 交互式 TUI 端到端验收和其余便携运行时装配。
+- OpenCode TUI 的鼠标、IME、备用屏幕和高输出发布级兼容性矩阵，以及干净机端到端验收。
 - OpenCode Server/SDK 和 Agent 编排。
 - 完整便携运行时装配、安装包、自检、修复和第三方许可证产物。
 
@@ -35,6 +39,7 @@
 | 文档 | 用途 |
 | --- | --- |
 | [PROJECT_DESIGN.md](PROJECT_DESIGN.md) | 产品定位、当前能力、目标工作流和成功标准 |
+| [FRONTEND_DESIGN.md](FRONTEND_DESIGN.md) | Apple 风格视觉系统、动效、响应式与中英文体验 |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 当前与目标系统架构、进程和数据边界 |
 | [TERMINAL_ARCHITECTURE.md](TERMINAL_ARCHITECTURE.md) | ADB 终端、xterm.js、ConPTY 和 OpenCode 集成决策 |
 | [PORTABLE_RUNTIME.md](PORTABLE_RUNTIME.md) | 无需终端用户安装工具的运行时装配与隔离规范 |

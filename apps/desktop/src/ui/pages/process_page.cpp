@@ -8,13 +8,19 @@
 #include <QCheckBox>
 #include <QFrame>
 #include <QHeaderView>
+#include <QHash>
+#include <QIcon>
+#include <QImage>
 #include <QItemSelectionModel>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
+#include <QPixmap>
+#include <QScrollBar>
 #include <QSortFilterProxyModel>
 #include <QStyle>
 #include <QTableView>
+#include <QTimer>
 #include <QToolButton>
 
 #include <algorithm>
@@ -56,6 +62,10 @@ public:
 
     explicit ProcessModel(QObject *parent = nullptr)
         : QAbstractTableModel(parent)
+        , m_applicationFallbackIcon(
+              QApplication::style()->standardIcon(QStyle::SP_ComputerIcon))
+        , m_processFallbackIcon(
+              QApplication::style()->standardIcon(QStyle::SP_FileIcon))
     {
     }
 
@@ -94,9 +104,11 @@ public:
             }
         }
         if (role == Qt::DecorationRole && index.column() == Name) {
-            return QApplication::style()->standardIcon(entry.isApplication
-                                                            ? QStyle::SP_ComputerIcon
-                                                            : QStyle::SP_FileIcon);
+            const QIcon applicationIcon = m_applicationIcons.value(entry.packageName);
+            if (entry.isApplication && !applicationIcon.isNull()) {
+                return applicationIcon;
+            }
+            return entry.isApplication ? m_applicationFallbackIcon : m_processFallbackIcon;
         }
         if (role == Qt::ToolTipRole) {
             return entry.arguments;
@@ -148,9 +160,110 @@ public:
 
     void setEntries(QVector<DeviceProcessEntry> entries)
     {
-        beginResetModel();
-        m_entries = std::move(entries);
-        endResetModel();
+        if (m_entries.isEmpty()) {
+            if (entries.isEmpty()) {
+                return;
+            }
+            beginInsertRows(QModelIndex(), 0, entries.size() - 1);
+            m_entries = std::move(entries);
+            endInsertRows();
+            return;
+        }
+        if (entries.isEmpty()) {
+            beginRemoveRows(QModelIndex(), 0, m_entries.size() - 1);
+            m_entries.clear();
+            endRemoveRows();
+            return;
+        }
+
+        QSet<int> incomingPids;
+        incomingPids.reserve(entries.size());
+        for (const DeviceProcessEntry &entry : std::as_const(entries)) {
+            incomingPids.insert(entry.pid);
+        }
+
+        for (int row = m_entries.size() - 1; row >= 0;) {
+            if (incomingPids.contains(m_entries[row].pid)) {
+                --row;
+                continue;
+            }
+            const int last = row;
+            while (row >= 0 && !incomingPids.contains(m_entries[row].pid)) {
+                --row;
+            }
+            const int first = row + 1;
+            beginRemoveRows(QModelIndex(), first, last);
+            m_entries.erase(m_entries.begin() + first, m_entries.begin() + last + 1);
+            endRemoveRows();
+        }
+
+        QHash<int, int> rowsByPid;
+        rowsByPid.reserve(m_entries.size());
+        for (int row = 0; row < m_entries.size(); ++row) {
+            rowsByPid.insert(m_entries[row].pid, row);
+        }
+
+        int firstChanged = m_entries.size();
+        int lastChanged = -1;
+        QVector<DeviceProcessEntry> additions;
+        for (DeviceProcessEntry &entry : entries) {
+            const auto iterator = rowsByPid.constFind(entry.pid);
+            if (iterator == rowsByPid.cend()) {
+                additions.append(std::move(entry));
+                continue;
+            }
+            const int row = iterator.value();
+            if (!sameEntry(m_entries[row], entry)) {
+                m_entries[row] = std::move(entry);
+                firstChanged = std::min(firstChanged, row);
+                lastChanged = std::max(lastChanged, row);
+            }
+        }
+
+        if (firstChanged <= lastChanged) {
+            emit dataChanged(index(firstChanged, Name),
+                             index(lastChanged, User),
+                             {Qt::DisplayRole,
+                              Qt::DecorationRole,
+                              Qt::ToolTipRole,
+                              SortRole,
+                              SearchRole,
+                              ApplicationRole});
+        }
+        if (!additions.isEmpty()) {
+            const int first = m_entries.size();
+            const int last = first + additions.size() - 1;
+            beginInsertRows(QModelIndex(), first, last);
+            m_entries += std::move(additions);
+            endInsertRows();
+        }
+    }
+
+    void setApplicationIcons(QHash<QString, QIcon> icons)
+    {
+        QSet<QString> affectedPackages(m_applicationIcons.keyBegin(),
+                                       m_applicationIcons.keyEnd());
+        for (auto iterator = icons.cbegin(); iterator != icons.cend(); ++iterator) {
+            affectedPackages.insert(iterator.key());
+        }
+        m_applicationIcons = std::move(icons);
+        notifyIconChanges(affectedPackages);
+    }
+
+    void mergeApplicationIcons(const QHash<QString, QIcon> &icons)
+    {
+        if (icons.isEmpty()) {
+            return;
+        }
+        QSet<QString> affectedPackages;
+        for (auto iterator = icons.cbegin(); iterator != icons.cend(); ++iterator) {
+            const QIcon previous = m_applicationIcons.value(iterator.key());
+            if (previous.isNull() || previous.cacheKey() != iterator.value().cacheKey()) {
+                m_applicationIcons.insert(iterator.key(), iterator.value());
+                affectedPackages.insert(iterator.key());
+            }
+        }
+        notifyIconChanges(affectedPackages);
     }
 
     const DeviceProcessEntry *entryAt(int row) const
@@ -169,7 +282,41 @@ public:
     }
 
 private:
+    static bool sameEntry(const DeviceProcessEntry &left,
+                          const DeviceProcessEntry &right)
+    {
+        return left.name == right.name && left.cpuPercent == right.cpuPercent
+            && left.cpuTime == right.cpuTime && left.memory == right.memory
+            && left.memoryBytes == right.memoryBytes && left.pid == right.pid
+            && left.user == right.user && left.arguments == right.arguments
+            && left.packageName == right.packageName
+            && left.isApplication == right.isApplication;
+    }
+
+    void notifyIconChanges(const QSet<QString> &packages)
+    {
+        if (packages.isEmpty() || m_entries.isEmpty()) {
+            return;
+        }
+        int first = -1;
+        for (int row = 0; row <= m_entries.size(); ++row) {
+            const bool affected = row < m_entries.size()
+                && packages.contains(m_entries[row].packageName);
+            if (affected && first < 0) {
+                first = row;
+            } else if (!affected && first >= 0) {
+                emit dataChanged(index(first, Name),
+                                 index(row - 1, Name),
+                                 {Qt::DecorationRole});
+                first = -1;
+            }
+        }
+    }
+
     QVector<DeviceProcessEntry> m_entries;
+    QHash<QString, QIcon> m_applicationIcons;
+    QIcon m_applicationFallbackIcon;
+    QIcon m_processFallbackIcon;
 };
 
 class ProcessFilterProxyModel final : public QSortFilterProxyModel
@@ -278,8 +425,12 @@ ProcessPage::ProcessPage(QWidget *parent)
     m_table->setAlternatingRowColors(true);
     m_table->setShowGrid(false);
     m_table->setSortingEnabled(true);
+    m_table->setWordWrap(false);
+    m_table->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    m_table->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
+    m_table->setIconSize(QSize(22, 22));
     m_table->verticalHeader()->setVisible(false);
-    m_table->verticalHeader()->setDefaultSectionSize(30);
+    m_table->verticalHeader()->setDefaultSectionSize(34);
     m_table->horizontalHeader()->setStretchLastSection(true);
     m_table->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
     m_table->setColumnWidth(ProcessModel::Name, 460);
@@ -306,12 +457,40 @@ ProcessPage::ProcessPage(QWidget *parent)
             &QItemSelectionModel::selectionChanged,
             this,
             &ProcessPage::updateSelection);
+
+    m_scrollIdleTimer = new QTimer(this);
+    m_scrollIdleTimer->setSingleShot(true);
+    m_scrollIdleTimer->setInterval(180);
+    connect(m_table->verticalScrollBar(), &QScrollBar::valueChanged, this, [this] {
+        if (!m_applyingProcesses) {
+            m_scrollIdleTimer->start();
+        }
+    });
+    connect(m_scrollIdleTimer, &QTimer::timeout, this, [this] {
+        if (!m_hasDeferredProcesses) {
+            return;
+        }
+        m_hasDeferredProcesses = false;
+        applyProcesses(std::move(m_deferredProcesses));
+    });
+
+    m_iconDecodeTimer = new QTimer(this);
+    m_iconDecodeTimer->setSingleShot(true);
+    connect(m_iconDecodeTimer, &QTimer::timeout, this, &ProcessPage::decodeNextIcon);
 }
 
 void ProcessPage::setDeviceConnected(bool connected, const QString &serial)
 {
+    const QString nextSerial = connected ? serial : QString();
+    if (m_serial != nextSerial) {
+        m_loadedIconPackages.clear();
+        m_requestedIconPackages.clear();
+        m_pendingIconApps.clear();
+        m_iconDecodeTimer->stop();
+        m_model->setApplicationIcons({});
+    }
     m_connected = connected;
-    m_serial = connected ? serial : QString();
+    m_serial = nextSerial;
     m_filterInput->setEnabled(connected);
     m_onlyApps->setEnabled(connected);
     m_refreshButton->setEnabled(connected && !m_sampling);
@@ -339,9 +518,38 @@ void ProcessPage::setSampling(bool sampling)
 
 void ProcessPage::setProcesses(const QVector<DeviceProcessEntry> &processes)
 {
+    if (m_scrollIdleTimer->isActive()) {
+        m_deferredProcesses = processes;
+        m_hasDeferredProcesses = true;
+        return;
+    }
+    applyProcesses(processes);
+}
+
+void ProcessPage::applyProcesses(QVector<DeviceProcessEntry> processes)
+{
     const DeviceProcessEntry *selected = selectedProcess();
     const int selectedPid = selected != nullptr ? selected->pid : 0;
+    const int sortColumn = m_table->horizontalHeader()->sortIndicatorSection();
+    const Qt::SortOrder sortOrder = m_table->horizontalHeader()->sortIndicatorOrder();
+    m_applyingProcesses = true;
+    m_proxy->setDynamicSortFilter(false);
     m_model->setEntries(processes);
+    m_proxy->setDynamicSortFilter(true);
+    m_proxy->sort(sortColumn, sortOrder);
+    QStringList packagesToLoad;
+    for (const DeviceProcessEntry &process : processes) {
+        if (!process.isApplication || process.packageName.isEmpty()
+            || m_loadedIconPackages.contains(process.packageName)
+            || m_requestedIconPackages.contains(process.packageName)) {
+            continue;
+        }
+        m_requestedIconPackages.insert(process.packageName);
+        packagesToLoad.append(process.packageName);
+    }
+    if (!packagesToLoad.isEmpty()) {
+        emit applicationMetadataRequested(packagesToLoad);
+    }
     updateCount();
     if (selectedPid > 0) {
         const int sourceRow = m_model->rowForPid(selectedPid);
@@ -356,6 +564,40 @@ void ProcessPage::setProcesses(const QVector<DeviceProcessEntry> &processes)
     m_statusLabel->setText(ui::text("进程列表已更新"));
     m_statusLabel->setStyleSheet(QStringLiteral("color:#459b47;"));
     updateSelection();
+    m_applyingProcesses = false;
+}
+
+void ProcessPage::setApplications(const QVector<AndroidAppSummary> &apps)
+{
+    for (const AndroidAppSummary &app : apps) {
+        m_pendingIconApps.enqueue(app);
+    }
+    if (!m_pendingIconApps.isEmpty() && !m_iconDecodeTimer->isActive()) {
+        m_iconDecodeTimer->start(0);
+    }
+}
+
+void ProcessPage::decodeNextIcon()
+{
+    if (m_pendingIconApps.isEmpty()) {
+        return;
+    }
+    const AndroidAppSummary app = m_pendingIconApps.dequeue();
+    QHash<QString, QIcon> icons;
+    const QImage image = QImage::fromData(app.iconPng, "PNG");
+    if (!image.isNull()) {
+        icons.insert(app.packageName,
+                     QIcon(QPixmap::fromImage(image.scaled(22,
+                                                          22,
+                                                          Qt::KeepAspectRatio,
+                                                          Qt::SmoothTransformation))));
+    }
+    m_loadedIconPackages.insert(app.packageName);
+    m_requestedIconPackages.remove(app.packageName);
+    m_model->mergeApplicationIcons(icons);
+    if (!m_pendingIconApps.isEmpty()) {
+        m_iconDecodeTimer->start(8);
+    }
 }
 
 void ProcessPage::showError(const QString &message)

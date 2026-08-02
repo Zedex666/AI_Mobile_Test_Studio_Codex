@@ -6,7 +6,6 @@ QString appStyleSheet()
 {
     return QString::fromUtf8(R"(
         QWidget {
-            font-family: "Microsoft YaHei UI", "Segoe UI", sans-serif;
             color: #172033;
             background: transparent;
         }
@@ -590,7 +589,6 @@ QString appStyleSheet()
             border: 1px solid #263244;
             border-radius: 7px;
             color: #dce6f4;
-            font-family: "Cascadia Mono", "Consolas", monospace;
             padding: 10px;
             selection-background-color: #315b8c;
         }
@@ -611,18 +609,27 @@ QString appStyleSheet()
         QWidget#FilesStatusBar { border-top: 1px solid #e1e8f2; }
         QWidget#FilesContentArea, QWidget#FilesDeviceHome,
         QStackedWidget#FilesContentStack { background: #f8fafc; }
-        QFrame#FilesDriveCard {
+        QPushButton#FilesDriveCard {
             background: #ffffff;
             border: 1px solid #d8dee8;
             border-radius: 6px;
+            padding: 0;
+            text-align: left;
         }
-        QFrame#FilesDriveCard:hover { border-color: #9db9dc; }
+        QPushButton#FilesDriveCard:hover {
+            background: #fbfdff;
+            border-color: #9db9dc;
+        }
+        QPushButton#FilesDriveCard:pressed {
+            background: #f2f7fd;
+            border-color: #76a3d8;
+        }
         QLabel#FilesDriveIcon {
             background: #f4f6f9;
             border: 1px solid #d8dee8;
             border-radius: 6px;
         }
-        QPushButton#FilesDriveButton {
+        QLabel#FilesDriveButton {
             background: transparent;
             border: none;
             color: #2d3138;
@@ -631,7 +638,6 @@ QString appStyleSheet()
             padding: 0;
             text-align: left;
         }
-        QPushButton#FilesDriveButton:hover { color: #1f72bd; }
         QProgressBar#FilesDriveProgress::chunk {
             background: #258bcb;
             border-radius: 2px;
@@ -1420,6 +1426,90 @@ QString appStyleSheet()
             color: #dce7f5;
             padding: 10px;
         }
+    )") + QString::fromUtf8(R"(
+        QStackedWidget#OtherContentStack, QWidget#OtherDetailCanvas,
+        QWidget#OtherDetailContent, QScrollArea#OtherDetailScroll {
+            background: #f5f5f7;
+            border: none;
+        }
+        QWidget#OtherDetailHeader { background: transparent; border: none; }
+        QLabel#OtherDetailIcon {
+            background: #ffffff;
+            border: 1px solid rgba(60, 60, 67, 32);
+            border-radius: 8px;
+        }
+        QFrame#OtherSettingRow, QFrame#OtherSettingsGroup {
+            background: rgba(255, 255, 255, 238);
+            border: 1px solid rgba(60, 60, 67, 28);
+            border-radius: 8px;
+        }
+        QLineEdit#OtherCommandInput, QComboBox#OtherServerCombo,
+        QDoubleSpinBox#OtherNumericInput, QSpinBox#OtherNumericInput {
+            min-height: 40px;
+            background: #ffffff;
+            border: 1px solid #d2d2d7;
+            border-radius: 8px;
+            color: #1d1d1f;
+            padding: 0 12px;
+            selection-background-color: #d6e8ff;
+        }
+        QLineEdit#OtherCommandInput:focus, QComboBox#OtherServerCombo:focus,
+        QDoubleSpinBox#OtherNumericInput:focus, QSpinBox#OtherNumericInput:focus {
+            border-color: #6ba5f7;
+        }
+        QPlainTextEdit#OtherResultOutput {
+            background: rgba(255, 255, 255, 244);
+            border: 1px solid rgba(60, 60, 67, 30);
+            border-radius: 8px;
+            color: #242426;
+            padding: 14px;
+            selection-background-color: #d6e8ff;
+        }
+        QPushButton#OtherActionButton {
+            min-width: 96px;
+            background: #ffffff;
+            border: 1px solid #d2d2d7;
+            border-radius: 8px;
+            color: #1d1d1f;
+            padding: 0 16px;
+        }
+        QPushButton#OtherActionButton:hover {
+            background: #f0f5fc;
+            border-color: #9abceb;
+            color: #1768c5;
+        }
+        QPushButton#OtherActionButton[primary="true"] {
+            background: #1677ff;
+            border-color: #1677ff;
+            color: #ffffff;
+        }
+        QPushButton#OtherActionButton[primary="true"]:hover {
+            background: #0969da;
+            border-color: #0969da;
+        }
+        QPushButton#OtherActionButton:pressed {
+            background: #e5edf8;
+        }
+        QPushButton#OtherActionButton[primary="true"]:pressed {
+            background: #0759ba;
+        }
+        QPushButton#OtherActionButton:disabled {
+            background: #ececf0;
+            border-color: #e0e0e5;
+            color: #a1a1a6;
+        }
+        QToolButton#OtherBackButton {
+            background: #ffffff;
+            border: 1px solid #d2d2d7;
+            border-radius: 8px;
+            color: #1d1d1f;
+            font-size: 18px;
+        }
+        QToolButton#OtherBackButton:hover {
+            background: #eef5ff;
+            border-color: #9abceb;
+            color: #1677ff;
+        }
         QLineEdit#ProcessFilterInput {
             min-height: 34px;
             background: #ffffff;
@@ -1455,6 +1545,173 @@ QString appStyleSheet()
             color: #313a49;
             padding: 0 7px;
             text-align: left;
+        }
+
+        /* Apple-inspired material layer */
+        QMainWindow, QFrame#Root, QStackedWidget#WorkspaceStack,
+        QWidget#SettingsPage, QWidget#SettingsContent,
+        QWidget#OverviewPage, QWidget#DisplayPage, QWidget#MirroringPage,
+        QWidget#DeviceControlPage, QWidget#PackageManagerPage,
+        QWidget#AppsPage, QWidget#FilesPage, QWidget#RecoveryPage,
+        QWidget#PerformancePage, QWidget#LayoutPage, QWidget#LogcatPage,
+        QWidget#OtherPage, QWidget#ProcessPage {
+            background: #f5f5f7;
+            color: #1d1d1f;
+        }
+        QFrame#Header {
+            background: rgba(255, 255, 255, 232);
+            border: none;
+            border-bottom: 1px solid rgba(60, 60, 67, 30);
+        }
+        QFrame#Sidebar, QWidget#SidebarNavigation, QWidget#SidebarFooter {
+            background: rgba(250, 250, 252, 224);
+            border: none;
+        }
+        QFrame#Sidebar {
+            border-right: 1px solid rgba(60, 60, 67, 28);
+        }
+        QPushButton#WorkspaceNavButton {
+            min-height: 42px;
+            background: transparent;
+            border: none;
+            border-radius: 11px;
+            color: #3a3a3c;
+            padding: 0 14px;
+        }
+        QPushButton#WorkspaceNavButton:hover {
+            background: rgba(118, 118, 128, 18);
+            color: #1d1d1f;
+        }
+        QPushButton#WorkspaceNavButton[active="true"] {
+            background: rgba(0, 113, 227, 24);
+            color: #0066cc;
+        }
+        QPushButton#IconButton {
+            min-width: 38px;
+            min-height: 38px;
+            background: rgba(255, 255, 255, 150);
+            border: 1px solid rgba(60, 60, 67, 22);
+            border-radius: 12px;
+            color: #1d1d1f;
+        }
+        QPushButton#IconButton:hover,
+        QPushButton#IconButton[active="true"] {
+            background: rgba(0, 113, 227, 22);
+            border-color: rgba(0, 113, 227, 48);
+            color: #0071e3;
+        }
+        QFrame#SideStatus, QFrame#DeviceSelector {
+            background: rgba(255, 255, 255, 190);
+            border: 1px solid rgba(60, 60, 67, 24);
+            border-radius: 12px;
+        }
+        QFrame#Panel, QFrame#CommandCategory, QFrame#SettingsCard,
+        QFrame#OverviewMetricCard, QFrame#OverviewInfoCard,
+        QFrame#DisplayCard, QFrame#MirrorCard {
+            background: rgba(255, 255, 255, 232);
+            border: 1px solid rgba(60, 60, 67, 24);
+            border-radius: 12px;
+        }
+        QLabel#SettingsTitle { color: #1d1d1f; }
+        QLabel#SettingsSubtitle, QLabel#SettingsRowDetail { color: #6e6e73; }
+        QLabel#SettingsRowTitle, QLabel#SettingsValue { color: #1d1d1f; }
+        QScrollArea#SettingsScroll { background: transparent; border: none; }
+        QFrame#SettingsSegmentedControl {
+            min-width: 220px;
+            min-height: 38px;
+            background: rgba(118, 118, 128, 22);
+            border: 1px solid rgba(60, 60, 67, 20);
+            border-radius: 11px;
+        }
+        QPushButton#SettingsSegmentButton {
+            min-width: 102px;
+            min-height: 32px;
+            background: transparent;
+            border: none;
+            border-radius: 8px;
+            color: #6e6e73;
+            padding: 0 12px;
+        }
+        QPushButton#SettingsSegmentButton:hover { color: #1d1d1f; }
+        QPushButton#SettingsSegmentButton:checked {
+            background: #ffffff;
+            border: 1px solid rgba(60, 60, 67, 22);
+            color: #1d1d1f;
+        }
+        QCheckBox#SettingsSwitch {
+            min-height: 38px;
+            color: #1d1d1f;
+            spacing: 10px;
+        }
+        QCheckBox#SettingsSwitch::indicator {
+            width: 42px;
+            height: 24px;
+            background: #d1d1d6;
+            border: none;
+            border-radius: 12px;
+        }
+        QCheckBox#SettingsSwitch::indicator:checked {
+            background: #34c759;
+            border: 5px solid #34c759;
+        }
+        QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {
+            min-height: 36px;
+            background: rgba(255, 255, 255, 236);
+            border: 1px solid rgba(60, 60, 67, 42);
+            border-radius: 10px;
+            color: #1d1d1f;
+            selection-background-color: #b9dcff;
+        }
+        QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus {
+            border: 2px solid #0071e3;
+        }
+        QPushButton#SendButton, QPushButton#MirrorLaunchButton,
+        QPushButton#PackageInstallStartButton {
+            background: #0071e3;
+            border: none;
+            border-radius: 11px;
+            color: #ffffff;
+        }
+        QPushButton#SendButton:hover, QPushButton#MirrorLaunchButton:hover,
+        QPushButton#PackageInstallStartButton:hover {
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                                        stop:0 #0071e3, stop:1 #0a84ff);
+        }
+        QProgressBar {
+            min-height: 8px;
+            max-height: 8px;
+            background: rgba(118, 118, 128, 26);
+            border: none;
+            border-radius: 4px;
+            color: transparent;
+        }
+        QProgressBar::chunk {
+            background: #0071e3;
+            border-radius: 4px;
+        }
+        QScrollBar:vertical {
+            width: 10px;
+            background: transparent;
+            margin: 2px;
+        }
+        QScrollBar::handle:vertical {
+            min-height: 32px;
+            background: rgba(60, 60, 67, 70);
+            border: 3px solid transparent;
+            border-radius: 5px;
+        }
+        QScrollBar::handle:vertical:hover { background: rgba(60, 60, 67, 105); }
+        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical,
+        QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+            height: 0;
+            background: transparent;
+        }
+        QToolTip {
+            background: rgba(40, 40, 42, 242);
+            border: 1px solid rgba(255, 255, 255, 24);
+            border-radius: 8px;
+            color: #ffffff;
+            padding: 7px 9px;
         }
     )");
 }

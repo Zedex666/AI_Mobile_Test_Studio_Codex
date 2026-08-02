@@ -18,12 +18,14 @@
 #include <QClipboard>
 #include <QContextMenuEvent>
 #include <QFontDatabase>
+#include <QHideEvent>
 #include <QInputMethodEvent>
 #include <QKeyEvent>
 #include <QMenu>
 #include <QPlainTextEdit>
 #include <QResizeEvent>
 #include <QScrollBar>
+#include <QShowEvent>
 #include <QStackedWidget>
 #include <QStringConverter>
 #include <QTabBar>
@@ -51,9 +53,7 @@ public:
         setFocusPolicy(Qt::StrongFocus);
         setAttribute(Qt::WA_InputMethodEnabled, true);
         setTextInteractionFlags(Qt::TextSelectableByKeyboard | Qt::TextSelectableByMouse);
-        QFont font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
-        font.setPointSize(11);
-        setFont(font);
+        setFont(ui::appFont(11));
         m_lines.append(QString());
         m_renderTimer.setSingleShot(true);
         connect(&m_renderTimer, &QTimer::timeout, this, [this] {
@@ -90,8 +90,12 @@ public:
         }
         processText(m_decoder(data));
         if (!m_renderTimer.isActive()) {
-            m_renderTimer.start(12);
+        m_renderTimer.start(33);
         }
+    }
+
+    void setOutputDeliveryEnabled(bool)
+    {
     }
 
     void appendStatus(const QString &message)
@@ -521,8 +525,8 @@ private:
 
     void trimScrollback()
     {
-        constexpr int maximumLines = 10000;
-        constexpr int trimCount = 1000;
+        constexpr int maximumLines = 5000;
+        constexpr int trimCount = 500;
         if (m_lines.size() <= maximumLines) {
             return;
         }
@@ -699,6 +703,11 @@ public:
         m_bridge->sendOutput(data);
     }
 
+    void setOutputDeliveryEnabled(bool enabled)
+    {
+        m_bridge->setDeliveryEnabled(enabled);
+    }
+
     void appendStatus(const QString &message)
     {
         m_bridge->sendStatus(message);
@@ -795,9 +804,6 @@ TerminalPage::TerminalPage(QWidget *parent)
 
     m_addButton = makeTerminalButton(ui::text("+"), ui::text("新建终端"));
     toolbarLayout->addWidget(m_addButton);
-    m_addMenuButton = makeTerminalButton(ui::text("⌄"), ui::text("选择终端类型"));
-    m_addMenuButton->setFixedWidth(28);
-    toolbarLayout->addWidget(m_addMenuButton);
     toolbarLayout->addStretch();
 
     m_shortcutsButton = makeTerminalButton(ui::text("≡"), ui::text("快捷命令"));
@@ -834,9 +840,6 @@ TerminalPage::TerminalPage(QWidget *parent)
     connect(m_addButton, &QToolButton::clicked, this, [this] {
         showNewTerminalMenu(m_addButton);
     });
-    connect(m_addMenuButton, &QToolButton::clicked, this, [this] {
-        showNewTerminalMenu(m_addMenuButton);
-    });
     connect(m_tabBar, &QTabBar::currentChanged, this, &TerminalPage::selectTerminal);
     addTerminal(QStringLiteral("adb-shell"));
     updateControls();
@@ -871,6 +874,7 @@ void TerminalPage::setDeviceConnected(bool connected, const QString &serial)
 
 void TerminalPage::activate()
 {
+    selectTerminal(m_tabBar->currentIndex());
     if (TerminalView *view = viewForSession(currentSessionId())) {
         QTimer::singleShot(0, view, [view] {
             view->focusTerminal();
@@ -1014,16 +1018,36 @@ void TerminalPage::closeTerminal(int index)
 
 void TerminalPage::selectTerminal(int index)
 {
+    const QString selectedSessionId = index >= 0 && index < m_tabBar->count()
+        ? m_tabBar->tabData(index).toString()
+        : QString();
+    for (auto iterator = m_views.cbegin(); iterator != m_views.cend(); ++iterator) {
+        iterator.value()->setOutputDeliveryEnabled(
+            isVisible() && iterator.key() == selectedSessionId);
+    }
     if (index < 0 || index >= m_tabBar->count()) {
         updateControls();
         return;
     }
-    const QString sessionId = m_tabBar->tabData(index).toString();
-    if (TerminalView *view = viewForSession(sessionId)) {
+    if (TerminalView *view = viewForSession(selectedSessionId)) {
         m_terminalStack->setCurrentWidget(view);
         view->focusTerminal();
     }
     updateControls();
+}
+
+void TerminalPage::showEvent(QShowEvent *event)
+{
+    QWidget::showEvent(event);
+    selectTerminal(m_tabBar->currentIndex());
+}
+
+void TerminalPage::hideEvent(QHideEvent *event)
+{
+    for (auto iterator = m_views.cbegin(); iterator != m_views.cend(); ++iterator) {
+        iterator.value()->setOutputDeliveryEnabled(false);
+    }
+    QWidget::hideEvent(event);
 }
 
 void TerminalPage::runShortcut(const QByteArray &command)
@@ -1057,7 +1081,6 @@ TerminalView *TerminalPage::viewForSession(const QString &sessionId) const
 void TerminalPage::updateControls()
 {
     m_addButton->setEnabled(true);
-    m_addMenuButton->setEnabled(true);
     TerminalView *view = viewForSession(currentSessionId());
     m_shortcutsButton->setEnabled(
         m_connected && kindForSession(currentSessionId()) == QStringLiteral("adb-shell")

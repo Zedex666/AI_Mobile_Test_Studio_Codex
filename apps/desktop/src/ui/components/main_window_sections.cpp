@@ -272,24 +272,29 @@ QWidget *makeInputBox()
 
 } // namespace
 
-QWidget *createHeader()
+HeaderSection createHeader()
 {
-    auto *header = makePanel("Header");
-    header->setFixedHeight(72);
-    auto *layout = new QHBoxLayout(header);
+    HeaderSection section;
+    section.widget = makePanel("Header");
+    section.widget->setFixedHeight(68);
+    auto *layout = new QHBoxLayout(section.widget);
     layout->setContentsMargins(28, 0, 28, 0);
     layout->setSpacing(14);
 
     layout->addWidget(new LogoBadge);
-    layout->addWidget(makeLabel(text("AI 聊天窗口"), 13, QFont::DemiBold, "#111827"));
+    layout->addWidget(makeLabel(text("AI Mobile Test Studio"),
+                                13,
+                                QFont::DemiBold,
+                                "#1d1d1f"));
     layout->addStretch();
     layout->addWidget(makeIconButton(text("♢"), text("通知")));
     layout->addWidget(makeIconButton(text("▣"), text("设备中心")));
     layout->addWidget(makeDivider());
-    layout->addWidget(makeIconButton(text("⚙"), text("设置")));
+    section.settingsButton = makeIconButton(text("⚙"), text("设置"));
+    layout->addWidget(section.settingsButton);
     layout->addWidget(makeDivider());
     layout->addWidget(new AvatarBadge);
-    return header;
+    return section;
 }
 
 SidebarSection createSidebar()
@@ -315,15 +320,15 @@ SidebarSection createSidebar()
     navigationLayout->setAlignment(Qt::AlignTop);
 
     section.overviewButton = makeWorkspaceNavButton(text("◫"), text("概览"), true);
-    section.displayButton = makeWorkspaceNavButton(text("↔"), QStringLiteral("Display"), false);
-    section.mirroringButton = makeWorkspaceNavButton(text("▣"), QStringLiteral("Mirroring"), false);
+    section.displayButton = makeWorkspaceNavButton(text("↔"), text("显示"), false);
+    section.mirroringButton = makeWorkspaceNavButton(text("▣"), text("镜像"), false);
     section.chatButton = makeWorkspaceNavButton(text("▣"), text("终端"), false);
     section.deviceControlButton = makeWorkspaceNavButton(text("⌘"), text("设备控制"), false);
     section.packageManagerButton = makeWorkspaceNavButton(text("▤"), text("软件包管理器"), false);
     section.appsButton = makeWorkspaceNavButton(text("▦"), text("应用"), false);
     section.filesButton = makeWorkspaceNavButton(text("▱"), text("文件"), false);
     section.processButton = makeWorkspaceNavButton(text("▥"), text("进程"), false);
-    section.recoveryButton = makeWorkspaceNavButton(text("Ⓡ"), text("Recovery"), false);
+    section.recoveryButton = makeWorkspaceNavButton(text("Ⓡ"), text("恢复"), false);
     section.performanceButton = makeWorkspaceNavButton(text("⌁"), text("性能"), false);
     section.layoutButton = makeWorkspaceNavButton(text("▦"), text("布局"), false);
     section.logcatButton = makeWorkspaceNavButton(text("≡"), text("日志"), false);
@@ -342,7 +347,8 @@ SidebarSection createSidebar()
     navigationLayout->addWidget(section.layoutButton);
     navigationLayout->addWidget(section.logcatButton);
     navigationLayout->addWidget(section.otherButton);
-    navigationLayout->addWidget(makeNavItem(text("⚙"), text("设置")));
+    section.settingsButton = makeWorkspaceNavButton(text("⚙"), text("设置"), false);
+    navigationLayout->addWidget(section.settingsButton);
     navigationLayout->addWidget(makeNavItem(text("i"), text("关于")));
     navigationLayout->addStretch();
     navigationScroll->setWidget(navigation);

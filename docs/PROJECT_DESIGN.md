@@ -11,16 +11,19 @@ AI Mobile Test Studio 是面向 Android 设备调试与 AI 自动化测试的 Wi
 当前主程序是 Qt 6 Widgets 桌面应用，已经具备：
 
 - **终端**：ADB `shell,v2` 持久会话、多标签、快捷命令、输入输出和 resize。
-- **OpenCode 终端接入**：可从新建菜单创建独立 OpenCode 会话，通过 `node-pty`/ConPTY 运行；xterm.js 在完整 WebEngine 构建中启用。
+- **OpenCode 终端接入**：可从“+”菜单创建独立 OpenCode 会话，通过 `node-pty`/ConPTY 运行；xterm.js 在完整 WebEngine 构建中启用，并带写入回执、分块背压和后台标签暂停投递。
 - **设备控制**：Android KEYCODE、电源、显示、媒体、系统应用等操作。
 - **软件包管理器**：包列表、详情、安装、卸载、启停用和清数据。
 - **应用**：应用分类、详情、图标、启动停止、权限、后台模式、APK 安装与导出。
-- **Files**：设备文件浏览、上传下载、重命名、复制、权限和删除。
+- **文件**：设备文件浏览、上传下载、重命名、复制、权限和删除，设备主页可直接进入 `/` 与 `/sdcard`。
 - **Recovery**：sideload 文件选择、执行、取消和进度。
 - **性能**：CPU、核心频率、内存、电池、温度和前台应用 FPS。
+- **进程**：进程指标、应用图标、过滤、排序和强制停止，列表按 PID 差量刷新。
 - **镜像**：通过 scrcpy 独立进程启动和停止设备镜像。
+- **布局**：随包 Appium Inspector 2026.5.1 浏览器工作区。
+- **设置与国际化**：中英文即时切换、动态效果偏好，以及随包霞鹜文楷和 JetBrains Mono 字体。
 
-当前限制：OpenCode、Node.js 和 `node-pty` 已形成锁定的 Windows x64 开发构建 runtime，并通过真实 OpenCode ConPTY 启动冒烟；scrcpy/ADB 和其余依赖尚未进入统一锁文件。交互式 OpenCode + xterm.js 端到端验收、OpenCode Server/SDK、Appium、Python 服务、附件解析、报告和完整安装包尚未完成。
+当前限制：OpenCode、Node.js 和 `node-pty` 已形成锁定的 Windows x64 开发构建 runtime，Qt WebEngine/xterm.js 已通过 ConPTY 回显和真实 OpenCode 1.18.5 基本交互验证；scrcpy/ADB 和其余依赖尚未进入统一锁文件。OpenCode TUI 的 IME、鼠标、备用屏幕与高输出发布级矩阵、OpenCode Server/SDK、Appium Server/Runner、Python 服务、附件解析、报告和完整安装包尚未完成。
 
 ## 3. 目标用户
 

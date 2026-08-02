@@ -10,6 +10,7 @@
 #include <QJsonParseError>
 #include <QRegularExpression>
 #include <QSet>
+#include <QTimer>
 
 #include <algorithm>
 #include <utility>
@@ -21,7 +22,7 @@ const QString kMetadataDevicePath = QStringLiteral(
     "/data/local/tmp/ai_mobile_test_studio_app_metadata.jar");
 const QString kMetadataMainClass = QStringLiteral(
     "com.ai_mobile_test_studio.appmetadata.Main");
-constexpr int kMetadataBatchSize = 80;
+constexpr int kMetadataBatchSize = 24;
 
 QStringList adbArguments(const QString &serial, const QStringList &arguments)
 {
@@ -126,6 +127,7 @@ void AppsService::setDeviceSerial(const QString &serial)
     }
     resetInstallBatch();
     resetMetadataLoad();
+    m_queuedMetadataPackages.clear();
     m_labelCache.clear();
     m_iconCache.clear();
 }
@@ -145,6 +147,55 @@ void AppsService::loadApps()
     start(Request::AppList,
           tr("刷新应用列表"),
           {QStringLiteral("shell"), script});
+}
+
+void AppsService::loadAppMetadata(const QStringList &packageNames)
+{
+    QSet<QString> uniquePackages;
+    QVector<AndroidAppSummary> cachedApps;
+    QStringList missingPackages;
+    for (const QString &packageName : packageNames) {
+        if (!validPackageName(packageName) || uniquePackages.contains(packageName)) {
+            continue;
+        }
+        uniquePackages.insert(packageName);
+
+        AndroidAppSummary app;
+        app.packageName = packageName;
+        app.displayName = m_labelCache.value(packageName, packageName);
+        app.iconPng = m_iconCache.value(packageName);
+        if (!app.iconPng.isEmpty()) {
+            cachedApps.append(std::move(app));
+        } else {
+            missingPackages.append(packageName);
+        }
+    }
+
+    if (!cachedApps.isEmpty()) {
+        emit appMetadataLoaded(cachedApps);
+    }
+    if (missingPackages.isEmpty()) {
+        return;
+    }
+    if (busy()) {
+        for (const QString &packageName : std::as_const(missingPackages)) {
+            if (!m_queuedMetadataPackages.contains(packageName)) {
+                m_queuedMetadataPackages.append(packageName);
+            }
+        }
+        return;
+    }
+
+    QVector<AndroidAppSummary> apps;
+    apps.reserve(missingPackages.size());
+    for (const QString &packageName : std::as_const(missingPackages)) {
+        AndroidAppSummary app;
+        app.packageName = packageName;
+        app.displayName = m_labelCache.value(packageName, packageName);
+        apps.append(std::move(app));
+        m_queuedMetadataPackages.removeAll(packageName);
+    }
+    beginMetadataLoad(std::move(apps), false);
 }
 
 void AppsService::loadAppDetails(const QString &packageName)
@@ -483,7 +534,7 @@ void AppsService::handleFinished(int exitCode, QProcess::ExitStatus exitStatus)
         }
         emit appsLoaded(apps);
         emit operationFinished(true, label, tr("已读取 %1 个应用。").arg(apps.size()));
-        beginMetadataLoad(std::move(apps));
+        beginMetadataLoad(std::move(apps), true);
         return;
     }
     if (completedRequest == Request::MetadataPush) {
@@ -500,7 +551,6 @@ void AppsService::handleFinished(int exitCode, QProcess::ExitStatus exitStatus)
             return;
         }
         m_metadataLoaded += loaded;
-        emit appsLoaded(m_metadataApps);
         startNextMetadataBatch();
         return;
     }
@@ -522,6 +572,13 @@ void AppsService::finishRequest()
     m_refreshList = false;
     m_refreshDetails = false;
     emit busyChanged(false);
+    if (!m_queuedMetadataPackages.isEmpty()) {
+        QTimer::singleShot(0, this, [this] {
+            if (!busy() && !m_queuedMetadataPackages.isEmpty()) {
+                loadAppMetadata(m_queuedMetadataPackages);
+            }
+        });
+    }
 }
 
 void AppsService::failRequest(const QString &detail)
@@ -579,10 +636,11 @@ void AppsService::resetInstallBatch()
     m_installSucceeded = 0;
 }
 
-void AppsService::beginMetadataLoad(QVector<AndroidAppSummary> apps)
+void AppsService::beginMetadataLoad(QVector<AndroidAppSummary> apps, bool publishAppList)
 {
     resetMetadataLoad();
     m_metadataApps = std::move(apps);
+    m_metadataPublishesAppList = publishAppList;
     for (const AndroidAppSummary &app : std::as_const(m_metadataApps)) {
         if (!app.uninstalled && app.iconPng.isEmpty()) {
             m_pendingMetadataPackages.append(app.packageName);
@@ -590,6 +648,11 @@ void AppsService::beginMetadataLoad(QVector<AndroidAppSummary> apps)
     }
     m_metadataRequested = m_pendingMetadataPackages.size();
     if (m_metadataRequested == 0) {
+        const QVector<AndroidAppSummary> completedApps = m_metadataApps;
+        resetMetadataLoad();
+        if (!completedApps.isEmpty()) {
+            emit appMetadataLoaded(completedApps);
+        }
         return;
     }
     if (!QFileInfo::exists(m_metadataJarPath)) {
@@ -614,7 +677,13 @@ void AppsService::startNextMetadataBatch()
     if (m_pendingMetadataPackages.isEmpty()) {
         const int requested = m_metadataRequested;
         const int loaded = m_metadataLoaded;
+        const QVector<AndroidAppSummary> completedApps = m_metadataApps;
+        const bool publishAppList = m_metadataPublishesAppList;
         resetMetadataLoad();
+        if (publishAppList) {
+            emit appsLoaded(completedApps);
+        }
+        emit appMetadataLoaded(completedApps);
         emit operationFinished(true,
                                tr("加载应用图标"),
                                tr("已加载 %1 / %2 个应用图标。").arg(loaded).arg(requested));
@@ -700,6 +769,7 @@ void AppsService::resetMetadataLoad()
     m_pendingMetadataPackages.clear();
     m_metadataRequested = 0;
     m_metadataLoaded = 0;
+    m_metadataPublishesAppList = false;
 }
 
 bool AppsService::validPackageName(const QString &packageName)

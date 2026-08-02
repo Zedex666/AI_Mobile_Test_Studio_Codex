@@ -19,6 +19,7 @@ class PerformancePage;
 class PerformanceService;
 class RecoveryPage;
 class RecoveryService;
+class SettingsPage;
 class LayoutPage;
 class LogcatPage;
 class LogcatService;
@@ -34,6 +35,8 @@ class TerminalService;
 class QLabel;
 class QPushButton;
 class QStackedWidget;
+class QResizeEvent;
+class QWidget;
 
 class MainWindow : public QMainWindow
 {
@@ -43,11 +46,16 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
+protected:
+    void resizeEvent(QResizeEvent *event) override;
+
 private:
     void buildUi();
     void configureScrcpy();
     void configureDeviceControls();
     void selectWorkspace(int index);
+    void animateWorkspaceTransition(int index);
+    void applyLanguage();
     void updateDeviceUi(ScrcpyService::DeviceState state,
                         const QString &serial,
                         const QString &detail);
@@ -77,6 +85,7 @@ private:
     ProcessPage *m_processPage = nullptr;
     RecoveryService *m_recoveryService = nullptr;
     RecoveryPage *m_recoveryPage = nullptr;
+    SettingsPage *m_settingsPage = nullptr;
     TerminalService *m_terminalService = nullptr;
     TerminalPage *m_terminalPage = nullptr;
     QStackedWidget *m_workspaceStack = nullptr;
@@ -94,6 +103,9 @@ private:
     QPushButton *m_layoutNavButton = nullptr;
     QPushButton *m_logcatNavButton = nullptr;
     QPushButton *m_otherNavButton = nullptr;
+    QPushButton *m_settingsNavButton = nullptr;
+    QPushButton *m_headerSettingsButton = nullptr;
+    QWidget *m_sidebarWidget = nullptr;
     QLabel *m_deviceNameLabel = nullptr;
     QLabel *m_deviceStatusDot = nullptr;
     QLabel *m_deviceStatusLabel = nullptr;

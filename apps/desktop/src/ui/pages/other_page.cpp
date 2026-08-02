@@ -2,23 +2,22 @@
 
 #include "ui/common/widget_helpers.h"
 
+#include <QAbstractButton>
 #include <QBoxLayout>
 #include <QCheckBox>
 #include <QComboBox>
-#include <QDialog>
-#include <QDialogButtonBox>
 #include <QDoubleSpinBox>
 #include <QEvent>
-#include <QFormLayout>
 #include <QFrame>
-#include <QInputDialog>
+#include <QGridLayout>
 #include <QLabel>
 #include <QLineEdit>
-#include <QMessageBox>
 #include <QMouseEvent>
 #include <QPlainTextEdit>
+#include <QPushButton>
 #include <QScrollArea>
 #include <QSpinBox>
+#include <QStackedWidget>
 #include <QToolButton>
 
 #include <utility>
@@ -34,6 +33,18 @@ QLabel *makeLabel(const QString &text,
     label->setFont(ui::appFont(size, weight));
     label->setStyleSheet(QStringLiteral("color:%1;").arg(color));
     return label;
+}
+
+QString outputValue(const QString &output, const QString &key)
+{
+    const QString prefix = key + QLatin1Char('=');
+    for (const QString &line : output.split(QLatin1Char('\n'))) {
+        const QString value = line.trimmed();
+        if (value.startsWith(prefix)) {
+            return value.mid(prefix.size()).trimmed();
+        }
+    }
+    return {};
 }
 
 } // namespace
@@ -70,16 +81,19 @@ OtherPage::OtherPage(QWidget *parent)
     toolbarLayout->addWidget(m_operationStatus);
     pageLayout->addWidget(toolbar);
 
-    auto *scroll = new QScrollArea;
-    scroll->setObjectName("OtherScroll");
-    scroll->setWidgetResizable(true);
-    scroll->setFrameShape(QFrame::NoFrame);
-    auto *content = new QWidget;
-    content->setObjectName("OtherContent");
-    auto *contentLayout = new QVBoxLayout(content);
-    contentLayout->setContentsMargins(42, 22, 42, 28);
-    contentLayout->setSpacing(0);
+    m_contentStack = new QStackedWidget;
+    m_contentStack->setObjectName("OtherContentStack");
+    pageLayout->addWidget(m_contentStack, 1);
 
+    auto *overviewScroll = new QScrollArea;
+    overviewScroll->setObjectName("OtherScroll");
+    overviewScroll->setWidgetResizable(true);
+    overviewScroll->setFrameShape(QFrame::NoFrame);
+    auto *overviewContent = new QWidget;
+    overviewContent->setObjectName("OtherContent");
+    auto *overviewLayout = new QVBoxLayout(overviewContent);
+    overviewLayout->setContentsMargins(42, 22, 42, 28);
+    overviewLayout->setSpacing(0);
     auto *list = ui::makePanel("OtherCommandList");
     list->setMinimumWidth(620);
     list->setMaximumWidth(1080);
@@ -93,19 +107,19 @@ OtherPage::OtherPage(QWidget *parent)
                   QStringLiteral("<customize command>"));
     addCommandRow(listLayout,
                   1,
-                  QStringLiteral("♙"),
+                  QStringLiteral("@"),
                   ui::text("账户"),
                   QStringLiteral("adb shell dumpsys account"));
     addCommandRow(listLayout,
                   2,
-                  QStringLiteral("⌁"),
+                  QStringLiteral("!"),
                   ui::text("去除叹号"),
-                  QStringLiteral("adb shell settings put global captive_portal_http_url <server available>"));
+                  QStringLiteral("adb shell settings put global captive_portal_https_url <server>"));
     addCommandRow(listLayout,
                   3,
                   QStringLiteral("◌"),
                   ui::text("过渡动画"),
-                  QStringLiteral("adb shell settings put global <animation type>"));
+                  QStringLiteral("adb shell settings put global <animation type> <value>"));
     addCommandRow(listLayout,
                   4,
                   QStringLiteral("▭"),
@@ -116,15 +130,388 @@ OtherPage::OtherPage(QWidget *parent)
                   QStringLiteral("◖"),
                   ui::text("分级调节震动强度"),
                   QStringLiteral("adb shell settings put system <vibrator> <value>"));
-    listLayout->addStretch();
+    auto *overviewRow = new QHBoxLayout;
+    overviewRow->addWidget(list, 1);
+    overviewLayout->addLayout(overviewRow);
+    overviewLayout->addStretch();
+    overviewScroll->setWidget(overviewContent);
+    m_contentStack->addWidget(overviewScroll);
 
-    auto *listRow = new QHBoxLayout;
-    listRow->setContentsMargins(0, 0, 0, 0);
-    listRow->addWidget(list, 1);
-    contentLayout->addLayout(listRow);
-    contentLayout->addStretch();
-    scroll->setWidget(content);
-    pageLayout->addWidget(scroll, 1);
+    auto makeDetailPage = [this](const QString &icon,
+                                 const QString &title,
+                                 const QString &subtitle,
+                                 QVBoxLayout **contentLayout) {
+        auto *scroll = new QScrollArea;
+        scroll->setObjectName("OtherDetailScroll");
+        scroll->setWidgetResizable(true);
+        scroll->setFrameShape(QFrame::NoFrame);
+        auto *canvas = new QWidget;
+        canvas->setObjectName("OtherDetailCanvas");
+        auto *canvasLayout = new QHBoxLayout(canvas);
+        canvasLayout->setContentsMargins(42, 24, 42, 28);
+        auto *column = new QWidget;
+        column->setObjectName("OtherDetailContent");
+        column->setMinimumWidth(620);
+        column->setMaximumWidth(1020);
+        auto *layout = new QVBoxLayout(column);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->setSpacing(14);
+
+        auto *header = new QWidget;
+        header->setObjectName("OtherDetailHeader");
+        auto *headerLayout = new QHBoxLayout(header);
+        headerLayout->setContentsMargins(0, 0, 0, 8);
+        headerLayout->setSpacing(16);
+        auto *iconLabel = makeLabel(icon, 24, QFont::DemiBold, QStringLiteral("#1d1d1f"));
+        iconLabel->setObjectName("OtherDetailIcon");
+        iconLabel->setFixedSize(54, 54);
+        iconLabel->setAlignment(Qt::AlignCenter);
+        headerLayout->addWidget(iconLabel);
+        auto *titles = new QVBoxLayout;
+        titles->setSpacing(3);
+        titles->addWidget(makeLabel(title,
+                                    18,
+                                    QFont::DemiBold,
+                                    QStringLiteral("#1d1d1f")));
+        auto *subtitleLabel = makeLabel(subtitle,
+                                        9,
+                                        QFont::Normal,
+                                        QStringLiteral("#6e6e73"));
+        subtitleLabel->setWordWrap(true);
+        titles->addWidget(subtitleLabel);
+        headerLayout->addLayout(titles, 1);
+        layout->addWidget(header);
+
+        canvasLayout->addWidget(column, 1);
+        scroll->setWidget(canvas);
+        *contentLayout = layout;
+        m_contentStack->addWidget(scroll);
+        return scroll;
+    };
+
+    auto makeActionButton = [this](const QString &text, bool primary = false) {
+        auto *button = new QPushButton(text);
+        button->setObjectName("OtherActionButton");
+        button->setProperty("primary", primary);
+        button->setMinimumHeight(40);
+        button->setCursor(Qt::PointingHandCursor);
+        m_actionButtons.append(button);
+        return button;
+    };
+
+    auto addFooter = [this](QVBoxLayout *layout, QAbstractButton *action) {
+        layout->addStretch();
+        auto *footer = new QHBoxLayout;
+        footer->setContentsMargins(0, 14, 0, 0);
+        auto *back = new QToolButton;
+        back->setObjectName("OtherBackButton");
+        back->setText(QStringLiteral("←"));
+        back->setToolTip(ui::text("后退"));
+        back->setFixedSize(42, 42);
+        back->setCursor(Qt::PointingHandCursor);
+        connect(back, &QToolButton::clicked, this, &OtherPage::showOverview);
+        footer->addWidget(back);
+        footer->addStretch();
+        if (action != nullptr) {
+            footer->addWidget(action);
+        }
+        layout->addLayout(footer);
+    };
+
+    auto makeSettingRow = [](const QString &title) {
+        auto *row = new QFrame;
+        row->setObjectName("OtherSettingRow");
+        row->setMinimumHeight(66);
+        auto *layout = new QHBoxLayout(row);
+        layout->setContentsMargins(16, 10, 12, 10);
+        layout->setSpacing(12);
+        auto *label = makeLabel(title, 10, QFont::DemiBold, QStringLiteral("#1d1d1f"));
+        label->setMinimumWidth(150);
+        layout->addWidget(label);
+        return qMakePair(row, layout);
+    };
+
+    QVBoxLayout *detailLayout = nullptr;
+    makeDetailPage(QStringLiteral("</>"),
+                   ui::text("运行自定义命令"),
+                   ui::text("直接在当前设备上执行 ADB Shell 命令"),
+                   &detailLayout);
+    m_customCommandInput = new QLineEdit;
+    m_customCommandInput->setObjectName("OtherCommandInput");
+    m_customCommandInput->setPlaceholderText(ui::text("输入 ADB Shell 命令"));
+    m_customCommandInput->setText(QStringLiteral("dumpsys battery"));
+    detailLayout->addWidget(m_customCommandInput);
+    m_customOutput = new QPlainTextEdit;
+    m_customOutput->setObjectName("OtherResultOutput");
+    m_customOutput->setReadOnly(true);
+    m_customOutput->setPlaceholderText(ui::text("命令输出会显示在这里"));
+    m_customOutput->setMinimumHeight(240);
+    detailLayout->addWidget(m_customOutput, 1);
+    auto *runCustom = makeActionButton(ui::text("执行命令"), true);
+    connect(runCustom, &QPushButton::clicked, this, [this] {
+        const QString command = m_customCommandInput->text().trimmed();
+        if (!command.isEmpty()) {
+            executeCommand(ui::text("自定义命令"), command);
+        }
+    });
+    connect(m_customCommandInput, &QLineEdit::returnPressed, runCustom, &QPushButton::click);
+    addFooter(detailLayout, runCustom);
+
+    makeDetailPage(QStringLiteral("@"),
+                   ui::text("账户"),
+                   ui::text("查看 Android 用户与已注册账户"),
+                   &detailLayout);
+    m_accountOutput = new QPlainTextEdit;
+    m_accountOutput->setObjectName("OtherResultOutput");
+    m_accountOutput->setReadOnly(true);
+    m_accountOutput->setPlaceholderText(ui::text("正在等待账户信息"));
+    m_accountOutput->setMinimumHeight(340);
+    detailLayout->addWidget(m_accountOutput, 1);
+    auto *refreshAccounts = makeActionButton(ui::text("刷新"), true);
+    connect(refreshAccounts, &QPushButton::clicked, this, [this] {
+        executeCommand(ui::text("读取账户"), QStringLiteral("dumpsys account"));
+    });
+    addFooter(detailLayout, refreshAccounts);
+
+    makeDetailPage(QStringLiteral("!"),
+                   ui::text("去除叹号"),
+                   ui::text("修改网络可用性验证服务器"),
+                   &detailLayout);
+    auto versionRow = makeSettingRow(ui::text("Android 版本"));
+    m_androidVersion = makeLabel(QStringLiteral("--"),
+                                 10,
+                                 QFont::Normal,
+                                 QStringLiteral("#6e6e73"));
+    versionRow.second->addWidget(m_androidVersion, 1);
+    detailLayout->addWidget(versionRow.first);
+    auto serverRow = makeSettingRow(ui::text("验证服务器"));
+    m_serverCombo = new QComboBox;
+    m_serverCombo->setObjectName("OtherServerCombo");
+    m_serverCombo->setEditable(true);
+    m_serverCombo->addItems({QStringLiteral("connect.rom.miui.com/generate_204"),
+                             QStringLiteral("connectivitycheck.platform.hicloud.com/generate_204"),
+                             QStringLiteral("wifi.vivo.com.cn/generate_204"),
+                             QStringLiteral("cp.cloudflare.com/generate_204"),
+                             QStringLiteral("g.cn/generate_204"),
+                             QStringLiteral("connectivitycheck.gstatic.com/generate_204")});
+    serverRow.second->addWidget(m_serverCombo, 1);
+    auto *applyServer = makeActionButton(ui::text("应用设置"), true);
+    applyServer->setMinimumWidth(84);
+    serverRow.second->addWidget(applyServer);
+    detailLayout->addWidget(serverRow.first);
+    auto currentServerRow = makeSettingRow(ui::text("当前服务器"));
+    m_currentServer = makeLabel(QStringLiteral("--"),
+                                9,
+                                QFont::Normal,
+                                QStringLiteral("#6e6e73"));
+    m_currentServer->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    currentServerRow.second->addWidget(m_currentServer, 1);
+    detailLayout->addWidget(currentServerRow.first);
+    connect(applyServer, &QPushButton::clicked, this, [this] {
+        QString server = m_serverCombo->currentText().trimmed();
+        server.remove(QStringLiteral("https://"));
+        server.remove(QStringLiteral("http://"));
+        if (server.isEmpty()) {
+            return;
+        }
+        m_pendingSettingKey = QStringLiteral("captive_portal");
+        m_pendingSettingValue = server;
+        executeCommand(ui::text("修改网络验证服务器"),
+                       QStringLiteral("settings put global captive_portal_mode 1; "
+                                      "settings put global captive_portal_http_url http://%1; "
+                                      "settings put global captive_portal_https_url https://%1")
+                           .arg(server));
+    });
+    auto *restoreServer = makeActionButton(ui::text("恢复默认"));
+    connect(restoreServer, &QPushButton::clicked, this, [this] {
+        m_pendingSettingKey = QStringLiteral("captive_portal");
+        m_pendingSettingValue = ui::text("系统默认");
+        executeCommand(ui::text("恢复网络验证服务器"),
+                       QStringLiteral("settings delete global captive_portal_http_url; "
+                                      "settings delete global captive_portal_https_url; "
+                                      "settings delete global captive_portal_fallback_url; "
+                                      "settings put global captive_portal_mode 1"));
+    });
+    addFooter(detailLayout, restoreServer);
+
+    makeDetailPage(QStringLiteral("◌"),
+                   ui::text("过渡动画"),
+                   ui::text("调整 Android 系统动画缩放"),
+                   &detailLayout);
+    const QList<QPair<QString, QString>> animationSettings = {
+        {QStringLiteral("animator_duration_scale"), ui::text("动画时长")},
+        {QStringLiteral("transition_animation_scale"), ui::text("过渡动画")},
+        {QStringLiteral("window_animation_scale"), ui::text("窗口动画")}};
+    for (const auto &setting : animationSettings) {
+        auto row = makeSettingRow(setting.second);
+        auto *current = makeLabel(ui::text("当前：--"),
+                                  9,
+                                  QFont::Normal,
+                                  QStringLiteral("#6e6e73"));
+        current->setMinimumWidth(100);
+        row.second->addWidget(current);
+        auto *input = new QDoubleSpinBox;
+        input->setObjectName("OtherNumericInput");
+        input->setRange(0.0, 10.0);
+        input->setSingleStep(0.5);
+        input->setDecimals(1);
+        input->setValue(1.0);
+        row.second->addWidget(input, 1);
+        auto *apply = makeActionButton(ui::text("执行"), true);
+        apply->setMinimumWidth(74);
+        row.second->addWidget(apply);
+        m_animationCurrent.insert(setting.first, current);
+        m_animationInputs.insert(setting.first, input);
+        connect(apply, &QPushButton::clicked, this, [this, key = setting.first, input] {
+            const QString value = QString::number(input->value(), 'f', 1);
+            m_pendingSettingKey = key;
+            m_pendingSettingValue = value;
+            executeCommand(ui::text("修改动画缩放"),
+                           QStringLiteral("settings put global %1 %2").arg(key, value));
+        });
+        detailLayout->addWidget(row.first);
+    }
+    auto *refreshAnimation = makeActionButton(ui::text("刷新"));
+    connect(refreshAnimation, &QPushButton::clicked, this, &OtherPage::refreshAnimations);
+    addFooter(detailLayout, refreshAnimation);
+
+    makeDetailPage(QStringLiteral("▭"),
+                   ui::text("状态栏与导航栏"),
+                   ui::text("隐藏状态图标或启用全局沉浸模式"),
+                   &detailLayout);
+    auto *iconsPanel = new QFrame;
+    iconsPanel->setObjectName("OtherSettingsGroup");
+    auto *iconsLayout = new QVBoxLayout(iconsPanel);
+    iconsLayout->setContentsMargins(16, 14, 16, 14);
+    iconsLayout->setSpacing(10);
+    iconsLayout->addWidget(makeLabel(ui::text("隐藏状态栏图标"),
+                                     11,
+                                     QFont::DemiBold,
+                                     QStringLiteral("#1d1d1f")));
+    auto *iconGrid = new QGridLayout;
+    iconGrid->setHorizontalSpacing(18);
+    iconGrid->setVerticalSpacing(10);
+    const QList<QPair<QString, QString>> statusIcons = {
+        {ui::text("静音 / 震动"), QStringLiteral("volume")},
+        {ui::text("定位"), QStringLiteral("location")},
+        {ui::text("麦克风"), QStringLiteral("microphone")},
+        {ui::text("录屏状态"), QStringLiteral("screen_record")},
+        {QStringLiteral("Wi-Fi"), QStringLiteral("wifi")},
+        {ui::text("热点"), QStringLiteral("hotspot")},
+        {ui::text("飞行模式"), QStringLiteral("airplane")},
+        {ui::text("耳机"), QStringLiteral("headset")},
+        {ui::text("闹钟"), QStringLiteral("alarm_clock")},
+        {ui::text("蓝牙"), QStringLiteral("bluetooth")},
+        {QStringLiteral("NFC"), QStringLiteral("nfc")}};
+    for (int index = 0; index < statusIcons.size(); ++index) {
+        auto *check = new QCheckBox(statusIcons[index].first);
+        check->setProperty("iconName", statusIcons[index].second);
+        iconGrid->addWidget(check, index / 4, index % 4);
+        m_statusIconChecks.append(check);
+    }
+    iconsLayout->addLayout(iconGrid);
+    auto *iconActions = new QHBoxLayout;
+    auto *hideIcons = makeActionButton(ui::text("隐藏所选"), true);
+    auto *resetIcons = makeActionButton(ui::text("重置图标"));
+    iconActions->addWidget(hideIcons);
+    iconActions->addWidget(resetIcons);
+    iconActions->addStretch();
+    iconsLayout->addLayout(iconActions);
+    detailLayout->addWidget(iconsPanel);
+    connect(hideIcons, &QPushButton::clicked, this, [this] {
+        QStringList icons;
+        for (QCheckBox *check : std::as_const(m_statusIconChecks)) {
+            if (check->isChecked()) {
+                icons.append(check->property("iconName").toString());
+            }
+        }
+        if (!icons.isEmpty()) {
+            executeCommand(ui::text("隐藏状态栏图标"),
+                           QStringLiteral("settings put secure icon_blacklist %1")
+                               .arg(icons.join(QLatin1Char(','))));
+        }
+    });
+    connect(resetIcons, &QPushButton::clicked, this, [this] {
+        executeCommand(ui::text("重置状态栏图标"),
+                       QStringLiteral("settings delete secure icon_blacklist"));
+    });
+    auto *barsPanel = new QFrame;
+    barsPanel->setObjectName("OtherSettingsGroup");
+    auto *barsLayout = new QVBoxLayout(barsPanel);
+    barsLayout->setContentsMargins(16, 14, 16, 14);
+    barsLayout->setSpacing(10);
+    barsLayout->addWidget(makeLabel(ui::text("全局隐藏"),
+                                    11,
+                                    QFont::DemiBold,
+                                    QStringLiteral("#1d1d1f")));
+    auto *barActions = new QHBoxLayout;
+    const QList<QPair<QString, QString>> barCommands = {
+        {ui::text("隐藏状态栏"), QStringLiteral("settings put global policy_control immersive.status=*")},
+        {ui::text("隐藏导航栏"), QStringLiteral("settings put global policy_control immersive.navigation=*")},
+        {ui::text("同时隐藏"), QStringLiteral("settings put global policy_control immersive.full=*")},
+        {ui::text("重置"), QStringLiteral("settings delete global policy_control")}};
+    for (const auto &action : barCommands) {
+        auto *button = makeActionButton(action.first, action.first == ui::text("同时隐藏"));
+        connect(button, &QPushButton::clicked, this, [this, action] {
+            executeCommand(action.first, action.second);
+        });
+        barActions->addWidget(button);
+    }
+    barsLayout->addLayout(barActions);
+    detailLayout->addWidget(barsPanel);
+    addFooter(detailLayout, nullptr);
+
+    makeDetailPage(QStringLiteral("◖"),
+                   ui::text("分级调节震动强度"),
+                   ui::text("不同设备与 ROM 支持的设置项可能不同"),
+                   &detailLayout);
+    const QList<QPair<QString, QString>> vibrationSettings = {
+        {QStringLiteral("vibrate_on"), ui::text("震动总开关")},
+        {QStringLiteral("haptic_feedback_enabled"), ui::text("触感震动开关")},
+        {QStringLiteral("ring_vibration_enabled"), ui::text("响铃震动开关")},
+        {QStringLiteral("charging_vibration_enabled"), ui::text("充电震动开关")},
+        {QStringLiteral("haptic_feedback_intensity"), ui::text("触感震动强度")},
+        {QStringLiteral("hardware_haptic_feedback_intensity"), ui::text("硬件触感震动强度")},
+        {QStringLiteral("notification_vibration_intensity"), ui::text("通知震动强度")},
+        {QStringLiteral("alarm_vibration_intensity"), ui::text("闹钟震动强度")},
+        {QStringLiteral("media_vibration_intensity"), ui::text("媒体震动强度")},
+        {QStringLiteral("ring_vibration_intensity"), ui::text("铃声震动强度")}};
+    for (int index = 0; index < vibrationSettings.size(); ++index) {
+        const auto &setting = vibrationSettings[index];
+        auto row = makeSettingRow(setting.second);
+        auto *current = makeLabel(ui::text("当前：--"),
+                                  9,
+                                  QFont::Normal,
+                                  QStringLiteral("#6e6e73"));
+        current->setMinimumWidth(100);
+        row.second->addWidget(current);
+        auto *input = new QSpinBox;
+        input->setObjectName("OtherNumericInput");
+        input->setRange(0, index < 4 ? 1 : 3);
+        input->setValue(index < 4 ? 1 : 2);
+        row.second->addWidget(input, 1);
+        auto *apply = makeActionButton(ui::text("执行"), true);
+        apply->setMinimumWidth(74);
+        row.second->addWidget(apply);
+        m_vibrationCurrent.insert(setting.first, current);
+        m_vibrationInputs.insert(setting.first, input);
+        connect(apply, &QPushButton::clicked, this, [this, key = setting.first, input] {
+            const QString value = QString::number(input->value());
+            m_pendingSettingKey = key;
+            m_pendingSettingValue = value;
+            executeCommand(ui::text("修改震动强度"),
+                           QStringLiteral("settings put system %1 %2").arg(key, value));
+        });
+        detailLayout->addWidget(row.first);
+    }
+    auto *refreshVibrationButton = makeActionButton(ui::text("刷新"));
+    connect(refreshVibrationButton,
+            &QPushButton::clicked,
+            this,
+            &OtherPage::refreshVibration);
+    addFooter(detailLayout, refreshVibrationButton);
+
+    showOverview();
 }
 
 void OtherPage::setDeviceConnected(bool connected, const QString &serial)
@@ -150,10 +537,12 @@ void OtherPage::setBusy(bool busy)
     for (QToolButton *button : std::as_const(m_openButtons)) {
         button->setEnabled(enabled);
     }
+    for (QAbstractButton *button : std::as_const(m_actionButtons)) {
+        button->setEnabled(enabled);
+    }
 }
 
-void OtherPage::showCommandStarted(const QString &label,
-                                   const QString &displayCommand)
+void OtherPage::showCommandStarted(const QString &label, const QString &displayCommand)
 {
     m_operationStatus->setStyleSheet(QStringLiteral("color:#2f6df6;"));
     m_operationStatus->setText(ui::text("正在执行：%1").arg(label));
@@ -170,29 +559,49 @@ void OtherPage::showCommandResult(bool success,
                                        : ui::text("%1失败").arg(label));
     m_operationStatus->setToolTip(output);
 
-    if (!success) {
-        QMessageBox::warning(this, ui::text("命令执行失败"), output);
-        return;
-    }
-    if (output == ui::text("操作完成。") || output.trimmed().isEmpty()) {
-        return;
+    if (label == ui::text("自定义命令")) {
+        m_customOutput->setPlainText(output);
+    } else if (label == ui::text("读取账户")) {
+        m_accountOutput->setPlainText(output);
+    } else if (label == ui::text("读取网络验证配置") && success) {
+        const QString version = outputValue(output, QStringLiteral("version"));
+        const QString server = outputValue(output, QStringLiteral("server"));
+        m_androidVersion->setText(version.isEmpty() ? QStringLiteral("--") : version);
+        m_currentServer->setText(server.isEmpty() || server == QStringLiteral("null")
+                                     ? ui::text("系统默认")
+                                     : server);
+    } else if (label == ui::text("读取动画缩放") && success) {
+        for (auto iterator = m_animationCurrent.cbegin();
+             iterator != m_animationCurrent.cend();
+             ++iterator) {
+            const QString value = outputValue(output, iterator.key());
+            iterator.value()->setText(ui::text("当前：%1").arg(value.isEmpty()
+                                                                   ? QStringLiteral("--")
+                                                                   : value));
+        }
+    } else if (label == ui::text("读取震动设置") && success) {
+        for (auto iterator = m_vibrationCurrent.cbegin();
+             iterator != m_vibrationCurrent.cend();
+             ++iterator) {
+            const QString value = outputValue(output, iterator.key());
+            iterator.value()->setText(ui::text("当前：%1").arg(value.isEmpty()
+                                                                   ? QStringLiteral("--")
+                                                                   : value));
+        }
+    } else if (success && !m_pendingSettingKey.isEmpty()) {
+        if (QLabel *current = m_animationCurrent.value(m_pendingSettingKey)) {
+            current->setText(ui::text("当前：%1").arg(m_pendingSettingValue));
+        }
+        if (QLabel *current = m_vibrationCurrent.value(m_pendingSettingKey)) {
+            current->setText(ui::text("当前：%1").arg(m_pendingSettingValue));
+        }
+        if (m_pendingSettingKey == QStringLiteral("captive_portal")) {
+            m_currentServer->setText(m_pendingSettingValue);
+        }
     }
 
-    auto *dialog = new QDialog(this);
-    dialog->setAttribute(Qt::WA_DeleteOnClose);
-    dialog->setWindowTitle(label);
-    dialog->resize(760, 480);
-    auto *layout = new QVBoxLayout(dialog);
-    layout->setContentsMargins(16, 16, 16, 16);
-    auto *viewer = new QPlainTextEdit(output);
-    viewer->setObjectName("OtherOutput");
-    viewer->setReadOnly(true);
-    viewer->setFont(ui::appFont(9));
-    layout->addWidget(viewer, 1);
-    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close);
-    connect(buttons, &QDialogButtonBox::rejected, dialog, &QDialog::close);
-    layout->addWidget(buttons);
-    dialog->show();
+    m_pendingSettingKey.clear();
+    m_pendingSettingValue.clear();
 }
 
 bool OtherPage::eventFilter(QObject *watched, QEvent *event)
@@ -251,10 +660,12 @@ void OtherPage::addCommandRow(QVBoxLayout *layout,
                                     12,
                                     QFont::Normal,
                                     QStringLiteral("#111827")));
-    textLayout->addWidget(makeLabel(QStringLiteral("▣  ") + command,
-                                    9,
-                                    QFont::Normal,
-                                    QStringLiteral("#758092")));
+    auto *commandLabel = makeLabel(QStringLiteral("▣  ") + command,
+                                   9,
+                                   QFont::Normal,
+                                   QStringLiteral("#758092"));
+    commandLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    textLayout->addWidget(commandLabel);
     rowLayout->addWidget(text, 1);
     auto *open = new QToolButton;
     open->setObjectName("OtherOpenButton");
@@ -271,184 +682,66 @@ void OtherPage::addCommandRow(QVBoxLayout *layout,
 
 void OtherPage::openCommand(int index)
 {
-    if (!m_connected || m_busy) {
+    if (!m_connected || m_busy || index < 0 || index > 5) {
         return;
     }
+    m_currentDetail = index;
+    m_contentStack->setCurrentIndex(index + 1);
     switch (index) {
-    case 0:
-        runCustomCommand();
-        break;
     case 1:
-        emit shellCommandRequested(ui::text("读取账户"), QStringLiteral("dumpsys account"));
+        executeCommand(ui::text("读取账户"), QStringLiteral("dumpsys account"));
         break;
     case 2:
-        configureCaptivePortal();
+        refreshCaptivePortal();
         break;
     case 3:
-        configureAnimations();
-        break;
-    case 4:
-        configureSystemBars();
+        refreshAnimations();
         break;
     case 5:
-        configureVibration();
+        refreshVibration();
         break;
     default:
         break;
     }
 }
 
-void OtherPage::runCustomCommand()
+void OtherPage::showOverview()
 {
-    bool accepted = false;
-    const QString command = QInputDialog::getText(this,
-                                                  ui::text("运行自定义命令"),
-                                                  ui::text("ADB Shell 命令"),
-                                                  QLineEdit::Normal,
-                                                  QStringLiteral("dumpsys battery"),
-                                                  &accepted)
-                                .trimmed();
-    if (accepted && !command.isEmpty()) {
-        emit shellCommandRequested(ui::text("自定义命令"), command);
-    }
+    m_currentDetail = -1;
+    m_contentStack->setCurrentIndex(0);
 }
 
-void OtherPage::configureCaptivePortal()
+void OtherPage::executeCommand(const QString &label, const QString &command)
 {
-    const QStringList servers = {QStringLiteral("connect.rom.miui.com/generate_204"),
-                                 QStringLiteral("connectivitycheck.platform.hicloud.com/generate_204"),
-                                 QStringLiteral("wifi.vivo.com.cn/generate_204"),
-                                 QStringLiteral("cp.cloudflare.com/generate_204"),
-                                 QStringLiteral("g.cn/generate_204"),
-                                 QStringLiteral("google.cn/generate_204")};
-    bool accepted = false;
-    const QString server = QInputDialog::getItem(this,
-                                                 ui::text("去除网络叹号"),
-                                                 ui::text("可用性验证服务器"),
-                                                 servers,
-                                                 0,
-                                                 true,
-                                                 &accepted)
-                               .trimmed();
-    if (!accepted || server.isEmpty()) {
+    if (!m_connected || m_busy || command.trimmed().isEmpty()) {
         return;
     }
-    emit shellCommandRequested(ui::text("修改网络验证服务器"),
-                               QStringLiteral("settings put global captive_portal_http_url http://%1; "
-                                              "settings put global captive_portal_https_url https://%1")
-                                   .arg(server));
+    emit shellCommandRequested(label, command);
 }
 
-void OtherPage::configureAnimations()
+void OtherPage::refreshCaptivePortal()
 {
-    QDialog dialog(this);
-    dialog.setWindowTitle(ui::text("过渡动画"));
-    auto *layout = new QVBoxLayout(&dialog);
-    auto *form = new QFormLayout;
-    auto makeScale = [&dialog] {
-        auto *spin = new QDoubleSpinBox(&dialog);
-        spin->setRange(0.0, 10.0);
-        spin->setSingleStep(0.5);
-        spin->setDecimals(1);
-        spin->setValue(1.0);
-        return spin;
-    };
-    auto *window = makeScale();
-    auto *transition = makeScale();
-    auto *animator = makeScale();
-    form->addRow(ui::text("窗口动画缩放"), window);
-    form->addRow(ui::text("过渡动画缩放"), transition);
-    form->addRow(ui::text("动画时长缩放"), animator);
-    layout->addLayout(form);
-    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
-    connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
-    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
-    layout->addWidget(buttons);
-    if (dialog.exec() != QDialog::Accepted) {
-        return;
-    }
-    emit shellCommandRequested(ui::text("修改动画缩放"),
-                               QStringLiteral("settings put global window_animation_scale %1; "
-                                              "settings put global transition_animation_scale %2; "
-                                              "settings put global animator_duration_scale %3")
-                                   .arg(window->value(), 0, 'f', 1)
-                                   .arg(transition->value(), 0, 'f', 1)
-                                   .arg(animator->value(), 0, 'f', 1));
+    executeCommand(ui::text("读取网络验证配置"),
+                   QStringLiteral("printf 'version='; getprop ro.build.version.release; "
+                                  "printf 'server='; settings get global captive_portal_https_url"));
 }
 
-void OtherPage::configureSystemBars()
+void OtherPage::refreshAnimations()
 {
-    const QStringList actions = {ui::text("隐藏状态栏"),
-                                 ui::text("隐藏导航栏"),
-                                 ui::text("全屏沉浸模式"),
-                                 ui::text("恢复状态栏与导航栏"),
-                                 ui::text("配置隐藏图标")};
-    bool accepted = false;
-    const QString action = QInputDialog::getItem(this,
-                                                 ui::text("状态栏与导航栏"),
-                                                 ui::text("操作"),
-                                                 actions,
-                                                 0,
-                                                 false,
-                                                 &accepted);
-    if (!accepted) {
-        return;
-    }
-    QString command;
-    if (action == actions[0]) {
-        command = QStringLiteral("settings put global policy_control immersive.status=*");
-    } else if (action == actions[1]) {
-        command = QStringLiteral("settings put global policy_control immersive.navigation=*");
-    } else if (action == actions[2]) {
-        command = QStringLiteral("settings put global policy_control immersive.full=*");
-    } else if (action == actions[3]) {
-        command = QStringLiteral("settings put global policy_control null; "
-                                 "settings put secure icon_blacklist null");
-    } else {
-        const QString icons = QInputDialog::getText(
-                                  this,
-                                  ui::text("配置隐藏图标"),
-                                  ui::text("图标名称，以逗号分隔"),
-                                  QLineEdit::Normal,
-                                  QStringLiteral("volume,location,alarm_clock"),
-                                  &accepted)
-                                  .trimmed();
-        if (!accepted) {
-            return;
-        }
-        command = QStringLiteral("settings put secure icon_blacklist %1").arg(icons);
-    }
-    emit shellCommandRequested(action, command);
+    executeCommand(ui::text("读取动画缩放"),
+                   QStringLiteral("printf 'animator_duration_scale='; "
+                                  "settings get global animator_duration_scale; "
+                                  "printf 'transition_animation_scale='; "
+                                  "settings get global transition_animation_scale; "
+                                  "printf 'window_animation_scale='; "
+                                  "settings get global window_animation_scale"));
 }
 
-void OtherPage::configureVibration()
+void OtherPage::refreshVibration()
 {
-    QDialog dialog(this);
-    dialog.setWindowTitle(ui::text("分级调节震动强度"));
-    auto *layout = new QVBoxLayout(&dialog);
-    auto *form = new QFormLayout;
-    auto *setting = new QComboBox(&dialog);
-    setting->addItem(ui::text("触觉反馈"), QStringLiteral("haptic_feedback_intensity"));
-    setting->addItem(ui::text("硬件触觉反馈"), QStringLiteral("hardware_haptic_feedback_intensity"));
-    setting->addItem(ui::text("通知震动"), QStringLiteral("notification_vibration_intensity"));
-    setting->addItem(ui::text("闹钟震动"), QStringLiteral("alarm_vibration_intensity"));
-    setting->addItem(ui::text("媒体震动"), QStringLiteral("media_vibration_intensity"));
-    setting->addItem(ui::text("铃声震动"), QStringLiteral("ring_vibration_intensity"));
-    auto *level = new QSpinBox(&dialog);
-    level->setRange(0, 3);
-    level->setValue(2);
-    form->addRow(ui::text("震动类型"), setting);
-    form->addRow(ui::text("强度等级（0-3）"), level);
-    layout->addLayout(form);
-    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
-    connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
-    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
-    layout->addWidget(buttons);
-    if (dialog.exec() != QDialog::Accepted) {
-        return;
-    }
-    emit shellCommandRequested(ui::text("修改震动强度"),
-                               QStringLiteral("settings put system %1 %2")
-                                   .arg(setting->currentData().toString())
-                                   .arg(level->value()));
+    const QStringList keys = m_vibrationCurrent.keys();
+    executeCommand(ui::text("读取震动设置"),
+                   QStringLiteral("for key in %1; do printf \"$key=\"; "
+                                  "settings get system \"$key\"; done")
+                       .arg(keys.join(QLatin1Char(' '))));
 }

@@ -179,9 +179,14 @@ FilesPage::FilesPage(QWidget *parent)
                                 QPushButton **button,
                                 QLabel **space,
                                 QProgressBar **progress) {
-        auto *card = ui::makePanel("FilesDriveCard");
+        auto *card = new QPushButton;
+        card->setObjectName("FilesDriveCard");
+        card->setFlat(true);
+        card->setCursor(Qt::PointingHandCursor);
+        card->setToolTip(subtitle);
         card->setMinimumSize(280, 112);
         card->setMaximumWidth(360);
+        card->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
         auto *layout = new QHBoxLayout(card);
         layout->setContentsMargins(18, 14, 18, 14);
         layout->setSpacing(14);
@@ -189,16 +194,16 @@ FilesPage::FilesPage(QWidget *parent)
         iconLabel->setObjectName("FilesDriveIcon");
         iconLabel->setFixedSize(50, 50);
         iconLabel->setAlignment(Qt::AlignCenter);
+        iconLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
         layout->addWidget(iconLabel, 0, Qt::AlignVCenter);
         auto *content = new QWidget;
+        content->setAttribute(Qt::WA_TransparentForMouseEvents);
         auto *contentLayout = new QVBoxLayout(content);
         contentLayout->setContentsMargins(0, 0, 0, 0);
         contentLayout->setSpacing(5);
-        *button = new QPushButton(title);
-        (*button)->setObjectName("FilesDriveButton");
-        (*button)->setCursor(Qt::PointingHandCursor);
-        (*button)->setToolTip(subtitle);
-        contentLayout->addWidget(*button);
+        auto *titleLabel = makeLabel(title, 11, QFont::DemiBold, QStringLiteral("#2d3138"));
+        titleLabel->setObjectName("FilesDriveButton");
+        contentLayout->addWidget(titleLabel);
         *progress = new QProgressBar;
         (*progress)->setObjectName("FilesDriveProgress");
         (*progress)->setRange(0, 100);
@@ -209,6 +214,7 @@ FilesPage::FilesPage(QWidget *parent)
         *space = makeLabel(subtitle, 8, QFont::Normal, QStringLiteral("#697487"));
         contentLayout->addWidget(*space);
         layout->addWidget(content, 1);
+        *button = card;
         return card;
     };
     QLabel *rootSpace = nullptr;

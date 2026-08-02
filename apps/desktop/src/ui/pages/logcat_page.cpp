@@ -385,7 +385,7 @@ LogcatPage::LogcatPage(QWidget *parent)
     m_table->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_table->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
     m_table->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
-    m_table->setFont(QFont(QStringLiteral("Cascadia Mono"), 9));
+    m_table->setFont(ui::appFont(9));
     m_table->verticalHeader()->setVisible(false);
     m_table->verticalHeader()->setDefaultSectionSize(27);
     m_table->horizontalHeader()->setStretchLastSection(true);

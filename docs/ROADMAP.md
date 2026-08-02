@@ -66,9 +66,9 @@
 - 验证 Unicode、IME、鼠标、备用屏幕、搜索和大输出。
 - 将 WebEngine 完整部署进安装包。
 
-已完成：统一 `TerminalSession`、ADB 会话迁移、本地 xterm.js/FitAddon、QWebChannel 桥接、离线资源复制和无 WebEngine 降级构建。
+已完成：统一 `TerminalSession`、ADB 会话迁移、本地 xterm.js/FitAddon、QWebChannel 桥接、离线资源复制、MSVC Qt WebEngine 部署和无 WebEngine 降级构建；输出链路具备 xterm 写入回执、32KB/8ms 分块背压、后台标签暂停投递和 ConPTY 64KB/8ms 合并。
 
-剩余：补齐构建机 Qt Positioning/WebEngine 依赖，完成真实备用屏幕、鼠标、IME、Unicode 和高输出验收，并将 WebEngine 完整部署进安装包。
+剩余：完成真实备用屏幕、鼠标、IME、Unicode 和长时间高输出验收，并在发布安装包与干净机上复验 WebEngine 部署。
 
 验收：
 
@@ -89,9 +89,9 @@
 - 把会话、权限、问题和完成状态映射到产品 UI。
 - 禁止通过终端文字判断 Agent 状态。
 
-已完成：Windows Terminal 风格终端类型菜单、OpenCode/ADB 标签隔离、`node-pty` ConPTY 宿主、输入/输出/resize/退出帧协议和自动化 ConPTY 冒烟。
+已完成：Windows Terminal 风格“+”终端类型菜单、OpenCode/ADB 标签隔离、`node-pty` ConPTY 宿主、输入/输出/resize/退出帧协议、自动化 ConPTY 冒烟，以及随包 OpenCode 1.18.5 基本交互链路手动验证。
 
-剩余：完成真实 OpenCode 交互式 TUI 端到端验收，并接入 Server/SDK 与认证。
+剩余：完成 OpenCode TUI 的 IME、鼠标、备用屏幕和长时间高输出兼容性矩阵，并接入 Server/SDK 与认证。
 
 验收：
 

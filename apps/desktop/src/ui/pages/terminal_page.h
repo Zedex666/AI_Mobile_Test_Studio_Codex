@@ -7,6 +7,8 @@
 #include <QWidget>
 
 class QStackedWidget;
+class QHideEvent;
+class QShowEvent;
 class QTabBar;
 class QToolButton;
 class TerminalView;
@@ -34,6 +36,10 @@ signals:
     void sessionRestartRequested(const QString &sessionId);
     void sessionCloseRequested(const QString &sessionId);
 
+protected:
+    void showEvent(QShowEvent *event) override;
+    void hideEvent(QHideEvent *event) override;
+
 private:
     void addTerminal(const QString &kindId);
     void showNewTerminalMenu(QWidget *anchor);
@@ -51,7 +57,6 @@ private:
     int m_nextOpenCodeNumber = 1;
     QTabBar *m_tabBar = nullptr;
     QToolButton *m_addButton = nullptr;
-    QToolButton *m_addMenuButton = nullptr;
     QToolButton *m_shortcutsButton = nullptr;
     QStackedWidget *m_terminalStack = nullptr;
     QHash<QString, TerminalView *> m_views;

@@ -48,7 +48,7 @@ ProcessService::ProcessService(QString adbPath, QObject *parent)
     , m_actionProcess(this)
     , m_timer(this)
 {
-    m_timer.setInterval(5000);
+    m_timer.setInterval(8000);
     connect(&m_timer, &QTimer::timeout, this, &ProcessService::refresh);
 
     m_queryProcess.setProcessChannelMode(QProcess::MergedChannels);

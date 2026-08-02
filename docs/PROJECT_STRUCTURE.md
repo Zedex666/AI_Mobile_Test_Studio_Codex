@@ -28,12 +28,22 @@ AI_Mobile_Test_Studio_Codex/
           recovery_service.*
           scrcpy_service.*
           conpty_session.*
+          display_service.*
           terminal_session.h
           terminal_service.*
+          logcat_service.*
+          other_service.*
+          overview_service.*
+          process_service.*
         ui/
-          common/
+          common/                  # Widget helpers、语言、字体与应用偏好
           components/
+          motion/                  # 按钮反馈和页面动效基础设施
           pages/
+            settings_page.*
+            overview_page.*
+            display_page.*
+            mirroring_page.*
             terminal_page.*
             terminal_bridge.*
             device_control_page.*
@@ -42,6 +52,10 @@ AI_Mobile_Test_Studio_Codex/
             files_page.*
             recovery_page.*
             performance_page.*
+            layout_page.*
+            logcat_page.*
+            other_page.*
+            process_page.*
           styles/
           widgets/
           windows/
@@ -50,6 +64,10 @@ AI_Mobile_Test_Studio_Codex/
   packages/
     contracts/                  # 协议目录骨架
   resources/
+    appium-inspector/           # Appium Inspector 2026.5.1 离线浏览器资源
+    font/
+      cn/                       # 霞鹜文楷 Regular/Medium
+      us/JetBrainsMono-2.304/fonts/ttf/  # JetBrains Mono 全部 32 个 TTF
     images/
     terminal-host/conpty_host.js
     terminal-web/              # xterm.js、FitAddon、本地页面和许可证
