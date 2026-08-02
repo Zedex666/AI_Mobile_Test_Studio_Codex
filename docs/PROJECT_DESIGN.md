@@ -23,7 +23,7 @@ AI Mobile Test Studio 是面向 Android 设备调试与 AI 自动化测试的 Wi
 - **布局**：随包 Appium Inspector 2026.5.1 浏览器工作区。
 - **设置与国际化**：中英文即时切换、动态效果偏好，以及随包霞鹜文楷和 JetBrains Mono 字体。
 
-当前限制：OpenCode、Node.js 和 `node-pty` 已形成锁定的 Windows x64 开发构建 runtime，Qt WebEngine/xterm.js 已通过 ConPTY 回显和真实 OpenCode 1.18.5 基本交互验证；scrcpy/ADB 和其余依赖尚未进入统一锁文件。OpenCode TUI 的 IME、鼠标、备用屏幕与高输出发布级矩阵、OpenCode Server/SDK、Appium Server/Runner、Python 服务、附件解析、报告和完整安装包尚未完成。
+当前限制：OpenCode、Node.js 和 `node-pty` 已形成锁定的 Windows x64 开发构建 runtime，Qt WebEngine/xterm.js 已通过 ConPTY 回显和真实 OpenCode 1.18.5 基本交互验证；scrcpy/ADB 和其余依赖尚未进入统一锁文件。OpenCode TUI 已完成中文输入合并发送优化，但多输入法、鼠标、备用屏幕与高输出发布级矩阵，以及 OpenCode Server/SDK、Appium Server/Runner、Python 服务、附件解析、报告和完整安装包尚未完成。
 
 ## 3. 目标用户
 

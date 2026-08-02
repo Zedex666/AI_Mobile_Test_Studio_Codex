@@ -26,6 +26,7 @@
 #include <QResizeEvent>
 #include <QScrollBar>
 #include <QShowEvent>
+#include <QSizePolicy>
 #include <QStackedWidget>
 #include <QStringConverter>
 #include <QTabBar>
@@ -95,6 +96,10 @@ public:
     }
 
     void setOutputDeliveryEnabled(bool)
+    {
+    }
+
+    void setBackgroundRenderingEnabled(bool)
     {
     }
 
@@ -708,6 +713,19 @@ public:
         m_bridge->setDeliveryEnabled(enabled);
     }
 
+    void setBackgroundRenderingEnabled(bool enabled)
+    {
+        m_bridge->setDeliveryEnabled(enabled);
+        QWebEnginePage *page = m_webView->page();
+        page->setLifecycleState(QWebEnginePage::LifecycleState::Active);
+        if (enabled) {
+            page->setVisible(true);
+            page->runJavaScript(QStringLiteral(
+                "requestAnimationFrame(()=>{void document.body.offsetWidth;"
+                "window.dispatchEvent(new Event('resize'));})"));
+        }
+    }
+
     void appendStatus(const QString &message)
     {
         m_bridge->sendStatus(message);
@@ -799,8 +817,9 @@ TerminalPage::TerminalPage(QWidget *parent)
     m_tabBar->setExpanding(false);
     m_tabBar->setUsesScrollButtons(true);
     m_tabBar->setElideMode(Qt::ElideRight);
+    m_tabBar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     m_tabBar->setMaximumWidth(720);
-    toolbarLayout->addWidget(m_tabBar);
+    toolbarLayout->addWidget(m_tabBar, 1);
 
     m_addButton = makeTerminalButton(ui::text("+"), ui::text("新建终端"));
     toolbarLayout->addWidget(m_addButton);
@@ -882,11 +901,34 @@ void TerminalPage::activate()
     }
 }
 
+void TerminalPage::preloadOpenCode()
+{
+    if (!m_backgroundRenderSessionId.isEmpty()) {
+        return;
+    }
+    m_backgroundPreloading = true;
+    addTerminal(QStringLiteral("opencode"));
+    m_backgroundRenderSessionId = currentSessionId();
+    if (TerminalView *view = viewForSession(m_backgroundRenderSessionId)) {
+        view->setBackgroundRenderingEnabled(true);
+    }
+}
+
+void TerminalPage::finishBackgroundPreload()
+{
+    m_backgroundPreloading = false;
+    const QString sessionId = m_backgroundRenderSessionId;
+    m_backgroundRenderSessionId.clear();
+    if (TerminalView *view = viewForSession(sessionId)) {
+        view->setOutputDeliveryEnabled(isVisible() && sessionId == currentSessionId());
+    }
+}
+
 void TerminalPage::handleSessionStarted(const QString &sessionId)
 {
     if (TerminalView *view = viewForSession(sessionId)) {
         view->setSessionReady(true);
-        if (sessionId == currentSessionId()) {
+        if (sessionId == currentSessionId() && isVisible() && !m_backgroundPreloading) {
             view->focusTerminal();
         }
     }
@@ -1005,6 +1047,9 @@ void TerminalPage::closeTerminal(int index)
     }
     const QString sessionId = m_tabBar->tabData(index).toString();
     TerminalView *view = m_views.take(sessionId);
+    if (sessionId == m_backgroundRenderSessionId) {
+        m_backgroundRenderSessionId.clear();
+    }
     m_sessionKinds.remove(sessionId);
     emit sessionCloseRequested(sessionId);
     m_tabBar->removeTab(index);
@@ -1023,7 +1068,8 @@ void TerminalPage::selectTerminal(int index)
         : QString();
     for (auto iterator = m_views.cbegin(); iterator != m_views.cend(); ++iterator) {
         iterator.value()->setOutputDeliveryEnabled(
-            isVisible() && iterator.key() == selectedSessionId);
+            iterator.key() == m_backgroundRenderSessionId
+            || (isVisible() && iterator.key() == selectedSessionId));
     }
     if (index < 0 || index >= m_tabBar->count()) {
         updateControls();
@@ -1031,7 +1077,9 @@ void TerminalPage::selectTerminal(int index)
     }
     if (TerminalView *view = viewForSession(selectedSessionId)) {
         m_terminalStack->setCurrentWidget(view);
-        view->focusTerminal();
+        if (isVisible() && !m_backgroundPreloading) {
+            view->focusTerminal();
+        }
     }
     updateControls();
 }
@@ -1045,7 +1093,8 @@ void TerminalPage::showEvent(QShowEvent *event)
 void TerminalPage::hideEvent(QHideEvent *event)
 {
     for (auto iterator = m_views.cbegin(); iterator != m_views.cend(); ++iterator) {
-        iterator.value()->setOutputDeliveryEnabled(false);
+        iterator.value()->setOutputDeliveryEnabled(
+            iterator.key() == m_backgroundRenderSessionId);
     }
     QWidget::hideEvent(event);
 }

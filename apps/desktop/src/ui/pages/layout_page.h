@@ -27,6 +27,11 @@ public:
     explicit LayoutPage(QWidget *parent = nullptr);
 
     void setDeviceConnected(bool connected, const QString &serial);
+    void preload();
+    void finishPreload();
+
+signals:
+    void preloadReady();
 
 private:
     struct CapabilityRow {
@@ -66,6 +71,7 @@ private:
     void refreshInspectorSource();
     void setInspectorStatus(const QString &message, const QString &color = QStringLiteral("#596579"));
     void postSessionToAppium();
+    void checkWebInspectorPreload();
 
     QStackedWidget *m_modeStack = nullptr;
     QWidget *m_sessionBuilder = nullptr;
@@ -96,10 +102,13 @@ private:
     QVector<CapabilityRow> m_capabilityRows;
     QVector<QJsonObject> m_savedCapabilitySets;
     QNetworkAccessManager *m_network = nullptr;
+    QWidget *m_webInspector = nullptr;
     QString m_deviceSerial;
     QString m_sessionId;
     bool m_deviceConnected = false;
     bool m_recording = false;
+    bool m_webInspectorPreloadRequested = false;
+    bool m_webInspectorPreloadReady = false;
 };
 
 #endif // AI_MOBILE_TEST_STUDIO_LAYOUT_PAGE_H

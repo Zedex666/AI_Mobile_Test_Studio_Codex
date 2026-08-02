@@ -438,9 +438,6 @@ void FilesPage::activate()
 {
     if (m_connected) {
         emit deviceInfoRequested();
-        if (!m_showingDeviceHome && !m_busy) {
-            refresh();
-        }
     }
 }
 
@@ -450,7 +447,10 @@ void FilesPage::refresh()
         emit deviceInfoRequested();
         m_operationStatus->setText(ui::text("正在更新设备信息…"));
     } else if (m_connected && !m_busy) {
-        navigateTo(m_currentPath, false);
+        m_pendingPath = m_currentPath;
+        m_pendingAddHistory = false;
+        m_pendingHistoryIndex = m_historyIndex;
+        emit directoryRefreshRequested(m_currentPath);
     }
 }
 

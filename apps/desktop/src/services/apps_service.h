@@ -64,6 +64,7 @@ public:
     bool busy() const;
 
 public slots:
+    void preloadApps();
     void loadApps();
     void loadAppMetadata(const QStringList &packageNames);
     void loadAppDetails(const QString &packageName);
@@ -94,6 +95,12 @@ signals:
     void appStateChanged(const QString &packageName, bool refreshList, bool refreshDetails);
 
 private:
+    struct DeviceCache {
+        QVector<AndroidAppSummary> apps;
+        QHash<QString, QString> labels;
+        QHash<QString, QByteArray> icons;
+    };
+
     enum class Request {
         Idle,
         AppList,
@@ -119,6 +126,9 @@ private:
     void startNextMetadataBatch();
     int applyMetadataResponse(const QString &output);
     void resetMetadataLoad();
+    void saveActiveCache();
+    void restoreActiveCache();
+    void mergeCachedMetadata(const QVector<AndroidAppSummary> &apps);
 
     static bool validPackageName(const QString &packageName);
     static QVector<AndroidAppSummary> parseApps(const QString &output);
@@ -136,6 +146,7 @@ private:
     QByteArray m_output;
     QProcess m_process;
     Request m_request = Request::Idle;
+    bool m_cancellingProcess = false;
     bool m_refreshList = false;
     bool m_refreshDetails = false;
     QStringList m_pendingInstallFiles;
@@ -150,6 +161,8 @@ private:
     QStringList m_queuedMetadataPackages;
     QHash<QString, QString> m_labelCache;
     QHash<QString, QByteArray> m_iconCache;
+    QVector<AndroidAppSummary> m_cachedApps;
+    QHash<QString, DeviceCache> m_deviceCaches;
     int m_metadataRequested = 0;
     int m_metadataLoaded = 0;
     bool m_metadataPublishesAppList = false;

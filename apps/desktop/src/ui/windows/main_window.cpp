@@ -237,6 +237,9 @@ void MainWindow::resizeEvent(QResizeEvent *event)
     if (m_sidebarWidget != nullptr) {
         m_sidebarWidget->setFixedWidth(width() < 1280 ? 220 : 252);
     }
+    if (m_workspacePreloadCover != nullptr) {
+        m_workspacePreloadCover->setGeometry(m_workspaceStack->rect());
+    }
 }
 
 void MainWindow::configureScrcpy()
@@ -297,6 +300,7 @@ void MainWindow::configureDeviceControls()
                                                 nodeExecutablePath(),
                                                 nodePtyModulePath(),
                                                 terminalHostScriptPath());
+    QTimer::singleShot(100, this, &MainWindow::preloadWebWorkspaces);
     m_adbControlService = new AdbControlService(m_scrcpyService->adbExecutablePath(), this);
 
     connect(m_terminalPage,
@@ -602,6 +606,10 @@ void MainWindow::configureDeviceControls()
             m_fileManagerService,
             &FileManagerService::listDirectory);
     connect(m_filesPage,
+            &FilesPage::directoryRefreshRequested,
+            m_fileManagerService,
+            &FileManagerService::refreshDirectory);
+    connect(m_filesPage,
             &FilesPage::createFolderRequested,
             m_fileManagerService,
             &FileManagerService::createFolder);
@@ -898,11 +906,113 @@ void MainWindow::configureDeviceControls()
     m_layoutPage->setDeviceConnected(
         m_deviceState == ScrcpyService::DeviceState::Connected,
         m_deviceSerial);
+    if (initialConnected) {
+        preloadDeviceData(m_deviceSerial);
+    }
     selectWorkspace(0);
+}
+
+void MainWindow::preloadDeviceData(const QString &serial)
+{
+    QTimer::singleShot(0, this, [this, serial] {
+        if (m_deviceState != ScrcpyService::DeviceState::Connected
+            || m_deviceSerial != serial) {
+            return;
+        }
+        m_appsService->preloadApps();
+        m_processService->preload();
+        m_fileManagerService->preloadDirectories(
+            {QStringLiteral("/"), QStringLiteral("/sdcard")});
+    });
+}
+
+void MainWindow::preloadWebWorkspaces()
+{
+    if (m_workspacePreloading || m_workspaceStack == nullptr
+        || m_layoutPage == nullptr || m_terminalPage == nullptr
+        || !m_workspaceStack->isVisible() || m_workspaceStack->size().isEmpty()) {
+        return;
+    }
+    if (m_selectedWorkspaceIndex != 0) {
+        return;
+    }
+
+    m_terminalPage->preloadOpenCode();
+    m_workspacePreloading = true;
+    const quint64 generation = ++m_workspacePreloadGeneration;
+
+    auto *cover = new QLabel(m_workspaceStack);
+    cover->setObjectName(QStringLiteral("WorkspacePreloadCover"));
+    cover->setPixmap(m_workspaceStack->grab());
+    cover->setScaledContents(true);
+    cover->setGeometry(m_workspaceStack->rect());
+    cover->show();
+    cover->raise();
+    m_workspacePreloadCover = cover;
+
+    m_workspaceStack->setCurrentWidget(m_layoutPage);
+    cover->raise();
+
+    const auto preloadTerminal = [this, generation] {
+        if (!m_workspacePreloading || generation != m_workspacePreloadGeneration) {
+            return;
+        }
+        if (m_workspaceStack->currentWidget() != m_layoutPage) {
+            return;
+        }
+        m_layoutPage->finishPreload();
+        m_workspaceStack->setCurrentWidget(m_terminalPage);
+        if (m_workspacePreloadCover != nullptr) {
+            m_workspacePreloadCover->raise();
+        }
+
+        QTimer::singleShot(900, this, [this, generation] {
+            if (!m_workspacePreloading || generation != m_workspacePreloadGeneration) {
+                return;
+            }
+            m_workspaceStack->setCurrentIndex(m_selectedWorkspaceIndex);
+            m_terminalPage->finishBackgroundPreload();
+            m_workspacePreloading = false;
+            if (m_workspacePreloadCover != nullptr) {
+                m_workspacePreloadCover->hide();
+                m_workspacePreloadCover->deleteLater();
+                m_workspacePreloadCover = nullptr;
+            }
+        });
+    };
+    connect(m_layoutPage,
+            &LayoutPage::preloadReady,
+            this,
+            preloadTerminal,
+            Qt::SingleShotConnection);
+    m_layoutPage->preload();
+    QTimer::singleShot(8000, this, preloadTerminal);
+}
+
+void MainWindow::cancelWorkspacePreload()
+{
+    if (!m_workspacePreloading) {
+        return;
+    }
+
+    ++m_workspacePreloadGeneration;
+    m_workspacePreloading = false;
+    m_layoutPage->finishPreload();
+    m_terminalPage->finishBackgroundPreload();
+    if (m_workspacePreloadCover != nullptr) {
+        m_workspacePreloadCover->hide();
+        m_workspacePreloadCover->deleteLater();
+        m_workspacePreloadCover = nullptr;
+    }
 }
 
 void MainWindow::selectWorkspace(int index)
 {
+    if (m_workspaceStack == nullptr || index < 0 || index >= m_workspaceStack->count()) {
+        return;
+    }
+    m_selectedWorkspaceIndex = index;
+    cancelWorkspacePreload();
     animateWorkspaceTransition(index);
     const QList<QPushButton *> workspaceButtons = {m_overviewNavButton,
                                                    m_displayNavButton,
@@ -1004,6 +1114,9 @@ void MainWindow::updateDeviceUi(ScrcpyService::DeviceState state,
                                 const QString &serial,
                                 const QString &detail)
 {
+    const bool newlyConnected = state == ScrcpyService::DeviceState::Connected
+        && (m_deviceState != ScrcpyService::DeviceState::Connected
+            || m_deviceSerial != serial);
     m_deviceState = state;
     m_deviceSerial = serial;
     m_deviceDetail = detail;
@@ -1074,6 +1187,10 @@ void MainWindow::updateDeviceUi(ScrcpyService::DeviceState state,
     }
     if (m_layoutPage != nullptr) {
         m_layoutPage->setDeviceConnected(connected, serial);
+    }
+    if (newlyConnected && m_appsService != nullptr && m_processService != nullptr
+        && m_fileManagerService != nullptr) {
+        preloadDeviceData(serial);
     }
 
     QString deviceName;

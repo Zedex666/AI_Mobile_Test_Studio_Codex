@@ -18,7 +18,7 @@ QString terminalFontFamily(ui::AppLanguage language)
 {
     return language == ui::AppLanguage::English
         ? QStringLiteral("\"AI JetBrains Mono\", monospace")
-        : QStringLiteral("\"AI LXGW WenKai\", sans-serif");
+        : QStringLiteral("\"AI JetBrains Mono\", \"AI LXGW WenKai\", monospace");
 }
 
 } // namespace

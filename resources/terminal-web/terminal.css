@@ -52,6 +52,10 @@ body,
 
 .xterm {
   height: 100%;
+  font-kerning: none;
+  font-variant-ligatures: none;
+  font-stretch: normal;
+  letter-spacing: 0;
 }
 
 .xterm .xterm-viewport {

@@ -69,7 +69,7 @@ private:
 
     QString m_adbPath;
     QString m_deviceSerial;
-    QString m_output;
+    QByteArray m_output;
     bool m_refreshPending = false;
     QProcess m_process;
     QProcess m_screenshotProcess;

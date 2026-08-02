@@ -39,7 +39,7 @@ FileManagerService::FileManagerService(QString adbPath, QObject *parent)
             this,
             &FileManagerService::handleFinished);
     connect(&m_process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
-        if (error == QProcess::FailedToStart && m_busy) {
+        if (!m_cancellingProcess && error == QProcess::FailedToStart && m_busy) {
             failCurrent(tr("adb 启动失败：%1").arg(m_process.errorString()));
         }
     });
@@ -51,28 +51,74 @@ void FileManagerService::setDeviceSerial(const QString &serial)
         return;
     }
 
-    m_deviceSerial = serial;
-    m_queue.clear();
-    m_refreshAfterQueue = false;
+    saveActiveCache();
+    m_cancellingProcess = true;
     if (m_process.state() != QProcess::NotRunning) {
         m_process.kill();
+        m_process.waitForFinished(1000);
     }
+    m_cancellingProcess = false;
+    m_queue.clear();
+    m_current = {};
+    m_directoryCache.clear();
+    m_refreshAfterQueue = false;
     if (m_busy) {
         m_busy = false;
+    }
+    if (m_uiBusy) {
+        m_uiBusy = false;
         emit busyChanged(false);
     }
+    m_deviceSerial = serial;
+    restoreActiveCache();
 }
 
 bool FileManagerService::busy() const
 {
-    return m_busy;
+    return m_uiBusy;
+}
+
+void FileManagerService::preloadDirectories(const QStringList &paths)
+{
+    for (const QString &path : paths) {
+        const QString normalizedPath = normalizeDirectoryPath(path);
+        if (m_directoryCache.contains(normalizedPath)) {
+            continue;
+        }
+        bool alreadyQueued = m_busy && m_current.kind == CommandKind::List
+            && m_current.listingPath == normalizedPath;
+        for (const PendingCommand &command : std::as_const(m_queue)) {
+            alreadyQueued = alreadyQueued
+                || (command.kind == CommandKind::List
+                    && command.listingPath == normalizedPath);
+        }
+        if (!alreadyQueued) {
+            queueDirectory(normalizedPath, false, false, false);
+        }
+    }
 }
 
 void FileManagerService::listDirectory(const QString &path)
 {
-    if (m_busy) {
+    const QString normalizedPath = normalizeDirectoryPath(path);
+    const auto cached = m_directoryCache.constFind(normalizedPath);
+    if (cached != m_directoryCache.cend()) {
+        emit directoryLoaded(normalizedPath, cached.value());
         return;
     }
+    queueDirectory(normalizedPath, true, true, false);
+}
+
+void FileManagerService::refreshDirectory(const QString &path)
+{
+    queueDirectory(normalizeDirectoryPath(path), true, true, true);
+}
+
+void FileManagerService::queueDirectory(const QString &path,
+                                        bool publishResult,
+                                        bool notifyUi,
+                                        bool forceRefresh)
+{
     const QString listingPath = path == QStringLiteral("/")
         ? path
         : path + QLatin1Char('/');
@@ -85,7 +131,10 @@ void FileManagerService::listDirectory(const QString &path)
              adbDisplay(m_deviceSerial, arguments),
              arguments,
              path,
-             false});
+             false,
+             publishResult,
+             notifyUi,
+             forceRefresh});
 }
 
 void FileManagerService::createFolder(const QString &remotePath)
@@ -218,10 +267,13 @@ void FileManagerService::enqueue(PendingCommand command)
     }
 
     m_refreshAfterQueue = m_refreshAfterQueue || command.refreshAfter;
+    if (command.notifyUi && !m_uiBusy) {
+        m_uiBusy = true;
+        emit busyChanged(true);
+    }
     m_queue.enqueue(std::move(command));
     if (!m_busy) {
         m_busy = true;
-        emit busyChanged(true);
         startNext();
     }
 }
@@ -231,21 +283,38 @@ void FileManagerService::startNext()
     if (m_process.state() != QProcess::NotRunning) {
         return;
     }
-    if (m_queue.isEmpty()) {
+    while (!m_queue.isEmpty()) {
+        m_current = m_queue.dequeue();
+        if (m_current.kind != CommandKind::List || m_current.forceRefresh
+            || !m_directoryCache.contains(m_current.listingPath)) {
+            break;
+        }
+        if (m_current.publishResult) {
+            emit directoryLoaded(m_current.listingPath,
+                                 m_directoryCache.value(m_current.listingPath));
+        }
+        if (m_current.notifyUi) {
+            emit operationFinished(true, m_current.label, tr("已使用本次运行缓存。"));
+        }
+        m_current = {};
+    }
+    if (m_queue.isEmpty() && m_current.arguments.isEmpty()) {
         completeQueue();
         return;
     }
 
-    m_current = m_queue.dequeue();
     m_output.clear();
     m_process.setWorkingDirectory(QFileInfo(m_adbPath).absolutePath());
-    emit operationStarted(m_current.label, m_current.displayCommand);
+    if (m_current.notifyUi) {
+        emit operationStarted(m_current.label, m_current.displayCommand);
+    }
     m_process.start(m_adbPath, m_current.arguments);
 }
 
 void FileManagerService::handleFinished(int exitCode, QProcess::ExitStatus exitStatus)
 {
-    if (!m_busy) {
+    if (m_cancellingProcess || !m_busy) {
+        m_process.readAllStandardOutput();
         return;
     }
 
@@ -254,6 +323,11 @@ void FileManagerService::handleFinished(int exitCode, QProcess::ExitStatus exitS
     const bool success = exitStatus == QProcess::NormalExit && exitCode == 0
         && !outputIndicatesFailure(output);
     if (!success) {
+        if (!m_current.notifyUi) {
+            m_current = {};
+            startNext();
+            return;
+        }
         failCurrent(output.isEmpty()
                         ? tr("命令执行失败，退出码：%1").arg(exitCode)
                         : output);
@@ -261,11 +335,22 @@ void FileManagerService::handleFinished(int exitCode, QProcess::ExitStatus exitS
     }
 
     if (m_current.kind == CommandKind::List) {
-        emit directoryLoaded(m_current.listingPath, parseDirectory(output));
+        const QVector<DeviceFileEntry> entries = parseDirectory(output);
+        m_directoryCache.insert(m_current.listingPath, entries);
+        saveActiveCache();
+        if (m_current.publishResult) {
+            emit directoryLoaded(m_current.listingPath, entries);
+        }
+    } else if (m_current.refreshAfter) {
+        m_directoryCache.clear();
+        saveActiveCache();
     }
-    emit operationFinished(true,
-                           m_current.label,
-                           output.isEmpty() ? tr("操作完成。") : output);
+    if (m_current.notifyUi) {
+        emit operationFinished(true,
+                               m_current.label,
+                               output.isEmpty() ? tr("操作完成。") : output);
+    }
+    m_current = {};
     startNext();
 }
 
@@ -275,7 +360,11 @@ void FileManagerService::failCurrent(const QString &detail)
     m_queue.clear();
     m_refreshAfterQueue = false;
     m_busy = false;
-    emit busyChanged(false);
+    m_current = {};
+    if (m_uiBusy) {
+        m_uiBusy = false;
+        emit busyChanged(false);
+    }
     emit operationFinished(false, label, detail);
 }
 
@@ -284,7 +373,11 @@ void FileManagerService::completeQueue()
     const bool refresh = m_refreshAfterQueue;
     m_refreshAfterQueue = false;
     m_busy = false;
-    emit busyChanged(false);
+    m_current = {};
+    if (m_uiBusy) {
+        m_uiBusy = false;
+        emit busyChanged(false);
+    }
     if (refresh) {
         emit refreshRequested();
     }
@@ -295,6 +388,33 @@ QString FileManagerService::quoteRemotePath(const QString &path)
     QString escaped = path;
     escaped.replace(QLatin1Char('\''), QStringLiteral("'\\''"));
     return QLatin1Char('\'') + escaped + QLatin1Char('\'');
+}
+
+QString FileManagerService::normalizeDirectoryPath(const QString &path)
+{
+    QString normalized = QDir::cleanPath(path.trimmed());
+    normalized.replace(QLatin1Char('\\'), QLatin1Char('/'));
+    if (normalized.isEmpty() || normalized == QStringLiteral(".")) {
+        return QStringLiteral("/");
+    }
+    if (!normalized.startsWith(QLatin1Char('/'))) {
+        normalized.prepend(QLatin1Char('/'));
+    }
+    return normalized;
+}
+
+void FileManagerService::saveActiveCache()
+{
+    if (!m_deviceSerial.isEmpty()) {
+        m_deviceCaches.insert(m_deviceSerial, m_directoryCache);
+    }
+}
+
+void FileManagerService::restoreActiveCache()
+{
+    if (!m_deviceSerial.isEmpty()) {
+        m_directoryCache = m_deviceCaches.value(m_deviceSerial);
+    }
 }
 
 QVector<DeviceFileEntry> FileManagerService::parseDirectory(const QString &output)

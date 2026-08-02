@@ -39,6 +39,7 @@ public slots:
 
 signals:
     void directoryRequested(const QString &path);
+    void directoryRefreshRequested(const QString &path);
     void createFolderRequested(const QString &remotePath);
     void uploadRequested(const QStringList &localPaths, const QString &remoteDirectory);
     void downloadRequested(const QStringList &remotePaths, const QString &localDirectory);

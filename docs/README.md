@@ -24,11 +24,12 @@
 - Apple 风格桌面界面、设置页、中英文即时切换，以及中文霞鹜文楷和英文 JetBrains Mono 本地字体。
 - 随包 Appium Inspector 2026.5.1 工作区，并支持语言对应字体、文件下载和外部链接。
 - 文件工作区设备主页，以及可直接进入 `/` 和 `/sdcard` 的驱动器入口。
+- 启动阶段预热 Appium Inspector、默认 OpenCode 会话和已连接设备的应用/进程/常用目录；设备快照按序列号保存在本次运行内存中。
 
 尚未实现完整产品闭环的部分：
 
 - Python 自动化服务、Appium Server 和测试 Runner。
-- OpenCode TUI 的鼠标、IME、备用屏幕和高输出发布级兼容性矩阵，以及干净机端到端验收。
+- OpenCode TUI 的多输入法、鼠标、备用屏幕和高输出发布级兼容性矩阵，以及干净机端到端验收。
 - OpenCode Server/SDK 和 Agent 编排。
 - 完整便携运行时装配、安装包、自检、修复和第三方许可证产物。
 

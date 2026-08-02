@@ -4,6 +4,7 @@
 #include <QFileInfo>
 #include <QHash>
 #include <QRegularExpression>
+#include <QStringDecoder>
 
 #include <algorithm>
 #include <utility>
@@ -40,6 +41,13 @@ QString overviewCommand()
         "printf '__OVERVIEW_NETWORK__\\n'; ip addr show wlan0 2>/dev/null; "
         "printf '__OVERVIEW_BATTERY__\\n'; dumpsys battery 2>/dev/null; "
         "printf '__OVERVIEW_UPTIME__\\n'; cat /proc/uptime 2>/dev/null;");
+}
+
+QString decodeAdbText(const QByteArray &data)
+{
+    QStringDecoder decoder(QStringDecoder::Utf8);
+    const QString utf8 = decoder.decode(data);
+    return decoder.hasError() ? QString::fromLocal8Bit(data) : utf8;
 }
 
 QHash<QString, QStringList> splitSections(const QString &output)
@@ -177,7 +185,7 @@ OverviewService::OverviewService(QString adbPath, QObject *parent)
 {
     m_process.setProcessChannelMode(QProcess::MergedChannels);
     connect(&m_process, &QProcess::readyReadStandardOutput, this, [this] {
-        m_output += QString::fromLocal8Bit(m_process.readAllStandardOutput());
+        m_output += m_process.readAllStandardOutput();
     });
     connect(&m_process,
             qOverload<int, QProcess::ExitStatus>(&QProcess::finished),
@@ -199,7 +207,7 @@ OverviewService::OverviewService(QString adbPath, QObject *parent)
             this,
             [this](int exitCode, QProcess::ExitStatus exitStatus) {
                 m_screenshotOutput += m_screenshotProcess.readAllStandardOutput();
-                const QString error = QString::fromLocal8Bit(
+                const QString error = decodeAdbText(
                     m_screenshotProcess.readAllStandardError()).trimmed();
                 emit screenshotLoadingChanged(false);
                 if (exitStatus == QProcess::NormalExit && exitCode == 0
@@ -231,7 +239,7 @@ OverviewService::OverviewService(QString adbPath, QObject *parent)
             this,
             [this](int exitCode, QProcess::ExitStatus exitStatus) {
                 m_actionOutput += m_actionProcess.readAllStandardOutput();
-                const QString detail = QString::fromLocal8Bit(m_actionOutput).trimmed();
+                const QString detail = decodeAdbText(m_actionOutput).trimmed();
                 const bool success = exitStatus == QProcess::NormalExit && exitCode == 0;
                 emit actionFinished(success,
                                     m_actionLabel,
@@ -368,16 +376,17 @@ void OverviewService::runAction(const QString &label, const QString &shellComman
 
 void OverviewService::handleFinished(int exitCode, QProcess::ExitStatus exitStatus)
 {
-    m_output += QString::fromLocal8Bit(m_process.readAllStandardOutput());
+    m_output += m_process.readAllStandardOutput();
+    const QString output = decodeAdbText(m_output);
     emit loadingChanged(false);
 
     if (exitStatus != QProcess::NormalExit || exitCode != 0) {
-        const QString detail = m_output.trimmed();
+        const QString detail = output.trimmed();
         emit overviewError(detail.isEmpty()
                                ? tr("设备概览采集失败，退出码：%1").arg(exitCode)
                                : detail.left(1000));
     } else {
-        DeviceOverview overview = parseOverview(m_output);
+        DeviceOverview overview = parseOverview(output);
         if (overview.serialNumber.isEmpty()) {
             overview.serialNumber = m_deviceSerial;
         }

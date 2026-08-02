@@ -63,10 +63,11 @@ ProcessService::ProcessService(QString adbPath, QObject *parent)
             &QProcess::errorOccurred,
             this,
             [this](QProcess::ProcessError error) {
-                if (error != QProcess::FailedToStart) {
+                if (m_switchingDevice || error != QProcess::FailedToStart) {
                     return;
                 }
                 m_stage = QueryStage::None;
+                m_preloading = false;
                 emit samplingChanged(false);
                 emit processError(tr("adb 启动失败：%1")
                                       .arg(m_queryProcess.errorString()));
@@ -77,6 +78,10 @@ ProcessService::ProcessService(QString adbPath, QObject *parent)
             qOverload<int, QProcess::ExitStatus>(&QProcess::finished),
             this,
             [this](int exitCode, QProcess::ExitStatus exitStatus) {
+                if (m_switchingDevice) {
+                    m_actionProcess.readAllStandardOutput();
+                    return;
+                }
                 const QString packageName = m_actionProcess.property("packageName").toString();
                 const QString output = QString::fromUtf8(
                     m_actionProcess.readAllStandardOutput()).trimmed();
@@ -95,7 +100,7 @@ ProcessService::ProcessService(QString adbPath, QObject *parent)
             &QProcess::errorOccurred,
             this,
             [this](QProcess::ProcessError error) {
-                if (error == QProcess::FailedToStart) {
+                if (!m_switchingDevice && error == QProcess::FailedToStart) {
                     emit stopFinished(false,
                                       m_actionProcess.property("packageName").toString(),
                                       tr("adb 启动失败：%1")
@@ -119,15 +124,23 @@ void ProcessService::setDeviceSerial(const QString &serial)
     if (m_deviceSerial == serial) {
         return;
     }
+    saveActiveCache();
+    m_switchingDevice = true;
+    m_timer.stop();
+    for (QProcess *process : {&m_queryProcess, &m_actionProcess}) {
+        if (process->state() != QProcess::NotRunning) {
+            process->kill();
+            process->waitForFinished(1000);
+        }
+    }
+    m_switchingDevice = false;
     m_deviceSerial = serial;
     m_packages.clear();
+    m_cachedProcesses.clear();
+    m_hasCachedSnapshot = false;
+    m_preloading = false;
     m_refreshPending = false;
-    if (m_queryProcess.state() != QProcess::NotRunning) {
-        m_queryProcess.kill();
-    }
-    if (m_actionProcess.state() != QProcess::NotRunning) {
-        m_actionProcess.kill();
-    }
+    restoreActiveCache();
     updateSamplingState();
 }
 
@@ -140,12 +153,31 @@ void ProcessService::setActive(bool active)
     updateSamplingState();
 }
 
+void ProcessService::preload()
+{
+    if (m_deviceSerial.isEmpty()) {
+        return;
+    }
+    if (m_hasCachedSnapshot) {
+        emit processesReady(m_cachedProcesses);
+        return;
+    }
+    if (m_queryProcess.state() != QProcess::NotRunning) {
+        return;
+    }
+    m_preloading = true;
+    refresh();
+}
+
 void ProcessService::refresh()
 {
-    if (!m_active || m_deviceSerial.isEmpty()) {
+    if ((!m_active && !m_preloading) || m_deviceSerial.isEmpty()) {
         return;
     }
     if (!QFileInfo::exists(m_adbPath)) {
+        m_preloading = false;
+        m_stage = QueryStage::None;
+        emit samplingChanged(false);
         emit processError(tr("未找到 adb：%1")
                               .arg(QDir::toNativeSeparators(m_adbPath)));
         return;
@@ -191,17 +223,22 @@ void ProcessService::updateSamplingState()
         if (!m_timer.isActive()) {
             m_timer.start();
         }
+        if (m_hasCachedSnapshot) {
+            emit processesReady(m_cachedProcesses);
+        }
         refresh();
         return;
     }
 
     m_timer.stop();
     m_refreshPending = false;
-    if (m_queryProcess.state() != QProcess::NotRunning) {
+    if (!m_preloading && m_queryProcess.state() != QProcess::NotRunning) {
         m_queryProcess.kill();
     }
-    m_stage = QueryStage::None;
-    emit samplingChanged(false);
+    if (!m_preloading) {
+        m_stage = QueryStage::None;
+        emit samplingChanged(false);
+    }
 }
 
 void ProcessService::startPackagesQuery()
@@ -236,6 +273,10 @@ void ProcessService::startTopQuery(bool legacy)
 void ProcessService::handleQueryFinished(int exitCode,
                                          QProcess::ExitStatus exitStatus)
 {
+    if (m_switchingDevice) {
+        m_queryProcess.readAllStandardOutput();
+        return;
+    }
     m_output += m_queryProcess.readAllStandardOutput();
     const QString output = QString::fromUtf8(m_output);
     const bool success = exitStatus == QProcess::NormalExit && exitCode == 0;
@@ -255,40 +296,69 @@ void ProcessService::handleQueryFinished(int exitCode,
                 }
             }
         }
-        if (m_active && !m_deviceSerial.isEmpty()) {
+        if ((m_active || m_preloading) && !m_deviceSerial.isEmpty()) {
             startTopQuery(false);
         } else {
             m_stage = QueryStage::None;
+            m_preloading = false;
             emit samplingChanged(false);
         }
         return;
     }
 
     if (!success) {
-        if (m_stage == QueryStage::ModernTop && m_active) {
+        if (m_stage == QueryStage::ModernTop && (m_active || m_preloading)) {
             startTopQuery(true);
             return;
         }
         m_stage = QueryStage::None;
+        m_preloading = false;
         emit samplingChanged(false);
         emit processError(output.trimmed().isEmpty()
                               ? tr("进程采样失败，退出码：%1").arg(exitCode)
                               : output.trimmed().left(1000));
     } else {
         const QVector<DeviceProcessEntry> processes = parseProcesses(output);
-        if (processes.isEmpty() && m_stage == QueryStage::ModernTop && m_active) {
+        if (processes.isEmpty() && m_stage == QueryStage::ModernTop
+            && (m_active || m_preloading)) {
             startTopQuery(true);
             return;
         }
         m_stage = QueryStage::None;
+        m_preloading = false;
+        m_cachedProcesses = processes;
+        m_hasCachedSnapshot = true;
+        saveActiveCache();
         emit samplingChanged(false);
-        emit processesReady(processes);
+        emit processesReady(m_cachedProcesses);
     }
 
     if (m_refreshPending && m_active && !m_deviceSerial.isEmpty()) {
         m_refreshPending = false;
         refresh();
     }
+}
+
+void ProcessService::saveActiveCache()
+{
+    if (m_deviceSerial.isEmpty()) {
+        return;
+    }
+    DeviceCache &cache = m_deviceCaches[m_deviceSerial];
+    cache.packages = m_packages;
+    cache.processes = m_cachedProcesses;
+    cache.hasSnapshot = m_hasCachedSnapshot;
+}
+
+void ProcessService::restoreActiveCache()
+{
+    if (m_deviceSerial.isEmpty()) {
+        return;
+    }
+    const DeviceCache cache = m_deviceCaches.value(m_deviceSerial);
+    m_packages = cache.packages;
+    m_cachedProcesses = cache.processes;
+    m_hasCachedSnapshot = cache.hasSnapshot;
 }
 
 QVector<DeviceProcessEntry> ProcessService::parseProcesses(const QString &output) const

@@ -107,7 +107,8 @@ AppsService::AppsService(QString adbPath, QObject *parent)
             this,
             &AppsService::handleFinished);
     connect(&m_process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
-        if (error == QProcess::FailedToStart && m_request != Request::Idle) {
+        if (!m_cancellingProcess && error == QProcess::FailedToStart
+            && m_request != Request::Idle) {
             failRequest(tr("adb 启动失败：%1").arg(m_process.errorString()));
         }
     });
@@ -118,10 +119,13 @@ void AppsService::setDeviceSerial(const QString &serial)
     if (m_deviceSerial == serial) {
         return;
     }
-    m_deviceSerial = serial;
+    saveActiveCache();
+    m_cancellingProcess = true;
     if (m_process.state() != QProcess::NotRunning) {
         m_process.kill();
+        m_process.waitForFinished(1000);
     }
+    m_cancellingProcess = false;
     if (m_request != Request::Idle) {
         finishRequest();
     }
@@ -130,11 +134,40 @@ void AppsService::setDeviceSerial(const QString &serial)
     m_queuedMetadataPackages.clear();
     m_labelCache.clear();
     m_iconCache.clear();
+    m_cachedApps.clear();
+    m_deviceSerial = serial;
+    restoreActiveCache();
 }
 
 bool AppsService::busy() const
 {
     return m_request != Request::Idle;
+}
+
+void AppsService::preloadApps()
+{
+    if (m_deviceSerial.isEmpty() || busy()) {
+        return;
+    }
+    if (m_cachedApps.isEmpty()) {
+        loadApps();
+        return;
+    }
+
+    for (AndroidAppSummary &app : m_cachedApps) {
+        app.displayName = m_labelCache.value(app.packageName, app.displayName);
+        app.iconPng = m_iconCache.value(app.packageName, app.iconPng);
+    }
+    emit appsLoaded(m_cachedApps);
+    emit appMetadataLoaded(m_cachedApps);
+
+    const bool hasMissingIcons = std::any_of(
+        m_cachedApps.cbegin(), m_cachedApps.cend(), [](const AndroidAppSummary &app) {
+            return !app.uninstalled && app.iconPng.isEmpty();
+        });
+    if (hasMissingIcons) {
+        beginMetadataLoad(m_cachedApps, true);
+    }
 }
 
 void AppsService::loadApps()
@@ -463,7 +496,8 @@ void AppsService::start(Request request,
 
 void AppsService::handleFinished(int exitCode, QProcess::ExitStatus exitStatus)
 {
-    if (m_request == Request::Idle) {
+    if (m_cancellingProcess || m_request == Request::Idle) {
+        m_process.readAllStandardOutput();
         return;
     }
     m_output += m_process.readAllStandardOutput();
@@ -532,9 +566,11 @@ void AppsService::handleFinished(int exitCode, QProcess::ExitStatus exitStatus)
             }
             app.iconPng = m_iconCache.value(app.packageName);
         }
-        emit appsLoaded(apps);
+        m_cachedApps = apps;
+        saveActiveCache();
+        emit appsLoaded(m_cachedApps);
         emit operationFinished(true, label, tr("已读取 %1 个应用。").arg(apps.size()));
-        beginMetadataLoad(std::move(apps), true);
+        beginMetadataLoad(m_cachedApps, true);
         return;
     }
     if (completedRequest == Request::MetadataPush) {
@@ -681,7 +717,13 @@ void AppsService::startNextMetadataBatch()
         const bool publishAppList = m_metadataPublishesAppList;
         resetMetadataLoad();
         if (publishAppList) {
-            emit appsLoaded(completedApps);
+            m_cachedApps = completedApps;
+        } else {
+            mergeCachedMetadata(completedApps);
+        }
+        saveActiveCache();
+        if (publishAppList) {
+            emit appsLoaded(m_cachedApps);
         }
         emit appMetadataLoaded(completedApps);
         emit operationFinished(true,
@@ -761,6 +803,44 @@ int AppsService::applyMetadataResponse(const QString &output)
         }
     }
     return loaded;
+}
+
+void AppsService::saveActiveCache()
+{
+    if (m_deviceSerial.isEmpty()) {
+        return;
+    }
+    DeviceCache &cache = m_deviceCaches[m_deviceSerial];
+    cache.apps = m_cachedApps;
+    cache.labels = m_labelCache;
+    cache.icons = m_iconCache;
+}
+
+void AppsService::restoreActiveCache()
+{
+    if (m_deviceSerial.isEmpty()) {
+        return;
+    }
+    const DeviceCache cache = m_deviceCaches.value(m_deviceSerial);
+    m_cachedApps = cache.apps;
+    m_labelCache = cache.labels;
+    m_iconCache = cache.icons;
+    mergeCachedMetadata(m_cachedApps);
+}
+
+void AppsService::mergeCachedMetadata(const QVector<AndroidAppSummary> &apps)
+{
+    for (const AndroidAppSummary &metadata : apps) {
+        for (AndroidAppSummary &cached : m_cachedApps) {
+            if (cached.packageName != metadata.packageName) {
+                continue;
+            }
+            cached.displayName = m_labelCache.value(metadata.packageName,
+                                                    metadata.displayName);
+            cached.iconPng = m_iconCache.value(metadata.packageName, metadata.iconPng);
+            break;
+        }
+    }
 }
 
 void AppsService::resetMetadataLoad()

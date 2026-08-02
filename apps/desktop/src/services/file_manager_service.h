@@ -2,6 +2,7 @@
 #define AI_MOBILE_TEST_STUDIO_FILE_MANAGER_SERVICE_H
 
 #include <QByteArray>
+#include <QHash>
 #include <QMetaType>
 #include <QObject>
 #include <QProcess>
@@ -34,7 +35,9 @@ public:
     bool busy() const;
 
 public slots:
+    void preloadDirectories(const QStringList &paths);
     void listDirectory(const QString &path);
+    void refreshDirectory(const QString &path);
     void createFolder(const QString &remotePath);
     void uploadFiles(const QStringList &localPaths, const QString &remoteDirectory);
     void downloadFiles(const QStringList &remotePaths, const QString &localDirectory);
@@ -64,15 +67,25 @@ private:
         QStringList arguments;
         QString listingPath;
         bool refreshAfter = false;
+        bool publishResult = true;
+        bool notifyUi = true;
+        bool forceRefresh = false;
     };
 
+    void queueDirectory(const QString &path,
+                        bool publishResult,
+                        bool notifyUi,
+                        bool forceRefresh);
     void enqueue(PendingCommand command);
     void startNext();
     void handleFinished(int exitCode, QProcess::ExitStatus exitStatus);
     void failCurrent(const QString &detail);
     void completeQueue();
+    void saveActiveCache();
+    void restoreActiveCache();
 
     static QString quoteRemotePath(const QString &path);
+    static QString normalizeDirectoryPath(const QString &path);
     static QVector<DeviceFileEntry> parseDirectory(const QString &output);
 
     QString m_adbPath;
@@ -81,7 +94,11 @@ private:
     QProcess m_process;
     QQueue<PendingCommand> m_queue;
     PendingCommand m_current;
+    QHash<QString, QVector<DeviceFileEntry>> m_directoryCache;
+    QHash<QString, QHash<QString, QVector<DeviceFileEntry>>> m_deviceCaches;
     bool m_busy = false;
+    bool m_uiBusy = false;
+    bool m_cancellingProcess = false;
     bool m_refreshAfterQueue = false;
 };
 

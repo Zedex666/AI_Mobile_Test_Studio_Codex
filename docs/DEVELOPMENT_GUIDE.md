@@ -109,7 +109,8 @@ Appium Server 和 UiAutomator2 driver 当前仍由开发机或远端环境提供
 - 外部进程、socket 和任务必须有明确 owner。
 - `QProcess` 使用 program + argument list，不拼接 shell 命令。
 - 输出读取、设备采样和文件传输不阻塞 UI 线程。
-- 设备切换时清理缓存、终止旧会话并更新全部相关页面。
+- 设备缓存按序列号隔离并只存在于当前运行；设备切换时保存旧设备缓存、终止旧进程、抑制迟到回调，再恢复新设备缓存并更新页面。
+- 自动预取不能阻塞页面交互；手动刷新必须明确绕过缓存，设备写操作必须使相关缓存失效。
 - Release 代码只通过 `RuntimeLocator` 获取第三方组件路径。
 
 ## 8. 终端开发
@@ -121,6 +122,9 @@ Appium Server 和 UiAutomator2 driver 当前仍由开发机或远端环境提供
 - 两个标签输出隔离。
 - 标签新增、关闭和重置。
 - resize 数据包。
+- 中英文切换后字符网格宽度不变，中文不出现横向拉伸。
+- 使用至少一种 Windows 中文输入法连续输入中文，候选、提交、删除和回车无明显卡顿或乱序。
+- 应用启动后默认 OpenCode 会话已在后台完成前端初始化，首次进入终端不集中回放启动输出。
 - 设备断开、切换和远端 shell 退出。
 
 xterm.js/ConPTY 开发以 [TERMINAL_ARCHITECTURE.md](TERMINAL_ARCHITECTURE.md) 为准。不要继续在页面里扩展完整 VT 解析器，也不要用普通 QProcess 管道直接运行 OpenCode TUI。当前 QProcess 只启动 `node-pty` 宿主，真正的 OpenCode 子进程仍在 ConPTY 中。
@@ -175,6 +179,8 @@ pytest tests\python
 | 干净机 E2E | 无系统依赖情况下完成启动和最小 AI 自动化 |
 
 不可自动化的真机步骤必须写成可重复的验收清单。
+
+启动预取的真机验收还应覆盖：应用和进程页首次进入已有数据、`/` 与 `/sdcard` 首次进入命中缓存、手动刷新重新访问设备、文件变更后目录回读，以及断开重连/切换设备时缓存不串设备。
 
 ## 13. 打包开发
 

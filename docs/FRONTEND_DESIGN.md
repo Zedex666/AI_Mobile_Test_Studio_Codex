@@ -38,7 +38,7 @@ AI Mobile Test Studio 是高频使用的桌面设备工具，不采用营销页�
 - 中文界面加载 `resources/font/cn/LXGWWenKai-Regular.ttf` 和 `LXGWWenKai-Medium.ttf`。
 - 英文界面完整加载 `resources/font/us/JetBrainsMono-2.304/fonts/ttf/` 中的 32 个 TTF；首选 `JetBrainsMono-Regular.ttf` 确定字体家族，并按控件字重使用 Regular、Medium 和 Bold 字形。
 - 构建后字体复制到 `runtime/fonts/cn/` 与 `runtime/fonts/us/JetBrainsMono-2.304/fonts/ttf/`，运行时只通过应用目录相对路径加载。
-- Qt 原生控件通过应用字体和控件字体继承当前语言字体；xterm.js 使用本地 `@font-face` 并由 `TerminalBridge` 动态切换字体家族。
+- Qt 原生控件通过应用字体和控件字体继承当前语言字体；xterm.js 始终以 JetBrains Mono 作为等宽主字体，中文模式只把霞鹜文楷加入 CJK 回退链，避免比例字体破坏终端单元格宽度。
 - Appium Inspector 在页面加载完成和语言切换后注入本地 Regular、Medium、Bold 字体规则，覆盖第三方页面的默认字体，同时保持 `letter-spacing: 0`。
 - 字号层级为 12/13px 辅助信息、14/15px 正文与控件、20/24px 页面标题；不随窗口宽度连续缩放。
 
@@ -89,10 +89,13 @@ AI Mobile Test Studio 是高频使用的桌面设备工具，不采用营销页�
 ## 7. 性能与验收
 
 - UI 主线程不等待字体加载以外的外部 I/O；字体文件来自本地 runtime。
+- 启动后预热 Appium Inspector 和默认 OpenCode WebView；OpenCode 初始输出在隐藏页继续渲染，首次进入对应工作区不再集中回放启动输出。
+- 授权设备连接后异步预取应用名称/图标、一次进程快照以及 `/`、`/sdcard`；缓存按设备隔离并仅保留到当前桌面进程退出。
 - 进程表以 PID 为稳定键做差量增删改，禁止每次采样全量 reset；自动采样周期为 8 秒。
 - 进程应用图标由后台小批次提取，UI 每 8ms 最多解码一个 PNG，只通知实际命中包名的行；滚动期间暂存采样，滚动空闲 180ms 后合并。
-- xterm.js 输出每次只允许一个未确认写入，单块不超过 32KB、块间隔 8ms，C++ 待处理缓冲上限为 4MB；页面隐藏或标签进入后台后暂停投递。
+- xterm.js 输出每次只允许一个未确认写入，单块不超过 32KB、块间隔 8ms，C++ 待处理缓冲上限为 4MB；普通隐藏标签暂停投递，启动预热的默认 OpenCode 标签例外。
 - ConPTY 宿主在 8ms 窗口内合并输出，每批不超过 64KB，降低 Qt 进程间信号与 WebChannel 调用频率。
+- xterm.js 对可打印输入使用 4ms、最多 4096 字符的有序合并，降低中文 IME 提交时的 WebChannel 与 ConPTY 小包数量；Escape、Ctrl 和其它控制序列即时发送。
 - 常规窗口和 150%/200% DPI 下，导航文字、按钮、表头和状态标签不得重叠。
 - 页面切换和按钮动画目标为 60fps；镜像、终端大输出和性能采样期间不能出现明显卡顿。
 - 关闭动态效果后页面立即切换，按钮不缩放。

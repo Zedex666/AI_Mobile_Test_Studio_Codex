@@ -22,6 +22,8 @@ public:
 
     void setDeviceConnected(bool connected, const QString &serial);
     void activate();
+    void preloadOpenCode();
+    void finishBackgroundPreload();
 
 public slots:
     void handleSessionStarted(const QString &sessionId);
@@ -55,6 +57,8 @@ private:
     QString m_serial;
     int m_nextTerminalNumber = 1;
     int m_nextOpenCodeNumber = 1;
+    QString m_backgroundRenderSessionId;
+    bool m_backgroundPreloading = false;
     QTabBar *m_tabBar = nullptr;
     QToolButton *m_addButton = nullptr;
     QToolButton *m_shortcutsButton = nullptr;

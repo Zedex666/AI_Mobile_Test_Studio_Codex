@@ -6,7 +6,7 @@
     convertEol: false,
     cursorBlink: true,
     cursorStyle: 'bar',
-    fontFamily: '"AI JetBrains Mono", monospace',
+    fontFamily: '"AI JetBrains Mono", "AI LXGW WenKai", monospace',
     fontSize: 15,
     letterSpacing: 0,
     lineHeight: 1.15,
@@ -42,6 +42,8 @@
 
   let bridge = null;
   let resizeFrame = 0;
+  let pendingInput = '';
+  let inputFlushTimer = 0;
   const fit = () => {
     cancelAnimationFrame(resizeFrame);
     resizeFrame = requestAnimationFrame(() => {
@@ -56,6 +58,45 @@
       data[index] = binary.charCodeAt(index);
     }
     return data;
+  };
+
+  const flushInput = () => {
+    if (inputFlushTimer !== 0) {
+      window.clearTimeout(inputFlushTimer);
+    }
+    inputFlushTimer = 0;
+    if (!bridge || pendingInput.length === 0) {
+      return;
+    }
+    const data = pendingInput;
+    pendingInput = '';
+    bridge.writeInput(data);
+  };
+
+  const sendInputNow = (data) => {
+    flushInput();
+    if (bridge) {
+      bridge.writeInput(data);
+    } else {
+      pendingInput += data;
+    }
+  };
+
+  const queueInput = (data) => {
+    const firstCodePoint = data.codePointAt(0);
+    const controlInput = data.length === 1
+      && (firstCodePoint < 0x20 || firstCodePoint === 0x7f);
+    const unicodeInput = /[^\x20-\x7e]/u.test(data);
+    if (controlInput || data.startsWith('\x1b') || unicodeInput) {
+      sendInputNow(data);
+      return;
+    }
+    pendingInput += data;
+    if (pendingInput.length >= 4096) {
+      flushInput();
+    } else if (inputFlushTimer === 0) {
+      inputFlushTimer = window.setTimeout(flushInput, 4);
+    }
   };
 
   window.terminalHost = {
@@ -94,9 +135,7 @@
   });
 
   terminal.onData((data) => {
-    if (bridge) {
-      bridge.writeInput(data);
-    }
+    queueInput(data);
   });
   terminal.onResize((size) => {
     if (bridge) {
@@ -106,9 +145,11 @@
 
   new ResizeObserver(fit).observe(document.body);
   window.addEventListener('load', fit, { once: true });
+  document.fonts.ready.then(fit);
 
   new QWebChannel(qt.webChannelTransport, (channel) => {
     bridge = channel.objects.terminalBridge;
+    flushInput();
     terminal.options.fontFamily = bridge.fontFamily;
     bridge.fontFamilyChanged.connect((fontFamily) => {
       terminal.options.fontFamily = fontFamily;

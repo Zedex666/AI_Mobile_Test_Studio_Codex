@@ -41,6 +41,7 @@
 #include <QNetworkRequest>
 #include <QPainter>
 #include <QPlainTextEdit>
+#include <QPointer>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QSplitter>
@@ -49,6 +50,7 @@
 #include <QTabWidget>
 #include <QToolButton>
 #include <QTreeWidget>
+#include <QTimer>
 #include <QUrl>
 
 #include <utility>
@@ -329,6 +331,7 @@ LayoutPage::LayoutPage(QWidget *parent)
     if (QFileInfo::exists(entryPath)) {
         setProperty("skipWorkspaceTransition", true);
         auto *webView = new QWebEngineView;
+        m_webInspector = webView;
         webView->setObjectName(QStringLiteral("AppiumInspectorWebView"));
         webView->setContextMenuPolicy(Qt::DefaultContextMenu);
         auto *page = new AppiumInspectorPage(contentRoot, webView);
@@ -360,10 +363,19 @@ LayoutPage::LayoutPage(QWidget *parent)
         connect(webView,
                 &QWebEngineView::loadFinished,
                 webView,
-                [page](bool loaded) {
+                [this, page](bool loaded) {
                     if (loaded) {
                         applyInspectorFont(page,
                                            ui::AppPreferences::instance().language());
+                        page->setLifecycleState(QWebEnginePage::LifecycleState::Active);
+                        page->setVisible(true);
+                        page->runJavaScript(QStringLiteral(
+                            "requestAnimationFrame(()=>{"
+                            "void document.documentElement.offsetWidth;"
+                            "window.dispatchEvent(new Event('resize'));})"));
+                        if (m_webInspectorPreloadRequested) {
+                            checkWebInspectorPreload();
+                        }
                     }
                 });
         connect(&ui::AppPreferences::instance(),
@@ -396,6 +408,75 @@ void LayoutPage::setDeviceConnected(bool connected, const QString &serial)
                                    : ui::text("Device: not connected"));
         m_deviceLabel->setStyleSheet(QStringLiteral("color:%1;").arg(connected ? "#3b9f62" : "#8d98a8"));
     }
+}
+
+void LayoutPage::preload()
+{
+#ifdef AI_MOBILE_TEST_STUDIO_HAS_WEBENGINE
+    auto *webView = qobject_cast<QWebEngineView *>(m_webInspector);
+    if (webView == nullptr) {
+        emit preloadReady();
+        return;
+    }
+    m_webInspectorPreloadRequested = true;
+    if (m_webInspectorPreloadReady) {
+        emit preloadReady();
+        return;
+    }
+    QWebEnginePage *page = webView->page();
+    page->setLifecycleState(QWebEnginePage::LifecycleState::Active);
+    page->setVisible(true);
+    page->runJavaScript(QStringLiteral(
+        "requestAnimationFrame(()=>{void document.documentElement.offsetWidth;"
+        "window.dispatchEvent(new Event('resize'));})"));
+    checkWebInspectorPreload();
+#else
+    emit preloadReady();
+#endif
+}
+
+void LayoutPage::finishPreload()
+{
+    m_webInspectorPreloadRequested = false;
+}
+
+void LayoutPage::checkWebInspectorPreload()
+{
+#ifdef AI_MOBILE_TEST_STUDIO_HAS_WEBENGINE
+    if (!m_webInspectorPreloadRequested || m_webInspectorPreloadReady) {
+        return;
+    }
+    auto *webView = qobject_cast<QWebEngineView *>(m_webInspector);
+    if (webView == nullptr) {
+        m_webInspectorPreloadReady = true;
+        emit preloadReady();
+        return;
+    }
+
+    const QPointer<LayoutPage> guard(this);
+    webView->page()->runJavaScript(
+        QStringLiteral(
+            "(()=>{const root=document.getElementById('root');"
+            "if(!root)return false;"
+            "const text=(root.innerText||'').trim();"
+            "return text.length>40&&!!root.querySelector('input,button,[role=tab]');})()"),
+        [guard](const QVariant &result) {
+            if (guard == nullptr || !guard->m_webInspectorPreloadRequested
+                || guard->m_webInspectorPreloadReady) {
+                return;
+            }
+            if (result.toBool()) {
+                guard->m_webInspectorPreloadReady = true;
+                emit guard->preloadReady();
+                return;
+            }
+            QTimer::singleShot(100, guard, [guard] {
+                if (guard != nullptr) {
+                    guard->checkWebInspectorPreload();
+                }
+            });
+        });
+#endif
 }
 
 void LayoutPage::buildSessionBuilder()

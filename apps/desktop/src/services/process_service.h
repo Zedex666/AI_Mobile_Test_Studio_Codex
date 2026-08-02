@@ -1,6 +1,7 @@
 #ifndef AI_MOBILE_TEST_STUDIO_PROCESS_SERVICE_H
 #define AI_MOBILE_TEST_STUDIO_PROCESS_SERVICE_H
 
+#include <QHash>
 #include <QObject>
 #include <QProcess>
 #include <QSet>
@@ -36,6 +37,7 @@ public:
     void setActive(bool active);
 
 public slots:
+    void preload();
     void refresh();
     void stopPackage(const QString &packageName);
 
@@ -48,6 +50,12 @@ signals:
                       const QString &detail);
 
 private:
+    struct DeviceCache {
+        QSet<QString> packages;
+        QVector<DeviceProcessEntry> processes;
+        bool hasSnapshot = false;
+    };
+
     enum class QueryStage {
         None,
         Packages,
@@ -60,13 +68,20 @@ private:
     void startTopQuery(bool legacy);
     void handleQueryFinished(int exitCode, QProcess::ExitStatus exitStatus);
     QVector<DeviceProcessEntry> parseProcesses(const QString &output) const;
+    void saveActiveCache();
+    void restoreActiveCache();
     static qint64 parseMemoryBytes(const QString &value);
 
     QString m_adbPath;
     QString m_deviceSerial;
     QByteArray m_output;
     QSet<QString> m_packages;
+    QVector<DeviceProcessEntry> m_cachedProcesses;
+    QHash<QString, DeviceCache> m_deviceCaches;
     bool m_active = false;
+    bool m_preloading = false;
+    bool m_hasCachedSnapshot = false;
+    bool m_switchingDevice = false;
     bool m_refreshPending = false;
     QueryStage m_stage = QueryStage::None;
     QProcess m_queryProcess;

@@ -39,11 +39,11 @@ flowchart TB
 | `TerminalService` | ADB transport、`shell,v2`/legacy、多终端会话和 resize |
 | `AdbControlService` | Android KEYCODE、电源和系统快捷操作 |
 | `PackageManagerService` | 软件包查询、详情、安装、卸载、启停用和清数据 |
-| `AppsService` | 应用列表、元数据、启动停止、权限、后台模式和 APK 导入导出 |
-| `FileManagerService` | 目录浏览、上传下载、重命名、复制、权限和删除 |
+| `AppsService` | 应用列表、元数据、启动停止、权限、后台模式、APK 导入导出和按设备隔离的本次运行缓存 |
+| `FileManagerService` | 目录浏览、上传下载、重命名、复制、权限、删除和按设备隔离的目录缓存 |
 | `RecoveryService` | Recovery sideload 和进度输出 |
 | `PerformanceService` | CPU、内存、电池、温度和前台应用 FPS 采样 |
-| `ProcessService` | 软件包缓存、`top` 进程采样和应用强制停止 |
+| `ProcessService` | 软件包缓存、`top` 进程采样、启动快照预取和应用强制停止 |
 | `OtherService` | 自定义 Shell 与系统设置工具命令的异步执行和结果回传 |
 | `TerminalService` | 统一管理 ADB shell 与 OpenCode 会话，设备切换只回收 ADB 会话 |
 | `ConPtySession` | 通过随包 Node.js/`node-pty` 宿主创建 OpenCode ConPTY |
@@ -177,7 +177,17 @@ sequenceDiagram
     TS->>D: stdin/window-size packets
 ```
 
-### 7.2 目标 AI 自动化
+### 7.2 当前启动预热与会话缓存
+
+主窗口进入事件循环后立即让 Appium Inspector 页面保持 active 并完成一次前端布局，同时创建一个默认 OpenCode 会话，在隐藏终端中继续消费初始输出。检测到授权设备后，`MainWindow` 异步触发以下任务：
+
+- `AppsService` 读取应用列表，并继续分批提取名称和 PNG 图标。
+- `ProcessService` 读取软件包和一次 `top` 快照；进程页可见后恢复 8 秒采样。
+- `FileManagerService` 预取 `/` 与 `/sdcard`，不递归遍历子目录。
+
+应用、进程和目录缓存以设备序列号为键，只在当前桌面进程内保存。断开后重连同一设备可立即恢复缓存，切换设备不会复用上一台设备数据。手动刷新绕过目录缓存；上传、重命名、复制、权限和删除等变更会使目录缓存失效。设备切换时先终止旧 `QProcess` 并抑制其完成回调，避免旧结果写入新设备缓存。
+
+### 7.3 目标 AI 自动化
 
 ```mermaid
 sequenceDiagram

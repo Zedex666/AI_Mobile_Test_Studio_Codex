@@ -53,6 +53,9 @@ private:
     void buildUi();
     void configureScrcpy();
     void configureDeviceControls();
+    void preloadWebWorkspaces();
+    void cancelWorkspacePreload();
+    void preloadDeviceData(const QString &serial);
     void selectWorkspace(int index);
     void animateWorkspaceTransition(int index);
     void applyLanguage();
@@ -112,6 +115,10 @@ private:
     QLabel *m_sidebarStatusDot = nullptr;
     QLabel *m_sidebarStatusTitle = nullptr;
     QLabel *m_sidebarStatusDetail = nullptr;
+    QLabel *m_workspacePreloadCover = nullptr;
+    int m_selectedWorkspaceIndex = 0;
+    quint64 m_workspacePreloadGeneration = 0;
+    bool m_workspacePreloading = false;
     ScrcpyService::DeviceState m_deviceState = ScrcpyService::DeviceState::ToolUnavailable;
     QString m_deviceSerial;
     QString m_deviceDetail;

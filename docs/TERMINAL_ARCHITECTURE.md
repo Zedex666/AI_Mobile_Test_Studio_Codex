@@ -40,8 +40,9 @@ QTermWidget 不作为 Windows 方案：其官方兼容列表为 BSD、Linux 和 
 - `node-pty` ConPTY 宿主的输入、输出、resize 和退出帧协议，并有自动化冒烟测试。
 - 本地 xterm.js 6.0.0、FitAddon 0.11.0、QWebChannel 桥接、CSP 和复制粘贴逻辑。
 - xterm.js 写入完成回执和真实背压：C++ 每次最多投递 32KB，收到 `term.write()` 回调后再以 8ms 间隔发送下一块，待处理缓冲上限为 4MB。
-- ConPTY 宿主按 8ms/64KB 合并 PTY 输出；终端页隐藏或标签进入后台时暂停向 WebView 投递。
-- 终端字体随中英文设置动态切换，英文使用随包 JetBrains Mono，中文使用随包霞鹜文楷。
+- ConPTY 宿主按 8ms/64KB 合并 PTY 输出；普通隐藏标签暂停向 WebView 投递，启动时创建的默认 OpenCode 标签保持后台投递以完成预渲染。
+- 终端始终使用随包 JetBrains Mono 作为等宽主字体，中文模式追加随包霞鹜文楷作为 CJK 回退；字体就绪后重新执行 `FitAddon.fit()`。
+- ASCII 可打印输入在 xterm.js 侧按 4ms 窗口有序合并后进入 WebChannel；中文、emoji 等 Unicode 的 IME 提交以及控制字符和 Escape 序列即时发送，避免 WebEngine 主线程繁忙时延迟展示已提交文字。
 - Qt WebEngine 可用时启用 xterm.js；缺少 WebEngine 依赖的工具链保留基础 ANSI/CSI 降级显示。
 - 锁定 OpenCode 1.18.5、Node.js 24.18.0 和 `node-pty` 1.1.0；Windows 构建默认下载、校验、staging，并自动注册 ConPTY 冒烟测试。
 - 已使用真实 `opencode.exe` 通过 `node-pty`/ConPTY 完成版本启动冒烟。
@@ -49,7 +50,7 @@ QTermWidget 不作为 Windows 方案：其官方兼容列表为 BSD、Linux 和 
 当前限制：
 
 - 二进制仍不提交到 Git；首次 Windows 构建需要网络获取锁定归档，之后复用构建目录缓存，也可显式提供三个本地 runtime 覆盖。
-- 当前 Qt WebEngine 构建已经跑通 ConPTY 手动回显和随包 OpenCode 1.18.5 启动；IME、鼠标、备用屏幕和长时间高输出仍需完成发布级兼容性矩阵。
+- 当前 Qt WebEngine 构建已经跑通 ConPTY 手动回显和随包 OpenCode 1.18.5 启动，并已优化中文 IME 提交链路；不同输入法、鼠标、备用屏幕和长时间高输出仍需完成发布级兼容性矩阵。
 - `QPlainTextEdit` 降级显示不保证备用屏幕、鼠标、复杂 Unicode 宽度和样式正确；正式 OpenCode TUI 必须使用 WebEngine/xterm.js 构建。
 - OpenCode Server/SDK、会话认证和结构化 Agent 状态仍未接入。
 
@@ -128,7 +129,7 @@ signals:
 - 所有资源构建后放入 `runtime/terminal-web/`，运行时不访问 CDN。
 - WebGL 初始化失败时回退到 xterm.js 内置渲染器。
 - `FitAddon.fit()` 后必须把 `cols/rows` 回传后端。
-- `term.onData()` 原样发送用户输入，不能进行 Shell 转义或换行改写。
+- `term.onData()` 保持输入内容与顺序，不进行 Shell 转义或换行改写；仅 ASCII 可打印文本允许在最多 4ms 的窗口内合并，Unicode/IME 提交与控制输入必须即时发送。
 - 后端输出作为终端数据写入 `term.write()`，不能先剥离 ANSI。
 - 页面只允许加载本地资源；关闭外部导航、下载和不需要的浏览器能力。
 - 主题、字体和缩放由桌面设置统一下发。
@@ -138,7 +139,7 @@ Qt 集成：
 - `QWebEngineView` 作为普通 QWidget 放入终端页。
 - `QWebChannel` 暴露最小 `write`、`resize`、`copy`、`paste`、`focus` 和 session 控制接口。
 - QWebChannel 使用 Base64 承载原始终端字节；每次只允许一个 xterm 写入在途，前端回调 `outputConsumed()` 后才能继续投递。
-- 每个标签使用独立 `TerminalView`；只有当前可见标签启用输出投递，后台标签继续保留有上限的 C++ 缓冲。
+- 每个标签使用独立 `TerminalView`；普通后台标签只保留有上限的 C++ 缓冲，启动预热的默认 OpenCode 标签保持投递，避免首次进入时集中回放。
 
 ## 6. ADB 后端
 
