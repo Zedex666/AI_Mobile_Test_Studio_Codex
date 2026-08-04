@@ -58,18 +58,18 @@ QWidget *makeDetailRow(const QString &title, QLabel *value)
 
 struct CatalogEntry {
     int category;
-    const char *icon;
+    const char *iconFile;
     const char *title;
     const char *command;
 };
 
 const CatalogEntry kCatalogEntries[] = {
-    {0, "ⓘ", "已知权限组", "adb shell pm list permission-groups"},
-    {1, "ⓘ", "已知权限", "adb shell pm list permissions"},
-    {2, "▤", "软件包", "adb shell pm list packages"},
-    {3, "⚒", "系统功能", "adb shell pm list features"},
-    {4, "▱", "库", "adb shell pm list libraries"},
-    {5, "♙", "用户", "adb shell pm list users"},
+    {0, "已知权限组.png", "已知权限组", "adb shell pm list permission-groups"},
+    {1, "已知权限组.png", "已知权限", "adb shell pm list permissions"},
+    {2, "软件包.png", "软件包", "adb shell pm list packages"},
+    {3, "系统功能.png", "系统功能", "adb shell pm list features"},
+    {4, "库.png", "库", "adb shell pm list libraries"},
+    {5, "用户.png", "用户", "adb shell pm list users"},
 };
 
 constexpr int kInstallWorkspace = -1;
@@ -218,7 +218,7 @@ PackageManagerPage::PackageManagerPage(QWidget *parent)
     overviewLayout->setSpacing(8);
 
     const auto addCatalogCard = [this, overviewLayout](int category,
-                                                       const QString &iconText,
+                                                       const QString &iconPath,
                                                        const QString &title,
                                                        const QString &command) {
         auto *card = ui::makePanel("PackageCategoryCard");
@@ -231,8 +231,9 @@ PackageManagerPage::PackageManagerPage(QWidget *parent)
         iconPanel->setFixedSize(74, 74);
         auto *iconLayout = new QVBoxLayout(iconPanel);
         iconLayout->setContentsMargins(0, 0, 0, 0);
-        auto *icon = makeLabel(iconText, 28, QFont::Normal, "#172033");
+        auto *icon = new QLabel;
         icon->setAlignment(Qt::AlignCenter);
+        icon->setPixmap(ui::imagePixmap(iconPath, QSize(46, 46)));
         iconLayout->addWidget(icon);
         cardLayout->addWidget(iconPanel);
 
@@ -275,12 +276,13 @@ PackageManagerPage::PackageManagerPage(QWidget *parent)
     };
 
     addCatalogCard(kInstallWorkspace,
-                   ui::text("⇩"),
+                   QStringLiteral("icons/软件包管理器/安装应用.png"),
                    ui::text("安装应用"),
                    ui::text("adb install <filename>"));
     for (const CatalogEntry &entry : kCatalogEntries) {
         addCatalogCard(entry.category,
-                       ui::text(entry.icon),
+                       QStringLiteral("icons/软件包管理器/%1")
+                           .arg(QString::fromUtf8(entry.iconFile)),
                        ui::text(entry.title),
                        ui::text(entry.command));
     }

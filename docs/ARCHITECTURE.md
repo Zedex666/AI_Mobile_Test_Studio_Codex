@@ -187,6 +187,8 @@ sequenceDiagram
 
 应用、进程和目录缓存以设备序列号为键，只在当前桌面进程内保存。断开后重连同一设备可立即恢复缓存，切换设备不会复用上一台设备数据。手动刷新绕过目录缓存；上传、重命名、复制、权限和删除等变更会使目录缓存失效。设备切换时先终止旧 `QProcess` 并抑制其完成回调，避免旧结果写入新设备缓存。
 
+桌面 UI 图标统一保存在 `resources/images/icons/`，由 CMake 在链接和安装阶段复制到可执行文件旁的 `runtime/images/icons/`。界面通过 `ui::imageResourcePath()`、`ui::imageIcon()` 和 `ui::imagePixmap()` 按相对路径加载，不依赖开发机绝对路径或字符字体图标。
+
 ### 7.3 目标 AI 自动化
 
 ```mermaid

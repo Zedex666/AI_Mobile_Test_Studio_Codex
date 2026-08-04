@@ -25,6 +25,7 @@
 - 随包 Appium Inspector 2026.5.1 工作区，并支持语言对应字体、文件下载和外部链接。
 - 文件工作区设备主页，以及可直接进入 `/` 和 `/sdcard` 的驱动器入口。
 - 启动阶段预热 Appium Inspector、默认 OpenCode 会话和已连接设备的应用/进程/常用目录；设备快照按序列号保存在本次运行内存中。
+- 应用窗口、任务栏、应用内标题栏、侧边栏以及概览、显示、镜像、设备控制、软件包管理器、文件、恢复和其它工作区统一使用 `resources/images/icons/` 下的随包 PNG 图标。
 
 尚未实现完整产品闭环的部分：
 
@@ -47,6 +48,7 @@
 | [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) | 仓库真实结构、模块所有权和依赖方向 |
 | [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md) | 构建、调试、运行时更新和验收流程 |
 | [CODING_STYLE.md](CODING_STYLE.md) | C++、Python、进程、终端和文档编码规范 |
+| [UI_ICON_RESOURCES.md](UI_ICON_RESOURCES.md) | 当前 PNG 图标完整清单、使用状态、加载约定和后续维护流程 |
 | [ROADMAP.md](ROADMAP.md) | 按依赖顺序排列的实施路线图 |
 | [CHANGELOG.md](CHANGELOG.md) | 已发生的工程变更，不记录尚未完成的功能 |
 
@@ -58,3 +60,4 @@
 4. 规划中的模块落地后，应将对应状态改为“已实现”，并在 `CHANGELOG.md` 记录。
 5. 文档中的路径使用仓库相对路径；用户数据路径使用 `QStandardPaths` 概念，不写死开发机绝对路径。
 6. OpenCode 扩展遵循其官方机制，不在本仓库重新设计 Plugin/Skill 协议。
+7. 新增、替换或移除 UI PNG 图标时必须同步更新 `UI_ICON_RESOURCES.md` 的数量、状态和完整清单。

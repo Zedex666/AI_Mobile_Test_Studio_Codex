@@ -14,6 +14,7 @@
 #include <QPushButton>
 #include <QRegularExpression>
 #include <QScrollArea>
+#include <QSize>
 #include <QSlider>
 #include <QStyle>
 #include <QToolButton>
@@ -33,7 +34,7 @@ QLabel *makeLabel(const QString &text,
     return label;
 }
 
-QFrame *makeInfoCard(const QString &icon,
+QFrame *makeInfoCard(const QString &iconPath,
                      const QString &labelText,
                      QLabel **valueLabel)
 {
@@ -44,10 +45,11 @@ QFrame *makeInfoCard(const QString &icon,
     layout->setContentsMargins(16, 14, 16, 14);
     layout->setSpacing(14);
 
-    auto *iconLabel = makeLabel(icon, 15, QFont::DemiBold);
+    auto *iconLabel = new QLabel;
     iconLabel->setObjectName("DisplayInfoIcon");
     iconLabel->setFixedSize(44, 44);
     iconLabel->setAlignment(Qt::AlignCenter);
+    iconLabel->setPixmap(ui::imagePixmap(iconPath, QSize(28, 28)));
     layout->addWidget(iconLabel);
 
     auto *texts = new QVBoxLayout;
@@ -206,13 +208,13 @@ DisplayPage::DisplayPage(QWidget *parent)
 
     auto *infoLayout = new QHBoxLayout;
     infoLayout->setSpacing(12);
-    infoLayout->addWidget(makeInfoCard(QStringLiteral("▣"),
+    infoLayout->addWidget(makeInfoCard(QStringLiteral("icons/显示/物理分辨率.png"),
                                        ui::text("物理分辨率"),
                                        &m_physicalResolutionValue));
-    infoLayout->addWidget(makeInfoCard(QStringLiteral("≡"),
+    infoLayout->addWidget(makeInfoCard(QStringLiteral("icons/显示/物理密度.png"),
                                        ui::text("物理密度"),
                                        &m_physicalDensityValue));
-    infoLayout->addWidget(makeInfoCard(QStringLiteral("↔"),
+    infoLayout->addWidget(makeInfoCard(QStringLiteral("icons/显示/最小宽度.png"),
                                        ui::text("最小宽度"),
                                        &m_smallestWidthValue));
     bodyLayout->addLayout(infoLayout);
@@ -290,11 +292,20 @@ DisplayPage::DisplayPage(QWidget *parent)
 
     QVBoxLayout *appearanceLayout = nullptr;
     m_appearanceCard = makePanel(ui::text("外观"), "DisplayPanel", &appearanceLayout);
-    appearanceLayout->addWidget(makeSegment(
+    QFrame *themeSegment = makeSegment(
         &m_themeGroup,
-        {{ui::text("☼  浅色"), 0}, {ui::text("☾  深色"), 1}},
+        {{ui::text("浅色"), 0}, {ui::text("深色"), 1}},
         58,
-        this));
+        this);
+    m_themeGroup->button(0)->setIcon(ui::imageIcon(QStringLiteral("icons/显示/浅色.png")));
+    m_themeGroup->button(1)->setIcon(ui::imageIcon(QStringLiteral("icons/显示/深色.png")));
+    for (QAbstractButton *button : m_themeGroup->buttons()) {
+        button->setIconSize(QSize(22, 22));
+        if (auto *toolButton = qobject_cast<QToolButton *>(button)) {
+            toolButton->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+        }
+    }
+    appearanceLayout->addWidget(themeSegment);
     connect(m_themeGroup, &QButtonGroup::idClicked, this, [this](int id) {
         emit darkModeRequested(id == 1);
     });

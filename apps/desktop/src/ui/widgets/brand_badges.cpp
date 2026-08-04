@@ -1,11 +1,14 @@
 #include "ui/widgets/brand_badges.h"
 
+#include "ui/common/widget_helpers.h"
+
 #include <QPainter>
 
 namespace ui {
 
 LogoBadge::LogoBadge(QWidget *parent)
-    : QWidget(parent)
+    : QWidget(parent),
+      m_icon(imagePixmap(QStringLiteral("icons/app.png"), QSize(30, 30)))
 {
     setFixedSize(34, 34);
 }
@@ -14,6 +17,12 @@ void LogoBadge::paintEvent(QPaintEvent *)
 {
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
+    painter.setRenderHint(QPainter::SmoothPixmapTransform);
+
+    if (!m_icon.isNull()) {
+        painter.drawPixmap(rect().adjusted(2, 2, -2, -2), m_icon);
+        return;
+    }
 
     QLinearGradient gradient(rect().topLeft(), rect().bottomRight());
     gradient.setColorAt(0.0, QColor("#8bb7ff"));

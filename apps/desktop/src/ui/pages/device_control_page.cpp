@@ -105,8 +105,11 @@ DeviceControlPage::DeviceControlPage(QWidget *parent)
         iconFrame->setFixedSize(52, 52);
         auto *iconLayout = new QVBoxLayout(iconFrame);
         iconLayout->setContentsMargins(0, 0, 0, 0);
-        auto *iconLabel = label(category.icon, 16, QFont::DemiBold, "#172033");
+        auto *iconLabel = new QLabel;
         iconLabel->setAlignment(Qt::AlignCenter);
+        iconLabel->setPixmap(ui::imagePixmap(
+            QStringLiteral("icons/设备控制/%1.png").arg(category.title),
+            QSize(36, 36)));
         iconLayout->addWidget(iconLabel);
         headerLayout->addWidget(iconFrame);
 

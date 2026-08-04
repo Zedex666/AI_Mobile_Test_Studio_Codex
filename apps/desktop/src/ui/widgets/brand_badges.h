@@ -1,6 +1,7 @@
 #ifndef AI_MOBILE_TEST_STUDIO_BRAND_BADGES_H
 #define AI_MOBILE_TEST_STUDIO_BRAND_BADGES_H
 
+#include <QPixmap>
 #include <QWidget>
 
 namespace ui {
@@ -12,6 +13,9 @@ public:
 
 protected:
     void paintEvent(QPaintEvent *event) override;
+
+private:
+    QPixmap m_icon;
 };
 
 class AvatarBadge : public QWidget

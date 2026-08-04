@@ -88,7 +88,7 @@ int percentage(qint64 used, qint64 total)
                       100);
 }
 
-QFrame *makeMetricCard(const QString &icon,
+QFrame *makeMetricCard(const QString &iconPath,
                        const QString &title,
                        QLabel **value,
                        QLabel **detail,
@@ -101,10 +101,11 @@ QFrame *makeMetricCard(const QString &icon,
     layout->setContentsMargins(22, 20, 22, 18);
     layout->setSpacing(16);
 
-    auto *iconLabel = makeLabel(icon, 24, QFont::DemiBold, QStringLiteral("#59418d"));
+    auto *iconLabel = new QLabel;
     iconLabel->setObjectName("OverviewMetricIcon");
     iconLabel->setFixedSize(50, 50);
     iconLabel->setAlignment(Qt::AlignCenter);
+    iconLabel->setPixmap(ui::imagePixmap(iconPath, QSize(34, 34)));
     layout->addWidget(iconLabel, 0, Qt::AlignVCenter);
 
     auto *content = new QWidget;
@@ -207,17 +208,17 @@ OverviewPage::OverviewPage(QWidget *parent)
     auto *metricsLayout = new QHBoxLayout(metrics);
     metricsLayout->setContentsMargins(0, 0, 0, 0);
     metricsLayout->setSpacing(14);
-    metricsLayout->addWidget(makeMetricCard(QStringLiteral("▣"),
+    metricsLayout->addWidget(makeMetricCard(QStringLiteral("icons/概览/电池.png"),
                                             ui::text("电池"),
                                             &m_batteryValue,
                                             &m_batteryDetail,
                                             &m_batteryProgress));
-    metricsLayout->addWidget(makeMetricCard(QStringLiteral("▦"),
+    metricsLayout->addWidget(makeMetricCard(QStringLiteral("icons/概览/ram.png"),
                                             QStringLiteral("RAM"),
                                             &m_memoryValue,
                                             &m_memoryDetail,
                                             &m_memoryProgress));
-    metricsLayout->addWidget(makeMetricCard(QStringLiteral("▤"),
+    metricsLayout->addWidget(makeMetricCard(QStringLiteral("icons/概览/存储.png"),
                                             ui::text("存储"),
                                             &m_storageValue,
                                             &m_storageDetail,
@@ -233,18 +234,18 @@ OverviewPage::OverviewPage(QWidget *parent)
     for (int column = 0; column < 4; ++column) {
         factsLayout->setColumnStretch(column, 1);
     }
-    addFactCard(factsLayout, 0, 0, QStringLiteral("android"), QStringLiteral("⌁"), ui::text("Android"));
-    addFactCard(factsLayout, 0, 1, QStringLiteral("type"), QStringLiteral("▣"), ui::text("类型"));
-    addFactCard(factsLayout, 0, 2, QStringLiteral("model"), QStringLiteral("▯"), ui::text("型号"));
-    addFactCard(factsLayout, 0, 3, QStringLiteral("manufacturer"), QStringLiteral("▦"), ui::text("制造商"));
-    addFactCard(factsLayout, 1, 0, QStringLiteral("brand"), QStringLiteral("◇"), ui::text("品牌"));
-    addFactCard(factsLayout, 1, 1, QStringLiteral("abi"), QStringLiteral("▥"), ui::text("架构"));
-    addFactCard(factsLayout, 1, 2, QStringLiteral("product"), QStringLiteral("▤"), ui::text("产品"));
-    addFactCard(factsLayout, 1, 3, QStringLiteral("codename"), QStringLiteral("#"), ui::text("代号"));
-    addFactCard(factsLayout, 2, 0, QStringLiteral("serial"), QStringLiteral("№"), ui::text("序列号"));
-    addFactCard(factsLayout, 2, 1, QStringLiteral("uptime"), QStringLiteral("◷"), ui::text("运行时间"));
-    addFactCard(factsLayout, 2, 2, QStringLiteral("display"), QStringLiteral("▭"), ui::text("分辨率"));
-    addFactCard(factsLayout, 2, 3, QStringLiteral("kernel"), QStringLiteral("⌘"), ui::text("内核"));
+    addFactCard(factsLayout, 0, 0, QStringLiteral("android"), QStringLiteral("icons/概览/安卓.png"), ui::text("Android"));
+    addFactCard(factsLayout, 0, 1, QStringLiteral("type"), QStringLiteral("icons/概览/类型.png"), ui::text("类型"));
+    addFactCard(factsLayout, 0, 2, QStringLiteral("model"), QStringLiteral("icons/概览/型号.png"), ui::text("型号"));
+    addFactCard(factsLayout, 0, 3, QStringLiteral("manufacturer"), QStringLiteral("icons/概览/制造商.png"), ui::text("制造商"));
+    addFactCard(factsLayout, 1, 0, QStringLiteral("brand"), QStringLiteral("icons/概览/品牌.png"), ui::text("品牌"));
+    addFactCard(factsLayout, 1, 1, QStringLiteral("abi"), QStringLiteral("icons/概览/架构.png"), ui::text("架构"));
+    addFactCard(factsLayout, 1, 2, QStringLiteral("product"), QStringLiteral("icons/概览/产品.png"), ui::text("产品"));
+    addFactCard(factsLayout, 1, 3, QStringLiteral("codename"), QStringLiteral("icons/概览/代号.png"), ui::text("代号"));
+    addFactCard(factsLayout, 2, 0, QStringLiteral("serial"), QStringLiteral("icons/概览/序列号.png"), ui::text("序列号"));
+    addFactCard(factsLayout, 2, 1, QStringLiteral("uptime"), QStringLiteral("icons/概览/运行时间.png"), ui::text("运行时间"));
+    addFactCard(factsLayout, 2, 2, QStringLiteral("display"), QStringLiteral("icons/概览/分辨率.png"), ui::text("分辨率"));
+    addFactCard(factsLayout, 2, 3, QStringLiteral("kernel"), QStringLiteral("icons/概览/内核.png"), ui::text("内核"));
     leftLayout->addWidget(facts);
 
     m_statusLabel = makeLabel(ui::text("等待设备连接"),
@@ -490,7 +491,7 @@ void OverviewPage::addFactCard(QGridLayout *layout,
                                int row,
                                int column,
                                const QString &key,
-                               const QString &icon,
+                               const QString &iconPath,
                                const QString &title)
 {
     auto *card = ui::makePanel("OverviewFactCard");
@@ -499,10 +500,11 @@ void OverviewPage::addFactCard(QGridLayout *layout,
     auto *cardLayout = new QVBoxLayout(card);
     cardLayout->setContentsMargins(18, 16, 18, 16);
     cardLayout->setSpacing(8);
-    auto *iconLabel = makeLabel(icon, 19, QFont::DemiBold, QStringLiteral("#382653"));
+    auto *iconLabel = new QLabel;
     iconLabel->setObjectName("OverviewFactIcon");
     iconLabel->setFixedSize(46, 46);
     iconLabel->setAlignment(Qt::AlignCenter);
+    iconLabel->setPixmap(ui::imagePixmap(iconPath, QSize(30, 30)));
     cardLayout->addWidget(iconLabel);
     cardLayout->addWidget(makeLabel(title, 9, QFont::DemiBold, QStringLiteral("#625d6e")));
     auto *value = makeLabel(QStringLiteral("--"),

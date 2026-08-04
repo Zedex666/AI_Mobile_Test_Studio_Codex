@@ -102,32 +102,32 @@ OtherPage::OtherPage(QWidget *parent)
     listLayout->setSpacing(0);
     addCommandRow(listLayout,
                   0,
-                  QStringLiteral("</>"),
+                  QStringLiteral("icons/其它/自定义命令.png"),
                   ui::text("运行自定义命令"),
                   QStringLiteral("<customize command>"));
     addCommandRow(listLayout,
                   1,
-                  QStringLiteral("@"),
+                  QStringLiteral("icons/其它/账户.png"),
                   ui::text("账户"),
                   QStringLiteral("adb shell dumpsys account"));
     addCommandRow(listLayout,
                   2,
-                  QStringLiteral("!"),
+                  QStringLiteral("icons/其它/去除叹号.png"),
                   ui::text("去除叹号"),
                   QStringLiteral("adb shell settings put global captive_portal_https_url <server>"));
     addCommandRow(listLayout,
                   3,
-                  QStringLiteral("◌"),
+                  QStringLiteral("icons/其它/过渡动画.png"),
                   ui::text("过渡动画"),
                   QStringLiteral("adb shell settings put global <animation type> <value>"));
     addCommandRow(listLayout,
                   4,
-                  QStringLiteral("▭"),
+                  QStringLiteral("icons/其它/状态栏与导航栏.png"),
                   ui::text("状态栏与导航栏"),
                   QStringLiteral("adb shell settings put secure icon_blacklist <icon name>"));
     addCommandRow(listLayout,
                   5,
-                  QStringLiteral("◖"),
+                  QStringLiteral("icons/其它/分级调节振动强度.png"),
                   ui::text("分级调节震动强度"),
                   QStringLiteral("adb shell settings put system <vibrator> <value>"));
     auto *overviewRow = new QHBoxLayout;
@@ -137,7 +137,7 @@ OtherPage::OtherPage(QWidget *parent)
     overviewScroll->setWidget(overviewContent);
     m_contentStack->addWidget(overviewScroll);
 
-    auto makeDetailPage = [this](const QString &icon,
+    auto makeDetailPage = [this](const QString &iconPath,
                                  const QString &title,
                                  const QString &subtitle,
                                  QVBoxLayout **contentLayout) {
@@ -162,10 +162,11 @@ OtherPage::OtherPage(QWidget *parent)
         auto *headerLayout = new QHBoxLayout(header);
         headerLayout->setContentsMargins(0, 0, 0, 8);
         headerLayout->setSpacing(16);
-        auto *iconLabel = makeLabel(icon, 24, QFont::DemiBold, QStringLiteral("#1d1d1f"));
+        auto *iconLabel = new QLabel;
         iconLabel->setObjectName("OtherDetailIcon");
         iconLabel->setFixedSize(54, 54);
         iconLabel->setAlignment(Qt::AlignCenter);
+        iconLabel->setPixmap(ui::imagePixmap(iconPath, QSize(38, 38)));
         headerLayout->addWidget(iconLabel);
         auto *titles = new QVBoxLayout;
         titles->setSpacing(3);
@@ -232,7 +233,7 @@ OtherPage::OtherPage(QWidget *parent)
     };
 
     QVBoxLayout *detailLayout = nullptr;
-    makeDetailPage(QStringLiteral("</>"),
+    makeDetailPage(QStringLiteral("icons/其它/自定义命令.png"),
                    ui::text("运行自定义命令"),
                    ui::text("直接在当前设备上执行 ADB Shell 命令"),
                    &detailLayout);
@@ -257,7 +258,7 @@ OtherPage::OtherPage(QWidget *parent)
     connect(m_customCommandInput, &QLineEdit::returnPressed, runCustom, &QPushButton::click);
     addFooter(detailLayout, runCustom);
 
-    makeDetailPage(QStringLiteral("@"),
+    makeDetailPage(QStringLiteral("icons/其它/账户.png"),
                    ui::text("账户"),
                    ui::text("查看 Android 用户与已注册账户"),
                    &detailLayout);
@@ -273,7 +274,7 @@ OtherPage::OtherPage(QWidget *parent)
     });
     addFooter(detailLayout, refreshAccounts);
 
-    makeDetailPage(QStringLiteral("!"),
+    makeDetailPage(QStringLiteral("icons/其它/去除叹号.png"),
                    ui::text("去除叹号"),
                    ui::text("修改网络可用性验证服务器"),
                    &detailLayout);
@@ -334,7 +335,7 @@ OtherPage::OtherPage(QWidget *parent)
     });
     addFooter(detailLayout, restoreServer);
 
-    makeDetailPage(QStringLiteral("◌"),
+    makeDetailPage(QStringLiteral("icons/其它/过渡动画.png"),
                    ui::text("过渡动画"),
                    ui::text("调整 Android 系统动画缩放"),
                    &detailLayout);
@@ -375,7 +376,7 @@ OtherPage::OtherPage(QWidget *parent)
     connect(refreshAnimation, &QPushButton::clicked, this, &OtherPage::refreshAnimations);
     addFooter(detailLayout, refreshAnimation);
 
-    makeDetailPage(QStringLiteral("▭"),
+    makeDetailPage(QStringLiteral("icons/其它/状态栏与导航栏.png"),
                    ui::text("状态栏与导航栏"),
                    ui::text("隐藏状态图标或启用全局沉浸模式"),
                    &detailLayout);
@@ -461,7 +462,7 @@ OtherPage::OtherPage(QWidget *parent)
     detailLayout->addWidget(barsPanel);
     addFooter(detailLayout, nullptr);
 
-    makeDetailPage(QStringLiteral("◖"),
+    makeDetailPage(QStringLiteral("icons/其它/分级调节振动强度.png"),
                    ui::text("分级调节震动强度"),
                    ui::text("不同设备与 ROM 支持的设置项可能不同"),
                    &detailLayout);
@@ -634,7 +635,7 @@ bool OtherPage::eventFilter(QObject *watched, QEvent *event)
 
 void OtherPage::addCommandRow(QVBoxLayout *layout,
                               int index,
-                              const QString &icon,
+                              const QString &iconPath,
                               const QString &title,
                               const QString &command)
 {
@@ -647,10 +648,11 @@ void OtherPage::addCommandRow(QVBoxLayout *layout,
     rowLayout->setContentsMargins(10, 12, 14, 12);
     rowLayout->setSpacing(20);
 
-    auto *iconLabel = makeLabel(icon, 20, QFont::DemiBold, QStringLiteral("#171b22"));
+    auto *iconLabel = new QLabel;
     iconLabel->setObjectName("OtherCommandIcon");
     iconLabel->setFixedSize(76, 76);
     iconLabel->setAlignment(Qt::AlignCenter);
+    iconLabel->setPixmap(ui::imagePixmap(iconPath, QSize(48, 48)));
     rowLayout->addWidget(iconLabel);
     auto *text = new QWidget;
     auto *textLayout = new QVBoxLayout(text);

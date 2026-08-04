@@ -19,6 +19,7 @@
 #include <QPushButton>
 #include <QRegularExpression>
 #include <QScrollArea>
+#include <QSize>
 #include <QStandardPaths>
 #include <QStyle>
 #include <QToolButton>
@@ -36,7 +37,7 @@ QLabel *makeLabel(const QString &text,
     return label;
 }
 
-QFrame *makeCard(const QString &icon, const QString &title, QVBoxLayout **contentLayout)
+QFrame *makeCard(const QString &iconPath, const QString &title, QVBoxLayout **contentLayout)
 {
     auto *card = new QFrame;
     card->setObjectName("MirrorCard");
@@ -46,10 +47,11 @@ QFrame *makeCard(const QString &icon, const QString &title, QVBoxLayout **conten
     layout->setSpacing(12);
 
     auto *header = new QHBoxLayout;
-    auto *iconLabel = makeLabel(icon, 13, QFont::DemiBold);
+    auto *iconLabel = new QLabel;
     iconLabel->setObjectName("MirrorCardIcon");
     iconLabel->setFixedSize(34, 34);
     iconLabel->setAlignment(Qt::AlignCenter);
+    iconLabel->setPixmap(ui::imagePixmap(iconPath, QSize(24, 24)));
     header->addWidget(iconLabel);
     auto *titleLabel = makeLabel(title, 10, QFont::DemiBold);
     titleLabel->setObjectName("MirrorCardTitle");
@@ -149,15 +151,27 @@ MirroringPage::MirroringPage(QWidget *parent)
     modeLayout->setSpacing(8);
     m_modeGroup = new QButtonGroup(this);
     m_modeGroup->setExclusive(true);
-    const QVector<QPair<QString, QString>> modes = {
-        {ui::text("▯  主屏幕"), ui::text("镜像设备主显示器")},
-        {ui::text("▣  虚拟屏幕"), ui::text("创建可调整大小的虚拟显示器")},
-        {ui::text("▧  摄像头"), ui::text("镜像设备摄像头画面")}};
+    struct ModeOption {
+        QString label;
+        QString tooltip;
+        QString iconPath;
+    };
+    const QVector<ModeOption> modes = {
+        {ui::text("主屏幕"), ui::text("镜像设备主显示器"), QStringLiteral("icons/镜像/主屏幕.png")},
+        {ui::text("虚拟屏幕"),
+         ui::text("创建可调整大小的虚拟显示器"),
+         QStringLiteral("icons/镜像/虚拟屏幕.png")},
+        {ui::text("摄像头"),
+         ui::text("镜像设备摄像头画面"),
+         QStringLiteral("icons/镜像/摄像头.png")}};
     for (int index = 0; index < modes.size(); ++index) {
         auto *button = new QToolButton;
         button->setObjectName("MirrorModeButton");
-        button->setText(modes[index].first);
-        button->setToolTip(modes[index].second);
+        button->setText(modes[index].label);
+        button->setToolTip(modes[index].tooltip);
+        button->setIcon(ui::imageIcon(modes[index].iconPath));
+        button->setIconSize(QSize(22, 22));
+        button->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
         button->setCheckable(true);
         button->setChecked(index == MainDisplay);
         button->setCursor(Qt::PointingHandCursor);
@@ -190,7 +204,7 @@ MirroringPage::MirroringPage(QWidget *parent)
     sideColumn->setSpacing(16);
 
     QVBoxLayout *imageLayout = nullptr;
-    QFrame *imageCard = makeCard(QStringLiteral("▧"), ui::text("图像"), &imageLayout);
+    QFrame *imageCard = makeCard(QStringLiteral("icons/镜像/图像.png"), ui::text("图像"), &imageLayout);
     auto *imageFields = new QHBoxLayout;
     imageFields->setSpacing(10);
     m_maxSizeInput = makeNumberInput(ui::text("不限制"));
@@ -212,7 +226,7 @@ MirroringPage::MirroringPage(QWidget *parent)
     mainColumn->addWidget(imageCard);
 
     QVBoxLayout *virtualLayout = nullptr;
-    m_virtualCard = makeCard(QStringLiteral("▣"), ui::text("虚拟屏幕"), &virtualLayout);
+    m_virtualCard = makeCard(QStringLiteral("icons/镜像/虚拟屏幕.png"), ui::text("虚拟屏幕"), &virtualLayout);
     auto *virtualFields = new QHBoxLayout;
     virtualFields->setSpacing(10);
     m_virtualWidthInput = makeNumberInput(ui::text("自动"));
@@ -230,7 +244,7 @@ MirroringPage::MirroringPage(QWidget *parent)
     mainColumn->addWidget(m_virtualCard);
 
     QVBoxLayout *cameraLayout = nullptr;
-    m_cameraCard = makeCard(QStringLiteral("▧"), ui::text("摄像头"), &cameraLayout);
+    m_cameraCard = makeCard(QStringLiteral("icons/镜像/摄像头.png"), ui::text("摄像头"), &cameraLayout);
     auto *cameraSelectRow = new QHBoxLayout;
     m_cameraCombo = new QComboBox;
     m_cameraCombo->setObjectName("MirrorSelect");
@@ -261,7 +275,7 @@ MirroringPage::MirroringPage(QWidget *parent)
     mainColumn->addWidget(m_cameraCard);
 
     QVBoxLayout *recordLayout = nullptr;
-    QFrame *recordCard = makeCard(QStringLiteral("●"), ui::text("录制"), &recordLayout);
+    QFrame *recordCard = makeCard(QStringLiteral("icons/镜像/录制.png"), ui::text("录制"), &recordLayout);
     m_recordCheck = makeToggle(ui::text("录制当前画面"));
     recordLayout->addWidget(m_recordCheck);
     auto *recordPathRow = new QHBoxLayout;
@@ -286,7 +300,7 @@ MirroringPage::MirroringPage(QWidget *parent)
     mainColumn->addStretch();
 
     QVBoxLayout *inputLayout = nullptr;
-    QFrame *inputCard = makeCard(QStringLiteral("≡"), ui::text("输入与声音"), &inputLayout);
+    QFrame *inputCard = makeCard(QStringLiteral("icons/镜像/输入与声音.png"), ui::text("输入与声音"), &inputLayout);
     m_viewOnlyCheck = makeToggle(ui::text("仅查看，不控制设备"));
     inputLayout->addWidget(m_viewOnlyCheck);
     m_audioCombo = new QComboBox;
@@ -317,7 +331,7 @@ MirroringPage::MirroringPage(QWidget *parent)
     sideColumn->addWidget(inputCard);
 
     QVBoxLayout *startupLayout = nullptr;
-    m_startupCard = makeCard(QStringLiteral("↗"), ui::text("启动应用"), &startupLayout);
+    m_startupCard = makeCard(QStringLiteral("icons/镜像/启动应用.png"), ui::text("启动应用"), &startupLayout);
     m_appCombo = new QComboBox;
     m_appCombo->setObjectName("MirrorSelect");
     m_appCombo->setEditable(true);
@@ -326,7 +340,7 @@ MirroringPage::MirroringPage(QWidget *parent)
     sideColumn->addWidget(m_startupCard);
 
     QVBoxLayout *advancedLayout = nullptr;
-    QFrame *advancedCard = makeCard(QStringLiteral(">_"), ui::text("高级参数"), &advancedLayout);
+    QFrame *advancedCard = makeCard(QStringLiteral("icons/镜像/高级参数.png"), ui::text("高级参数"), &advancedLayout);
     m_advancedInput = new QLineEdit;
     m_advancedInput->setObjectName("MirrorInput");
     m_advancedInput->setPlaceholderText(QStringLiteral("--video-bit-rate=8M"));

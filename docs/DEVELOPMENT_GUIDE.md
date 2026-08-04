@@ -60,6 +60,8 @@ cmake --build build-msvc-web --config Debug --parallel
 
 当前可执行文件位于构建目录根部。Windows 构建默认在链接后运行 `windeployqt`，把当前配置对应的 Qt DLL、插件和 WebEngine 资源部署到可执行文件旁，因此可以从资源管理器直接双击运行。仅需编译、不需要可直接启动目录的特殊构建可设置 `-DAI_MOBILE_TEST_DEPLOY_QT_RUNTIME=OFF`。
 
+UI PNG 图标位于 `resources/images/icons/`。链接完成后 CMake 会将整个目录复制到可执行文件旁的 `runtime/images/icons/`；如果界面退回字符图标或出现空图标，先确认启动的是最新构建，并检查该运行时目录是否完整包含图标文件。
+
 ## 4. Appium Inspector
 
 侧边栏“布局”工作区优先加载随包的 Appium Inspector 2026.5.1 官方浏览器构建，源资源位于 `resources/appium-inspector/`，构建后复制到 `runtime/appium-inspector/`。该页面直接提供 Session Builder、云提供商配置、能力集、Attach to Session、Source、Commands、Gestures、Recorder 和 Session Information。

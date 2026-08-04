@@ -99,6 +99,7 @@ file(GLOB_RECURSE TERMINAL_RUNTIME_RESOURCE_FILES CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/resources/terminal-host/*"
     "${CMAKE_SOURCE_DIR}/resources/terminal-web/*"
     "${CMAKE_SOURCE_DIR}/resources/appium-inspector/*"
+    "${CMAKE_SOURCE_DIR}/resources/images/icons/*"
     "${CMAKE_SOURCE_DIR}/resources/font/*")
 set_property(TARGET ${DESKTOP_TARGET} APPEND PROPERTY LINK_DEPENDS
     "${APP_METADATA_JAR}"
@@ -118,6 +119,9 @@ add_custom_command(TARGET ${DESKTOP_TARGET} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_SOURCE_DIR}/resources/appium-inspector"
         "$<TARGET_FILE_DIR:${DESKTOP_TARGET}>/runtime/appium-inspector"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/resources/images/icons"
+        "$<TARGET_FILE_DIR:${DESKTOP_TARGET}>/runtime/images/icons"
     COMMAND ${CMAKE_COMMAND} -E make_directory
         "$<TARGET_FILE_DIR:${DESKTOP_TARGET}>/runtime/fonts/cn"
     COMMAND ${CMAKE_COMMAND} -E make_directory
@@ -253,6 +257,8 @@ install(DIRECTORY "${CMAKE_SOURCE_DIR}/resources/terminal-host/"
     DESTINATION "runtime/terminal-host")
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/resources/appium-inspector/"
     DESTINATION "runtime/appium-inspector")
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/resources/images/icons/"
+    DESTINATION "runtime/images/icons")
 install(FILES
     "${CMAKE_SOURCE_DIR}/resources/font/cn/LXGWWenKai-Regular.ttf"
     "${CMAKE_SOURCE_DIR}/resources/font/cn/LXGWWenKai-Medium.ttf"

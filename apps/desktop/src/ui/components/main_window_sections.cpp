@@ -50,6 +50,16 @@ QPushButton *makeIconButton(const QString &icon, const QString &tooltip, int siz
     return button;
 }
 
+QPushButton *makeImageIconButton(const QString &iconPath,
+                                 const QString &tooltip,
+                                 int size = 38)
+{
+    QPushButton *button = makeIconButton(QString(), tooltip, size);
+    button->setIcon(imageIcon(iconPath));
+    button->setIconSize(QSize(22, 22));
+    return button;
+}
+
 QFrame *makeDivider(bool vertical = true)
 {
     auto *line = new QFrame;
@@ -64,7 +74,7 @@ QFrame *makeDivider(bool vertical = true)
     return line;
 }
 
-QFrame *makeNavItem(const QString &icon, const QString &labelText, bool selected = false)
+QFrame *makeNavItem(const QString &iconPath, const QString &labelText, bool selected = false)
 {
     auto *item = makePanel(selected ? "NavItemSelected" : "NavItem");
     item->setFixedHeight(34);
@@ -72,8 +82,9 @@ QFrame *makeNavItem(const QString &icon, const QString &labelText, bool selected
     layout->setContentsMargins(14, 0, 12, 0);
     layout->setSpacing(12);
 
-    auto *iconLabel = makeLabel(icon, 15, QFont::DemiBold, selected ? "#2f6df6" : "#293243");
-    iconLabel->setFixedWidth(22);
+    auto *iconLabel = new QLabel;
+    iconLabel->setPixmap(imagePixmap(iconPath, QSize(20, 20)));
+    iconLabel->setFixedSize(22, 22);
     iconLabel->setAlignment(Qt::AlignCenter);
     auto *textLabel = makeLabel(labelText, 11, selected ? QFont::DemiBold : QFont::Normal,
                                 selected ? "#2f6df6" : "#293243");
@@ -84,13 +95,15 @@ QFrame *makeNavItem(const QString &icon, const QString &labelText, bool selected
     return item;
 }
 
-QPushButton *makeWorkspaceNavButton(const QString &icon,
+QPushButton *makeWorkspaceNavButton(const QString &iconPath,
                                     const QString &labelText,
                                     bool active)
 {
-    auto *button = new QPushButton(icon + QStringLiteral("   ") + labelText);
+    auto *button = new QPushButton(labelText);
     button->setObjectName("WorkspaceNavButton");
     button->setProperty("active", active);
+    button->setIcon(imageIcon(iconPath));
+    button->setIconSize(QSize(20, 20));
     button->setFixedHeight(34);
     button->setCursor(Qt::PointingHandCursor);
     button->setFont(appFont(11, active ? QFont::DemiBold : QFont::Normal));
@@ -107,8 +120,9 @@ DeviceSelector makeDeviceSelector()
     layout->setContentsMargins(10, 0, 9, 0);
     layout->setSpacing(6);
 
-    auto *deviceIcon = makeLabel(text("▯"), 14, QFont::DemiBold, "#1f2937");
-    deviceIcon->setFixedWidth(18);
+    auto *deviceIcon = new QLabel;
+    deviceIcon->setPixmap(imagePixmap(QStringLiteral("icons/设备/手机.png"), QSize(18, 18)));
+    deviceIcon->setFixedSize(18, 18);
     deviceIcon->setAlignment(Qt::AlignCenter);
     layout->addWidget(deviceIcon);
     selector.nameLabel = makeLabel(text("正在检测设备"), 9, QFont::DemiBold, "#172033");
@@ -287,10 +301,12 @@ HeaderSection createHeader()
                                 QFont::DemiBold,
                                 "#1d1d1f"));
     layout->addStretch();
-    layout->addWidget(makeIconButton(text("♢"), text("通知")));
-    layout->addWidget(makeIconButton(text("▣"), text("设备中心")));
+    layout->addWidget(makeImageIconButton(QStringLiteral("icons/标题栏/通知.png"), text("通知")));
+    layout->addWidget(makeImageIconButton(QStringLiteral("icons/标题栏/设备中心.png"),
+                                          text("设备中心")));
     layout->addWidget(makeDivider());
-    section.settingsButton = makeIconButton(text("⚙"), text("设置"));
+    section.settingsButton = makeImageIconButton(QStringLiteral("icons/标题栏/设置.png"),
+                                                 text("设置"));
     layout->addWidget(section.settingsButton);
     layout->addWidget(makeDivider());
     layout->addWidget(new AvatarBadge);
@@ -319,20 +335,20 @@ SidebarSection createSidebar()
     navigationLayout->setSpacing(1);
     navigationLayout->setAlignment(Qt::AlignTop);
 
-    section.overviewButton = makeWorkspaceNavButton(text("◫"), text("概览"), true);
-    section.displayButton = makeWorkspaceNavButton(text("↔"), text("显示"), false);
-    section.mirroringButton = makeWorkspaceNavButton(text("▣"), text("镜像"), false);
-    section.chatButton = makeWorkspaceNavButton(text("▣"), text("终端"), false);
-    section.deviceControlButton = makeWorkspaceNavButton(text("⌘"), text("设备控制"), false);
-    section.packageManagerButton = makeWorkspaceNavButton(text("▤"), text("软件包管理器"), false);
-    section.appsButton = makeWorkspaceNavButton(text("▦"), text("应用"), false);
-    section.filesButton = makeWorkspaceNavButton(text("▱"), text("文件"), false);
-    section.processButton = makeWorkspaceNavButton(text("▥"), text("进程"), false);
-    section.recoveryButton = makeWorkspaceNavButton(text("Ⓡ"), text("恢复"), false);
-    section.performanceButton = makeWorkspaceNavButton(text("⌁"), text("性能"), false);
-    section.layoutButton = makeWorkspaceNavButton(text("▦"), text("布局"), false);
-    section.logcatButton = makeWorkspaceNavButton(text("≡"), text("日志"), false);
-    section.otherButton = makeWorkspaceNavButton(text("</>"), text("其它"), false);
+    section.overviewButton = makeWorkspaceNavButton(QStringLiteral("icons/侧边栏/概览.png"), text("概览"), true);
+    section.displayButton = makeWorkspaceNavButton(QStringLiteral("icons/侧边栏/显示.png"), text("显示"), false);
+    section.mirroringButton = makeWorkspaceNavButton(QStringLiteral("icons/侧边栏/镜像.png"), text("镜像"), false);
+    section.chatButton = makeWorkspaceNavButton(QStringLiteral("icons/侧边栏/终端.png"), text("终端"), false);
+    section.deviceControlButton = makeWorkspaceNavButton(QStringLiteral("icons/侧边栏/设备控制.png"), text("设备控制"), false);
+    section.packageManagerButton = makeWorkspaceNavButton(QStringLiteral("icons/侧边栏/软件包管理器.png"), text("软件包管理器"), false);
+    section.appsButton = makeWorkspaceNavButton(QStringLiteral("icons/侧边栏/应用.png"), text("应用"), false);
+    section.filesButton = makeWorkspaceNavButton(QStringLiteral("icons/侧边栏/文件.png"), text("文件"), false);
+    section.processButton = makeWorkspaceNavButton(QStringLiteral("icons/侧边栏/进程.png"), text("进程"), false);
+    section.recoveryButton = makeWorkspaceNavButton(QStringLiteral("icons/侧边栏/恢复.png"), text("恢复"), false);
+    section.performanceButton = makeWorkspaceNavButton(QStringLiteral("icons/侧边栏/性能.png"), text("性能"), false);
+    section.layoutButton = makeWorkspaceNavButton(QStringLiteral("icons/侧边栏/布局.png"), text("布局"), false);
+    section.logcatButton = makeWorkspaceNavButton(QStringLiteral("icons/侧边栏/日志.png"), text("日志"), false);
+    section.otherButton = makeWorkspaceNavButton(QStringLiteral("icons/侧边栏/其它.png"), text("其它"), false);
     navigationLayout->addWidget(section.overviewButton);
     navigationLayout->addWidget(section.displayButton);
     navigationLayout->addWidget(section.mirroringButton);
@@ -347,9 +363,9 @@ SidebarSection createSidebar()
     navigationLayout->addWidget(section.layoutButton);
     navigationLayout->addWidget(section.logcatButton);
     navigationLayout->addWidget(section.otherButton);
-    section.settingsButton = makeWorkspaceNavButton(text("⚙"), text("设置"), false);
+    section.settingsButton = makeWorkspaceNavButton(QStringLiteral("icons/侧边栏/设置.png"), text("设置"), false);
     navigationLayout->addWidget(section.settingsButton);
-    navigationLayout->addWidget(makeNavItem(text("i"), text("关于")));
+    navigationLayout->addWidget(makeNavItem(QStringLiteral("icons/侧边栏/关于.png"), text("关于")));
     navigationLayout->addStretch();
     navigationScroll->setWidget(navigation);
     layout->addWidget(navigationScroll, 1);

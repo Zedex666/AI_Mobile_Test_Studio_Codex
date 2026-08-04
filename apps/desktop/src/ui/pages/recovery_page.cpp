@@ -75,8 +75,9 @@ RecoveryPage::RecoveryPage(QWidget *parent)
     iconPanel->setFixedSize(74, 74);
     auto *iconLayout = new QVBoxLayout(iconPanel);
     iconLayout->setContentsMargins(0, 0, 0, 0);
-    auto *icon = makeLabel(ui::text("▰"), 28, QFont::Normal, "#172033");
+    auto *icon = new QLabel;
     icon->setAlignment(Qt::AlignCenter);
+    icon->setPixmap(ui::imagePixmap(QStringLiteral("icons/恢复/侧载.png"), QSize(46, 46)));
     iconLayout->addWidget(icon);
     entryLayout->addWidget(iconPanel);
 

@@ -17,6 +17,7 @@
 #include <QProgressBar>
 #include <QRegularExpression>
 #include <QSet>
+#include <QSize>
 #include <QStackedWidget>
 #include <QStyle>
 #include <QTableWidget>
@@ -51,6 +52,16 @@ QToolButton *makeToolButton(const QString &text,
     return button;
 }
 
+QToolButton *makeImageToolButton(const QString &iconPath,
+                                 const QString &tooltip,
+                                 const QString &objectName = QStringLiteral("FilesToolButton"))
+{
+    QToolButton *button = makeToolButton(QString(), tooltip, objectName);
+    button->setIcon(ui::imageIcon(iconPath));
+    button->setIconSize(QSize(19, 19));
+    return button;
+}
+
 } // namespace
 
 FilesPage::FilesPage(QWidget *parent)
@@ -81,11 +92,12 @@ FilesPage::FilesPage(QWidget *parent)
     auto *navigationLayout = new QHBoxLayout(navigation);
     navigationLayout->setContentsMargins(14, 7, 14, 7);
     navigationLayout->setSpacing(6);
-    m_homeButton = makeToolButton(ui::text("⌂"), ui::text("设备主页"));
-    m_backButton = makeToolButton(ui::text("←"), ui::text("后退"));
-    m_forwardButton = makeToolButton(ui::text("→"), ui::text("前进"));
-    m_upButton = makeToolButton(ui::text("⌃"), ui::text("上一级"));
-    m_refreshButton = makeToolButton(ui::text("↻"), ui::text("刷新"));
+    m_homeButton = makeImageToolButton(QStringLiteral("icons/文件/设备主页.png"),
+                                       ui::text("设备主页"));
+    m_backButton = makeImageToolButton(QStringLiteral("icons/文件/后退.png"), ui::text("后退"));
+    m_forwardButton = makeImageToolButton(QStringLiteral("icons/文件/前进.png"), ui::text("前进"));
+    m_upButton = makeImageToolButton(QStringLiteral("icons/文件/上一级.png"), ui::text("上一级"));
+    m_refreshButton = makeImageToolButton(QStringLiteral("icons/文件/刷新.png"), ui::text("刷新"));
     navigationLayout->addWidget(m_homeButton);
     navigationLayout->addWidget(m_backButton);
     navigationLayout->addWidget(m_forwardButton);
@@ -106,8 +118,12 @@ FilesPage::FilesPage(QWidget *parent)
     m_searchInput->setMinimumWidth(180);
     m_searchInput->setMaximumWidth(300);
     navigationLayout->addWidget(m_searchInput);
-    m_listViewButton = makeToolButton(ui::text("☷"), ui::text("列表视图"), "FilesViewButton");
-    m_gridViewButton = makeToolButton(ui::text("▦"), ui::text("网格视图"), "FilesViewButton");
+    m_listViewButton = makeImageToolButton(QStringLiteral("icons/文件/列表视图.png"),
+                                           ui::text("列表视图"),
+                                           QStringLiteral("FilesViewButton"));
+    m_gridViewButton = makeImageToolButton(QStringLiteral("icons/文件/网格视图.png"),
+                                           ui::text("网格视图"),
+                                           QStringLiteral("FilesViewButton"));
     m_listViewButton->setProperty("active", true);
     navigationLayout->addWidget(m_listViewButton);
     navigationLayout->addWidget(m_gridViewButton);
@@ -118,27 +134,40 @@ FilesPage::FilesPage(QWidget *parent)
     auto *actionsLayout = new QHBoxLayout(actions);
     actionsLayout->setContentsMargins(14, 7, 14, 7);
     actionsLayout->setSpacing(7);
-    m_newFolderButton = new QPushButton(ui::text("＋  新建"));
-    m_uploadButton = new QPushButton(ui::text("↑  上传"));
-    m_downloadButton = new QPushButton(ui::text("↓  下载"));
+    m_newFolderButton = new QPushButton(ui::text("新建"));
+    m_newFolderButton->setIcon(ui::imageIcon(QStringLiteral("icons/文件/新建 .png")));
+    m_uploadButton = new QPushButton(ui::text("上传"));
+    m_uploadButton->setIcon(ui::imageIcon(QStringLiteral("icons/文件/上传.png")));
+    m_downloadButton = new QPushButton(ui::text("下载"));
+    m_downloadButton->setIcon(ui::imageIcon(QStringLiteral("icons/文件/下载.png")));
     for (QPushButton *button : {m_newFolderButton, m_uploadButton, m_downloadButton}) {
         button->setObjectName("FilesPrimaryButton");
         button->setCursor(Qt::PointingHandCursor);
         button->setFont(ui::appFont(9, QFont::DemiBold));
+        button->setIconSize(QSize(18, 18));
         button->setMinimumHeight(34);
         actionsLayout->addWidget(button);
     }
     m_uploadButton->setProperty("primary", true);
-    m_renameButton = makeToolButton(ui::text("✎"), ui::text("重命名"));
-    m_duplicateButton = makeToolButton(ui::text("▣"), ui::text("创建副本"));
-    m_permissionsButton = makeToolButton(ui::text("♙"), ui::text("修改权限"));
-    m_deleteButton = makeToolButton(ui::text("⌫"), ui::text("删除"), "FilesDeleteButton");
+    m_renameButton = makeImageToolButton(QStringLiteral("icons/文件/重命名.png"), ui::text("重命名"));
+    m_duplicateButton = makeImageToolButton(QStringLiteral("icons/文件/创建副本.png"),
+                                            ui::text("创建副本"));
+    m_permissionsButton = makeImageToolButton(QStringLiteral("icons/文件/修改权限.png"),
+                                              ui::text("修改权限"));
+    m_deleteButton = makeImageToolButton(QStringLiteral("icons/文件/删除.png"),
+                                         ui::text("删除"),
+                                         QStringLiteral("FilesDeleteButton"));
     actionsLayout->addWidget(m_renameButton);
     actionsLayout->addWidget(m_duplicateButton);
     actionsLayout->addWidget(m_permissionsButton);
     actionsLayout->addWidget(m_deleteButton);
     actionsLayout->addStretch();
-    actionsLayout->addWidget(makeLabel(ui::text("▣  详情"),
+    auto *detailsTitleIcon = new QLabel;
+    detailsTitleIcon->setPixmap(ui::imagePixmap(QStringLiteral("icons/文件/详情.png"), QSize(18, 18)));
+    detailsTitleIcon->setFixedSize(20, 20);
+    detailsTitleIcon->setAlignment(Qt::AlignCenter);
+    actionsLayout->addWidget(detailsTitleIcon);
+    actionsLayout->addWidget(makeLabel(ui::text("详情"),
                                        9,
                                        QFont::DemiBold,
                                        QStringLiteral("#435066")));
@@ -152,7 +181,11 @@ FilesPage::FilesPage(QWidget *parent)
 
     auto *savedTitle = new QHBoxLayout;
     savedTitle->addWidget(makeLabel(QStringLiteral("⌄"), 13, QFont::DemiBold, "#293243"));
-    savedTitle->addWidget(makeLabel(QStringLiteral("☆"), 15, QFont::Normal, "#293243"));
+    auto *savedIcon = new QLabel;
+    savedIcon->setPixmap(ui::imagePixmap(QStringLiteral("icons/文件/已保存位置.png"), QSize(20, 20)));
+    savedIcon->setFixedSize(22, 22);
+    savedIcon->setAlignment(Qt::AlignCenter);
+    savedTitle->addWidget(savedIcon);
     savedTitle->addWidget(makeLabel(ui::text("已保存位置"), 11, QFont::Normal, "#293243"));
     savedTitle->addStretch();
     homeLayout->addLayout(savedTitle);
@@ -165,7 +198,11 @@ FilesPage::FilesPage(QWidget *parent)
 
     auto *drivesTitle = new QHBoxLayout;
     drivesTitle->addWidget(makeLabel(QStringLiteral("⌃"), 13, QFont::DemiBold, "#293243"));
-    drivesTitle->addWidget(makeLabel(QStringLiteral("▱"), 15, QFont::Normal, "#293243"));
+    auto *drivesIcon = new QLabel;
+    drivesIcon->setPixmap(ui::imagePixmap(QStringLiteral("icons/文件/设备驱动器.png"), QSize(20, 20)));
+    drivesIcon->setFixedSize(22, 22);
+    drivesIcon->setAlignment(Qt::AlignCenter);
+    drivesTitle->addWidget(drivesIcon);
     drivesTitle->addWidget(makeLabel(ui::text("设备驱动器"), 11, QFont::Normal, "#293243"));
     drivesTitle->addStretch();
     homeLayout->addLayout(drivesTitle);
@@ -173,7 +210,7 @@ FilesPage::FilesPage(QWidget *parent)
     auto *driveRow = new QHBoxLayout;
     driveRow->setContentsMargins(34, 0, 0, 0);
     driveRow->setSpacing(14);
-    auto makeDriveCard = [this](const QString &icon,
+    auto makeDriveCard = [this](const QString &iconPath,
                                 const QString &title,
                                 const QString &subtitle,
                                 QPushButton **button,
@@ -190,10 +227,11 @@ FilesPage::FilesPage(QWidget *parent)
         auto *layout = new QHBoxLayout(card);
         layout->setContentsMargins(18, 14, 18, 14);
         layout->setSpacing(14);
-        auto *iconLabel = makeLabel(icon, 24, QFont::DemiBold, QStringLiteral("#333842"));
+        auto *iconLabel = new QLabel;
         iconLabel->setObjectName("FilesDriveIcon");
         iconLabel->setFixedSize(50, 50);
         iconLabel->setAlignment(Qt::AlignCenter);
+        iconLabel->setPixmap(ui::imagePixmap(iconPath, QSize(38, 38)));
         iconLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
         layout->addWidget(iconLabel, 0, Qt::AlignVCenter);
         auto *content = new QWidget;
@@ -219,14 +257,14 @@ FilesPage::FilesPage(QWidget *parent)
     };
     QLabel *rootSpace = nullptr;
     QProgressBar *rootProgress = nullptr;
-    driveRow->addWidget(makeDriveCard(QStringLiteral("⚙"),
+    driveRow->addWidget(makeDriveCard(QStringLiteral("icons/文件/根目录.png"),
                                       ui::text("根目录"),
                                       ui::text("系统文件与分区"),
                                       &m_rootDriveButton,
                                       &rootSpace,
                                       &rootProgress));
     rootProgress->setVisible(false);
-    driveRow->addWidget(makeDriveCard(QStringLiteral("▱"),
+    driveRow->addWidget(makeDriveCard(QStringLiteral("icons/文件/内部存储.png"),
                                       ui::text("内部存储"),
                                       ui::text("正在读取容量…"),
                                       &m_internalDriveButton,
