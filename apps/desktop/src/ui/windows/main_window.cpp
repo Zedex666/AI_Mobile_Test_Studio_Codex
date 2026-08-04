@@ -2,6 +2,7 @@
 
 #include "services/adb_control_service.h"
 #include "services/apps_service.h"
+#include "services/device_center_service.h"
 #include "services/display_service.h"
 #include "services/file_manager_service.h"
 #include "services/logcat_service.h"
@@ -31,6 +32,7 @@
 #include "ui/pages/process_page.h"
 #include "ui/pages/terminal_page.h"
 #include "ui/styles/app_style.h"
+#include "ui/windows/device_center_window.h"
 
 #include <QApplication>
 #include <QBoxLayout>
@@ -155,6 +157,7 @@ void MainWindow::buildUi()
     rootLayout->setContentsMargins(0, 0, 0, 0);
     rootLayout->setSpacing(0);
     const ui::HeaderSection header = ui::createHeader();
+    m_headerDeviceCenterButton = header.deviceCenterButton;
     m_headerSettingsButton = header.settingsButton;
     rootLayout->addWidget(header.widget);
 
@@ -302,6 +305,14 @@ void MainWindow::configureDeviceControls()
                                                 terminalHostScriptPath());
     QTimer::singleShot(100, this, &MainWindow::preloadWebWorkspaces);
     m_adbControlService = new AdbControlService(m_scrcpyService->adbExecutablePath(), this);
+    m_deviceCenterService = new DeviceCenterService(m_scrcpyService->adbExecutablePath(), this);
+    m_deviceCenterWindow = new DeviceCenterWindow(m_deviceCenterService, this);
+    m_deviceCenterWindow->setActiveDeviceSerial(m_scrcpyService->deviceSerial());
+
+    connect(m_deviceCenterWindow,
+            &DeviceCenterWindow::deviceActivationRequested,
+            m_scrcpyService,
+            &ScrcpyService::setPreferredDeviceSerial);
 
     connect(m_terminalPage,
             &TerminalPage::sessionCreateRequested,
@@ -388,6 +399,10 @@ void MainWindow::configureDeviceControls()
     connect(m_headerSettingsButton, &QPushButton::clicked, this, [this] {
         selectWorkspace(14);
     });
+    connect(m_headerDeviceCenterButton,
+            &QPushButton::clicked,
+            this,
+            &MainWindow::showDeviceCenter);
     connect(m_deviceControlPage,
             &DeviceControlPage::keyEventRequested,
             m_adbControlService,
@@ -912,6 +927,18 @@ void MainWindow::configureDeviceControls()
     selectWorkspace(0);
 }
 
+void MainWindow::showDeviceCenter()
+{
+    if (m_deviceCenterWindow == nullptr) {
+        return;
+    }
+    m_deviceCenterWindow->setActiveDeviceSerial(m_deviceSerial);
+    m_deviceCenterWindow->showNormal();
+    m_deviceCenterWindow->show();
+    m_deviceCenterWindow->raise();
+    m_deviceCenterWindow->activateWindow();
+}
+
 void MainWindow::preloadDeviceData(const QString &serial)
 {
     QTimer::singleShot(0, this, [this, serial] {
@@ -1120,6 +1147,9 @@ void MainWindow::updateDeviceUi(ScrcpyService::DeviceState state,
     m_deviceState = state;
     m_deviceSerial = serial;
     m_deviceDetail = detail;
+    if (m_deviceCenterWindow != nullptr) {
+        m_deviceCenterWindow->setActiveDeviceSerial(serial);
+    }
 
     const bool connected = state == ScrcpyService::DeviceState::Connected;
     if (m_terminalService != nullptr) {

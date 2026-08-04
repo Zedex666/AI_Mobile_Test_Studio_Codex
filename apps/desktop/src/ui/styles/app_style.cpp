@@ -1706,6 +1706,114 @@ QString appStyleSheet()
             height: 0;
             background: transparent;
         }
+        QMainWindow#DeviceCenterWindow, QWidget#DeviceCenterRoot,
+        QWidget#DeviceCenterPreview {
+            background: #f5f5f7;
+            color: #1d1d1f;
+        }
+        QWidget#DeviceCenterToolbar {
+            background: rgba(255, 255, 255, 238);
+            border: none;
+            border-bottom: 1px solid #d6d6da;
+        }
+        QFrame#DeviceCenterSeparator {
+            color: #d2d2d7;
+            background: #d2d2d7;
+            max-width: 1px;
+        }
+        QLineEdit#DeviceCenterIpInput, QLineEdit#DeviceCenterPortInput,
+        QLineEdit#DeviceCenterFilterInput {
+            min-height: 32px;
+            max-height: 32px;
+            background: #ffffff;
+            border: 1px solid #cfd2d8;
+            border-radius: 5px;
+            padding: 0 9px;
+        }
+        QLineEdit#DeviceCenterIpInput:focus, QLineEdit#DeviceCenterPortInput:focus,
+        QLineEdit#DeviceCenterFilterInput:focus {
+            border: 1px solid #4c91e8;
+        }
+        QPushButton#DeviceCenterCommandButton,
+        QPushButton#DeviceCenterSecondaryButton,
+        QPushButton#DeviceCenterPrimaryButton {
+            min-height: 32px;
+            background: #ffffff;
+            border: 1px solid #c7cbd2;
+            border-radius: 5px;
+            color: #242426;
+            padding: 0 14px;
+        }
+        QPushButton#DeviceCenterCommandButton:hover,
+        QPushButton#DeviceCenterSecondaryButton:hover {
+            background: #eef5ff;
+            border-color: #8eb5e8;
+            color: #075fad;
+        }
+        QPushButton#DeviceCenterPrimaryButton {
+            background: #1677ff;
+            border-color: #1677ff;
+            color: #ffffff;
+        }
+        QPushButton#DeviceCenterCommandButton:disabled,
+        QPushButton#DeviceCenterSecondaryButton:disabled,
+        QPushButton#DeviceCenterPrimaryButton:disabled {
+            background: #ececf0;
+            border-color: #dedee3;
+            color: #a1a1a6;
+        }
+        QToolButton#DeviceCenterToolButton {
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 5px;
+            padding: 5px;
+        }
+        QToolButton#DeviceCenterToolButton:hover {
+            background: #edf3fb;
+            border-color: #c7d9ef;
+        }
+        QToolButton#DeviceCenterToolButton:pressed { background: #dce9f8; }
+        QToolButton#DeviceCenterToolButton:disabled { opacity: 0.38; }
+        QTableWidget#DeviceCenterTable {
+            background: #f8f8f9;
+            alternate-background-color: #f0f0f2;
+            border: none;
+            border-bottom: 1px solid #cfd2d8;
+            color: #242426;
+            gridline-color: #d6d8dd;
+            selection-background-color: #dcecff;
+            selection-color: #1d1d1f;
+        }
+        QTableWidget#DeviceCenterTable::item {
+            border: none;
+            border-right: 1px solid #d8dae0;
+            padding: 3px 7px;
+        }
+        QTableWidget#DeviceCenterTable::item:hover { background: #e8f1fc; }
+        QTableWidget#DeviceCenterTable QHeaderView::section {
+            min-height: 30px;
+            background: #e8e8eb;
+            border: none;
+            border-right: 1px solid #c9cbd1;
+            border-bottom: 1px solid #c9cbd1;
+            color: #26262a;
+            padding: 0 7px;
+            text-align: left;
+        }
+        QSplitter#DeviceCenterSplitter::handle {
+            height: 5px;
+            background: #d5d7dc;
+        }
+        QLabel#DeviceCenterPreviewLabel {
+            background: transparent;
+            border: none;
+            color: #8e8e93;
+            font-size: 18px;
+        }
+        QDialog#DeviceCenterPairDialog {
+            background: #f5f5f7;
+            color: #1d1d1f;
+        }
         QToolTip {
             background: rgba(40, 40, 42, 242);
             border: 1px solid rgba(255, 255, 255, 24);

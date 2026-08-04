@@ -13,6 +13,8 @@ qt_add_executable(${DESKTOP_TARGET}
     src/services/apps_service.h
     src/services/display_service.cpp
     src/services/display_service.h
+    src/services/device_center_service.cpp
+    src/services/device_center_service.h
     src/services/file_manager_service.cpp
     src/services/file_manager_service.h
     src/services/logcat_service.cpp
@@ -83,6 +85,8 @@ qt_add_executable(${DESKTOP_TARGET}
     src/ui/widgets/brand_badges.h
     src/ui/windows/main_window.cpp
     src/ui/windows/main_window.h
+    src/ui/windows/device_center_window.cpp
+    src/ui/windows/device_center_window.h
 )
 
 set_source_files_properties(

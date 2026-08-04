@@ -29,12 +29,14 @@ public:
     QString deviceDetail() const;
     QString scrcpyPath() const;
     QString adbExecutablePath() const;
+    QString preferredDeviceSerial() const;
     bool mirrorRunning() const;
 
     void startMonitoring();
 
 public slots:
     void refreshDeviceState();
+    void setPreferredDeviceSerial(const QString &serial);
     void startMirror(const QStringList &extraArguments = QStringList());
     void stopMirror();
     void queryCameras();
@@ -56,6 +58,7 @@ private:
     QString recentMirrorLog() const;
 
     QString m_scrcpyPath;
+    QString m_preferredDeviceSerial;
     QString m_deviceSerial;
     QString m_deviceDetail;
     QString m_mirrorLog;

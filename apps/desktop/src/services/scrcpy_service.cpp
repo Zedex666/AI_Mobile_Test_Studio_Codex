@@ -104,7 +104,7 @@ ScrcpyService::~ScrcpyService()
 {
     m_pollTimer.stop();
     m_cameraQueryCancelled = true;
-    for (QProcess *process : {&m_mirrorProcess, &m_cameraProcess}) {
+    for (QProcess *process : {&m_probeProcess, &m_mirrorProcess, &m_cameraProcess}) {
         if (process->state() != QProcess::NotRunning) {
             process->terminate();
             if (!process->waitForFinished(1000)) {
@@ -138,6 +138,11 @@ QString ScrcpyService::scrcpyPath() const
 QString ScrcpyService::adbExecutablePath() const
 {
     return adbPath();
+}
+
+QString ScrcpyService::preferredDeviceSerial() const
+{
+    return m_preferredDeviceSerial;
 }
 
 bool ScrcpyService::mirrorRunning() const
@@ -174,6 +179,20 @@ void ScrcpyService::refreshDeviceState()
 
     m_probeProcess.setWorkingDirectory(QFileInfo(currentAdbPath).absolutePath());
     m_probeProcess.start(currentAdbPath, {QStringLiteral("devices")});
+}
+
+void ScrcpyService::setPreferredDeviceSerial(const QString &serial)
+{
+    const QString preferred = serial.trimmed();
+    if (preferred.isEmpty() || m_preferredDeviceSerial == preferred) {
+        return;
+    }
+    m_preferredDeviceSerial = preferred;
+    if (m_mirrorProcess.state() != QProcess::NotRunning) {
+        stopMirror();
+        return;
+    }
+    refreshDeviceState();
 }
 
 void ScrcpyService::startMirror(const QStringList &extraArguments)
@@ -273,7 +292,12 @@ void ScrcpyService::handleProbeFinished(int exitCode, QProcess::ExitStatus exitS
     const QStringList lines = output.split(QRegularExpression(QStringLiteral("[\\r\\n]+")),
                                            Qt::SkipEmptyParts);
 
-    QString unauthorizedSerial;
+    QString firstConnectedSerial;
+    QString preferredConnectedSerial;
+    QString firstSideloadSerial;
+    QString preferredSideloadSerial;
+    QString firstUnauthorizedSerial;
+    QString preferredUnauthorizedSerial;
     for (const QString &line : lines) {
         if (line.startsWith(QStringLiteral("List of devices"))) {
             continue;
@@ -287,20 +311,54 @@ void ScrcpyService::handleProbeFinished(int exitCode, QProcess::ExitStatus exitS
         const QString serial = columns[0];
         const QString state = columns[1];
         if (state == QStringLiteral("device")) {
-            setDeviceState(DeviceState::Connected, serial, tr("Android 设备已连接"));
-            return;
+            if (firstConnectedSerial.isEmpty()) {
+                firstConnectedSerial = serial;
+            }
+            if (serial == m_preferredDeviceSerial) {
+                preferredConnectedSerial = serial;
+            }
+            continue;
         }
         if (state == QStringLiteral("sideload")) {
-            setDeviceState(DeviceState::Sideload,
-                           serial,
-                           tr("设备已进入 ADB Sideload 模式"));
-            return;
+            if (firstSideloadSerial.isEmpty()) {
+                firstSideloadSerial = serial;
+            }
+            if (serial == m_preferredDeviceSerial) {
+                preferredSideloadSerial = serial;
+            }
+            continue;
         }
         if (state == QStringLiteral("unauthorized")) {
-            unauthorizedSerial = serial;
+            if (firstUnauthorizedSerial.isEmpty()) {
+                firstUnauthorizedSerial = serial;
+            }
+            if (serial == m_preferredDeviceSerial) {
+                preferredUnauthorizedSerial = serial;
+            }
         }
     }
 
+    const QString connectedSerial = preferredConnectedSerial.isEmpty()
+        ? firstConnectedSerial
+        : preferredConnectedSerial;
+    if (!connectedSerial.isEmpty()) {
+        setDeviceState(DeviceState::Connected, connectedSerial, tr("Android 设备已连接"));
+        return;
+    }
+
+    const QString sideloadSerial = preferredSideloadSerial.isEmpty()
+        ? firstSideloadSerial
+        : preferredSideloadSerial;
+    if (!sideloadSerial.isEmpty()) {
+        setDeviceState(DeviceState::Sideload,
+                       sideloadSerial,
+                       tr("设备已进入 ADB Sideload 模式"));
+        return;
+    }
+
+    const QString unauthorizedSerial = preferredUnauthorizedSerial.isEmpty()
+        ? firstUnauthorizedSerial
+        : preferredUnauthorizedSerial;
     if (!unauthorizedSerial.isEmpty()) {
         setDeviceState(DeviceState::Unauthorized,
                        unauthorizedSerial,

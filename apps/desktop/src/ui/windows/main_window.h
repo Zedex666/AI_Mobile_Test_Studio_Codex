@@ -9,6 +9,8 @@ class AdbControlService;
 class AppsPage;
 class AppsService;
 class DeviceControlPage;
+class DeviceCenterService;
+class DeviceCenterWindow;
 class DisplayPage;
 class DisplayService;
 class FileManagerService;
@@ -53,6 +55,7 @@ private:
     void buildUi();
     void configureScrcpy();
     void configureDeviceControls();
+    void showDeviceCenter();
     void preloadWebWorkspaces();
     void cancelWorkspacePreload();
     void preloadDeviceData(const QString &serial);
@@ -71,6 +74,8 @@ private:
     DisplayPage *m_displayPage = nullptr;
     MirroringPage *m_mirroringPage = nullptr;
     DeviceControlPage *m_deviceControlPage = nullptr;
+    DeviceCenterService *m_deviceCenterService = nullptr;
+    DeviceCenterWindow *m_deviceCenterWindow = nullptr;
     FileManagerService *m_fileManagerService = nullptr;
     FilesPage *m_filesPage = nullptr;
     PackageManagerService *m_packageManagerService = nullptr;
@@ -108,6 +113,7 @@ private:
     QPushButton *m_otherNavButton = nullptr;
     QPushButton *m_settingsNavButton = nullptr;
     QPushButton *m_headerSettingsButton = nullptr;
+    QPushButton *m_headerDeviceCenterButton = nullptr;
     QWidget *m_sidebarWidget = nullptr;
     QLabel *m_deviceNameLabel = nullptr;
     QLabel *m_deviceStatusDot = nullptr;

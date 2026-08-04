@@ -302,8 +302,10 @@ HeaderSection createHeader()
                                 "#1d1d1f"));
     layout->addStretch();
     layout->addWidget(makeImageIconButton(QStringLiteral("icons/标题栏/通知.png"), text("通知")));
-    layout->addWidget(makeImageIconButton(QStringLiteral("icons/标题栏/设备中心.png"),
-                                          text("设备中心")));
+    section.deviceCenterButton = makeImageIconButton(
+        QStringLiteral("icons/标题栏/设备中心.png"), text("设备中心"));
+    section.deviceCenterButton->setAccessibleName(text("设备中心"));
+    layout->addWidget(section.deviceCenterButton);
     layout->addWidget(makeDivider());
     section.settingsButton = makeImageIconButton(QStringLiteral("icons/标题栏/设置.png"),
                                                  text("设置"));
