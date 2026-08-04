@@ -710,20 +710,21 @@ public:
 
     void setOutputDeliveryEnabled(bool enabled)
     {
+        QWebEnginePage *page = m_webView->page();
+        page->setLifecycleState(QWebEnginePage::LifecycleState::Active);
+        page->setVisible(true);
         m_bridge->setDeliveryEnabled(enabled);
+        if (!enabled) {
+            return;
+        }
+        page->runJavaScript(QStringLiteral(
+            "requestAnimationFrame(()=>{void document.body.offsetWidth;"
+            "window.dispatchEvent(new Event('resize'));})"));
     }
 
     void setBackgroundRenderingEnabled(bool enabled)
     {
-        m_bridge->setDeliveryEnabled(enabled);
-        QWebEnginePage *page = m_webView->page();
-        page->setLifecycleState(QWebEnginePage::LifecycleState::Active);
-        if (enabled) {
-            page->setVisible(true);
-            page->runJavaScript(QStringLiteral(
-                "requestAnimationFrame(()=>{void document.body.offsetWidth;"
-                "window.dispatchEvent(new Event('resize'));})"));
-        }
+        setOutputDeliveryEnabled(enabled);
     }
 
     void appendStatus(const QString &message)
@@ -1092,11 +1093,11 @@ void TerminalPage::showEvent(QShowEvent *event)
 
 void TerminalPage::hideEvent(QHideEvent *event)
 {
+    QWidget::hideEvent(event);
     for (auto iterator = m_views.cbegin(); iterator != m_views.cend(); ++iterator) {
         iterator.value()->setOutputDeliveryEnabled(
             iterator.key() == m_backgroundRenderSessionId);
     }
-    QWidget::hideEvent(event);
 }
 
 void TerminalPage::runShortcut(const QByteArray &command)

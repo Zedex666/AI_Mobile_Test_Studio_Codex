@@ -103,15 +103,17 @@
 
 ### Fixed
 
+- 修复 OpenCode 终端和 Appium Inspector 的用户输入、输出回放及页面切换出现约 1 秒延迟的问题：ASCII 输入改用 microtask 合并，ConPTY 与 WebChannel 输出改用同事件循环调度并将单块提高到 64KB，移除终端预热的固定 900ms 等待；WebEngine 页面常驻 `Active`，隐藏终端只暂停输出投递，切回时主动触发 resize。
+- 修复 Appium Inspector 在中文输入法组合期间仍按 80ms 空闲窗口回放 React 状态、阻塞输入法提交的问题；组合开始时取消待回放定时器，浏览器原生 preedit 保持即时显示，并只在真实 `compositionend` 后回放一次 React 状态。
 - 修复启动预热期间将整个主工作区切换为 `StackAll`，造成 Appium Inspector 与多个页面同时显示、标题和内容重叠的问题；预热改为在当前页面快照下依次激活布局和终端，完成后恢复用户页面，侧边栏操作会立即取消预热。
 - 修复设备概览将 Android UTF-8 属性输出按 Windows 本地编码分块解码，导致中文营销名称乱码的问题；ADB 文本现在先完整收集字节，再统一解码。
 - 修复中文模式使用比例字体作为 xterm 主字体导致终端字符横向拉伸的问题；终端改为 JetBrains Mono 等宽主字体和霞鹜文楷 CJK 回退，并在字体就绪后重新适配行列。
-- 修复 OpenCode 中文输入法提交后文字延迟显示的问题；中文、emoji 等 Unicode 输入绕过 WebEngine 定时合并并即时发送，ASCII 连续输入仍以 4ms 窗口有序合并，控制序列继续即时发送。
+- 修复 OpenCode 中文输入法提交后文字延迟显示的问题；中文、emoji 等 Unicode 输入即时发送，ASCII 连续输入在同一 JavaScript 任务的 microtask 内有序合并，控制序列继续即时发送。
 - 修复首次启动预热 OpenCode 后终端标签栏仍保持单标签宽度、导致默认 ADB Shell 被滚动隐藏的问题；标签栏现在会占用可用工具栏宽度，超过上限后才启用滚动。
 - 修复设备切换时被终止的应用、进程或目录查询可能迟到并污染新设备会话状态的问题。
 - 修复进程列表刷新和应用图标加载导致的滚动卡顿：模型改为按 PID 差量增删改，应用元数据小批次提取，PNG 图标按 8ms 间隔逐个解码并只刷新命中行；滚动期间暂存最新采样，停止滚动 180ms 后再合并。
 - 修复文件工作区“根目录”和“内部存储”卡片点击无响应的问题；驱动器入口改为整卡按钮，分别进入 `/` 与 `/sdcard`。
-- 修复 OpenCode/xterm.js 高频输出时界面卡顿的问题：WebChannel 增加 xterm 写入完成回执和单帧在途背压，输出按 32KB/8ms 分块；ConPTY 宿主按 64KB/8ms 合并输出，隐藏页面和后台终端标签暂停前端投递。
+- 修复 OpenCode/xterm.js 高频输出时界面卡顿的问题：WebChannel 增加 xterm 写入完成回执和单帧在途背压，输出按 64KB 分块并在下一轮 Qt 事件循环继续；ConPTY 宿主按 64KB 或 Node.js 下一轮事件循环合并输出，隐藏页面和后台终端标签暂停前端投递，同时保持 WebEngine renderer 活动以避免恢复时被节流。
 - 移除终端工具栏中重复的下拉选择按钮，终端类型统一从“+”按钮菜单创建。
 - 修复英文模式仅加载部分 JetBrains Mono 字体的问题；构建和安装现在复制英文目录内全部 32 个 TTF，原生 Qt 控件、xterm.js 与 Appium Inspector 均按当前语言使用本地字体。
 - 修复 Appium Inspector 官方浏览器包从本地 `file://` 路径加载时语言资源定位错误、界面显示 `startSession` 和 `attachToSession` 等翻译键的问题。

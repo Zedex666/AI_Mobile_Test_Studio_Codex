@@ -43,7 +43,7 @@
   let bridge = null;
   let resizeFrame = 0;
   let pendingInput = '';
-  let inputFlushTimer = 0;
+  let inputFlushScheduled = false;
   const fit = () => {
     cancelAnimationFrame(resizeFrame);
     resizeFrame = requestAnimationFrame(() => {
@@ -61,10 +61,7 @@
   };
 
   const flushInput = () => {
-    if (inputFlushTimer !== 0) {
-      window.clearTimeout(inputFlushTimer);
-    }
-    inputFlushTimer = 0;
+    inputFlushScheduled = false;
     if (!bridge || pendingInput.length === 0) {
       return;
     }
@@ -94,8 +91,9 @@
     pendingInput += data;
     if (pendingInput.length >= 4096) {
       flushInput();
-    } else if (inputFlushTimer === 0) {
-      inputFlushTimer = window.setTimeout(flushInput, 4);
+    } else if (!inputFlushScheduled) {
+      inputFlushScheduled = true;
+      queueMicrotask(flushInput);
     }
   };
 

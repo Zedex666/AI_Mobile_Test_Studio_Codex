@@ -66,7 +66,7 @@
 - 验证 Unicode、IME、鼠标、备用屏幕、搜索和大输出。
 - 将 WebEngine 完整部署进安装包。
 
-已完成：统一 `TerminalSession`、ADB 会话迁移、本地 xterm.js/FitAddon、QWebChannel 桥接、离线资源复制、MSVC Qt WebEngine 部署和无 WebEngine 降级构建；输出链路具备 xterm 写入回执、32KB/8ms 分块背压、后台标签暂停投递和 ConPTY 64KB/8ms 合并。
+已完成：统一 `TerminalSession`、ADB 会话迁移、本地 xterm.js/FitAddon、QWebChannel 桥接、离线资源复制、MSVC Qt WebEngine 部署和无 WebEngine 降级构建；输出链路具备 xterm 写入回执、64KB 单帧在途背压、Qt/Node.js 同事件循环调度、后台输出暂停，以及 WebEngine renderer 常驻活动与快速恢复。
 
 剩余：完成真实备用屏幕、鼠标、IME、Unicode 和长时间高输出验收，并在发布安装包与干净机上复验 WebEngine 部署。
 

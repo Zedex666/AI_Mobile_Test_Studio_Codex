@@ -993,7 +993,7 @@ void MainWindow::preloadWebWorkspaces()
             m_workspacePreloadCover->raise();
         }
 
-        QTimer::singleShot(900, this, [this, generation] {
+        QTimer::singleShot(0, this, [this, generation] {
             if (!m_workspacePreloading || generation != m_workspacePreloadGeneration) {
                 return;
             }

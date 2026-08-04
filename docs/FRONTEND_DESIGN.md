@@ -93,9 +93,10 @@ AI Mobile Test Studio 是高频使用的桌面设备工具，不采用营销页�
 - 授权设备连接后异步预取应用名称/图标、一次进程快照以及 `/`、`/sdcard`；缓存按设备隔离并仅保留到当前桌面进程退出。
 - 进程表以 PID 为稳定键做差量增删改，禁止每次采样全量 reset；自动采样周期为 8 秒。
 - 进程应用图标由后台小批次提取，UI 每 8ms 最多解码一个 PNG，只通知实际命中包名的行；滚动期间暂存采样，滚动空闲 180ms 后合并。
-- xterm.js 输出每次只允许一个未确认写入，单块不超过 32KB、块间隔 8ms，C++ 待处理缓冲上限为 4MB；普通隐藏标签暂停投递，启动预热的默认 OpenCode 标签例外。
-- ConPTY 宿主在 8ms 窗口内合并输出，每批不超过 64KB，降低 Qt 进程间信号与 WebChannel 调用频率。
-- xterm.js 对可打印输入使用 4ms、最多 4096 字符的有序合并，降低中文 IME 提交时的 WebChannel 与 ConPTY 小包数量；Escape、Ctrl 和其它控制序列即时发送。
+- xterm.js 输出每次只允许一个未确认写入，单块不超过 64KB；前端确认后在 Qt 下一轮事件循环继续投递，C++ 待处理缓冲上限为 4MB。
+- ConPTY 宿主在 Node.js 同一轮事件循环内合并输出，每批不超过 64KB；未达到上限时通过 `setImmediate()` 刷新，不使用固定延时定时器。
+- xterm.js 对 ASCII 可打印输入使用 microtask、最多 4096 字符的有序合并；Unicode/IME 提交、Escape、Ctrl 和其它控制序列即时发送，避免 Chromium 对后台定时器的秒级节流。
+- WebEngine 页面常驻 `Active` 并保持 renderer 可见状态，避免 Chromium 对隐藏页面的定时器和渲染节流；普通隐藏终端标签仅暂停前端输出投递，切回时恢复投递并触发 resize。Appium Inspector 的高成本文本状态在 80ms 输入空闲后合并回放；中文输入法组合期间禁止回放，浏览器原生 preedit 即时显示，并在真实 `compositionend` 后只回放一次 React 状态。标签内容在后台预加载并避免仅切换标签时重渲染无关面板。
 - 常规窗口和 150%/200% DPI 下，导航文字、按钮、表头和状态标签不得重叠。
 - 页面切换和按钮动画目标为 60fps；镜像、终端大输出和性能采样期间不能出现明显卡顿。
 - 关闭动态效果后页面立即切换，按钮不缩放。
@@ -107,3 +108,11 @@ AI Mobile Test Studio 是高频使用的桌面设备工具，不采用营销页�
 - 进程工作区连续发送 120 次滚轮事件，未出现 UI 自动化超时。
 - ConPTY 手动回显和随包 OpenCode 1.18.5 版本启动通过，输入、输出和退出链路可用；鼠标、IME、备用屏幕等完整 TUI 兼容性仍按专项矩阵验收。
 - 英文模式下 Qt 原生控件、xterm.js 和 Appium Inspector 均命中 JetBrains Mono；Inspector 的 computed font 已验证为 `AI JetBrains Mono`。
+
+### 7.2 2026-08-04 延迟验证记录
+
+- 使用锁定的 OpenCode 1.18.5、Node.js 24.18.0 和 `node-pty` 1.1.0，在 MSVC Qt WebEngine Debug 构建中测得 ASCII 键盘事件经 ConPTY/OpenCode 到 xterm DOM 完整回显为 55-79ms。
+- 使用本机 WeType 中文输入法、真实鼠标聚焦和 Windows `SendInput` 逐键输入 `zhongwen` 后空格选词，OpenCode 输入区最后一个拼音键到可见 preedit 为 52.5ms，空格到可见“中文”为 38.1ms，`compositionend` 到可见为 7.3ms；CDP 只观察组合事件和实际画面 DOM，截图确认输入区真实显示“中文中文”。
+- 首次切到预热后的 Appium Inspector，可访问界面在约 484ms 内就绪；随后连续 3 轮终端/布局往返切换，终端恢复为 152–167ms，Inspector 恢复为 149–171ms。
+- 连续切换后两个 WebView 均正常渲染，无空白页、内容重叠或页面重新加载；ConPTY 帮助进程回显和真实 `opencode.exe --version` 冒烟均通过。
+- Appium Inspector 原生输入在物理按键后约 10-18ms 更新 DOM，连续输入仅在 80ms 空闲后回放一次 React 状态；本机 WeType 的真实用户输入中，拼音 preedit 回显为 11-22ms，空格到可见“中文”约 112ms，`compositionend` 到可见为 3.7ms。组合期间不触发 React 回放，提交后只回放一次。常规折叠操作在下一帧约 48ms 可见，Capability/Saved/Attach 标签首次反馈分别约 49ms、86ms 和 61ms，Attach 完整内容约 122ms；三个标签内容由预加载阶段一次挂载，切换时不再重渲染无关面板，Attach 的会话查询延后到首帧绘制完成后启动。

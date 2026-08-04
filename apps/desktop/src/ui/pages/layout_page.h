@@ -7,6 +7,7 @@
 
 class QCheckBox;
 class QComboBox;
+class QHideEvent;
 class QLabel;
 class QLineEdit;
 class QListWidget;
@@ -14,6 +15,7 @@ class QNetworkAccessManager;
 class QPlainTextEdit;
 class QPushButton;
 class QStackedWidget;
+class QShowEvent;
 class QTableWidget;
 class QTabWidget;
 class QTreeWidget;
@@ -32,6 +34,10 @@ public:
 
 signals:
     void preloadReady();
+
+protected:
+    void showEvent(QShowEvent *event) override;
+    void hideEvent(QHideEvent *event) override;
 
 private:
     struct CapabilityRow {
@@ -72,6 +78,7 @@ private:
     void setInspectorStatus(const QString &message, const QString &color = QStringLiteral("#596579"));
     void postSessionToAppium();
     void checkWebInspectorPreload();
+    void updateWebInspectorActivity(bool active);
 
     QStackedWidget *m_modeStack = nullptr;
     QWidget *m_sessionBuilder = nullptr;

@@ -3,7 +3,6 @@
 const FRAME_HEADER_SIZE = 5;
 const MAX_FRAME_SIZE = 16 * 1024 * 1024;
 const OUTPUT_BATCH_BYTES = 64 * 1024;
-const OUTPUT_BATCH_DELAY_MS = 8;
 
 function fail(error) {
   const message = error instanceof Error ? error.message : String(error);
@@ -54,11 +53,11 @@ try {
   let ready = false;
   let outputBuffers = [];
   let outputBytes = 0;
-  let outputTimer = null;
+  let outputImmediate = null;
   const flushOutput = (afterFlush = null) => {
-    if (outputTimer !== null) {
-      clearTimeout(outputTimer);
-      outputTimer = null;
+    if (outputImmediate !== null) {
+      clearImmediate(outputImmediate);
+      outputImmediate = null;
     }
     if (outputBytes === 0) {
       if (afterFlush) {
@@ -87,8 +86,8 @@ try {
     outputBytes += output.length;
     if (outputBytes >= OUTPUT_BATCH_BYTES) {
       flushOutput();
-    } else if (outputTimer === null) {
-      outputTimer = setTimeout(flushOutput, OUTPUT_BATCH_DELAY_MS);
+    } else if (outputImmediate === null) {
+      outputImmediate = setImmediate(flushOutput);
     }
   });
   terminal.onExit(({ exitCode }) => {

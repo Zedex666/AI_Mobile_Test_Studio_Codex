@@ -10,9 +10,8 @@
 namespace {
 
 constexpr qsizetype kMaximumPendingOutput = 4 * 1024 * 1024;
-constexpr qsizetype kMaximumOutputPerFrame = 32 * 1024;
+constexpr qsizetype kMaximumOutputPerFrame = 64 * 1024;
 constexpr qsizetype kOutputCompactionThreshold = 512 * 1024;
-constexpr int kOutputFrameIntervalMs = 8;
 
 QString terminalFontFamily(ui::AppLanguage language)
 {
@@ -61,7 +60,7 @@ void TerminalBridge::sendOutput(const QByteArray &data)
     }
     if (m_frontendReady && m_deliveryEnabled && !m_outputInFlight
         && !m_outputFlushTimer.isActive()) {
-        m_outputFlushTimer.start(kOutputFrameIntervalMs);
+        m_outputFlushTimer.start(0);
     }
 }
 
@@ -153,7 +152,7 @@ void TerminalBridge::outputConsumed()
     }
     if (m_deliveryEnabled && m_pendingOutput.size() > m_pendingOutputOffset
         && !m_outputFlushTimer.isActive()) {
-        m_outputFlushTimer.start(kOutputFrameIntervalMs);
+        m_outputFlushTimer.start(0);
     }
 }
 

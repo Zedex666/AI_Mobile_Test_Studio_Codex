@@ -39,10 +39,10 @@ QTermWidget 不作为 Windows 方案：其官方兼容列表为 BSD、Linux 和 
 - OpenCode 会话不随 Android 设备断开或切换而终止。
 - `node-pty` ConPTY 宿主的输入、输出、resize 和退出帧协议，并有自动化冒烟测试。
 - 本地 xterm.js 6.0.0、FitAddon 0.11.0、QWebChannel 桥接、CSP 和复制粘贴逻辑。
-- xterm.js 写入完成回执和真实背压：C++ 每次最多投递 32KB，收到 `term.write()` 回调后再以 8ms 间隔发送下一块，待处理缓冲上限为 4MB。
-- ConPTY 宿主按 8ms/64KB 合并 PTY 输出；普通隐藏标签暂停向 WebView 投递，启动时创建的默认 OpenCode 标签保持后台投递以完成预渲染。
+- xterm.js 写入完成回执和真实背压：C++ 每次最多投递 64KB，收到 `term.write()` 回调后在 Qt 下一轮事件循环继续发送，待处理缓冲上限为 4MB。
+- ConPTY 宿主按 64KB 或 Node.js 下一轮事件循环合并 PTY 输出；普通隐藏标签暂停向 WebView 投递，但 WebEngine 页面保持 `Active` 和 renderer 可见状态，启动时创建的默认 OpenCode 标签保持投递以完成预渲染。
 - 终端始终使用随包 JetBrains Mono 作为等宽主字体，中文模式追加随包霞鹜文楷作为 CJK 回退；字体就绪后重新执行 `FitAddon.fit()`。
-- ASCII 可打印输入在 xterm.js 侧按 4ms 窗口有序合并后进入 WebChannel；中文、emoji 等 Unicode 的 IME 提交以及控制字符和 Escape 序列即时发送，避免 WebEngine 主线程繁忙时延迟展示已提交文字。
+- ASCII 可打印输入在 xterm.js 侧按同一 JavaScript 任务的 microtask 有序合并后进入 WebChannel；中文、emoji 等 Unicode 的 IME 提交以及控制字符和 Escape 序列即时发送，避免 WebEngine 后台定时器节流放大输入延迟。
 - Qt WebEngine 可用时启用 xterm.js；缺少 WebEngine 依赖的工具链保留基础 ANSI/CSI 降级显示。
 - 锁定 OpenCode 1.18.5、Node.js 24.18.0 和 `node-pty` 1.1.0；Windows 构建默认下载、校验、staging，并自动注册 ConPTY 冒烟测试。
 - 已使用真实 `opencode.exe` 通过 `node-pty`/ConPTY 完成版本启动冒烟。
@@ -129,7 +129,7 @@ signals:
 - 所有资源构建后放入 `runtime/terminal-web/`，运行时不访问 CDN。
 - WebGL 初始化失败时回退到 xterm.js 内置渲染器。
 - `FitAddon.fit()` 后必须把 `cols/rows` 回传后端。
-- `term.onData()` 保持输入内容与顺序，不进行 Shell 转义或换行改写；仅 ASCII 可打印文本允许在最多 4ms 的窗口内合并，Unicode/IME 提交与控制输入必须即时发送。
+- `term.onData()` 保持输入内容与顺序，不进行 Shell 转义或换行改写；仅 ASCII 可打印文本允许在同一 JavaScript 任务的 microtask 内合并，Unicode/IME 提交与控制输入必须即时发送。
 - 后端输出作为终端数据写入 `term.write()`，不能先剥离 ANSI。
 - 页面只允许加载本地资源；关闭外部导航、下载和不需要的浏览器能力。
 - 主题、字体和缩放由桌面设置统一下发。
@@ -139,7 +139,7 @@ Qt 集成：
 - `QWebEngineView` 作为普通 QWidget 放入终端页。
 - `QWebChannel` 暴露最小 `write`、`resize`、`copy`、`paste`、`focus` 和 session 控制接口。
 - QWebChannel 使用 Base64 承载原始终端字节；每次只允许一个 xterm 写入在途，前端回调 `outputConsumed()` 后才能继续投递。
-- 每个标签使用独立 `TerminalView`；普通后台标签只保留有上限的 C++ 缓冲，启动预热的默认 OpenCode 标签保持投递，避免首次进入时集中回放。
+- 每个标签使用独立 `TerminalView`；普通后台标签只保留有上限的 C++ 缓冲，WebEngine 页面始终保持 `Active`，前台恢复时触发 resize，再继续按背压投递。启动预热的默认 OpenCode 标签保持投递，避免首次进入时集中回放。
 
 ## 6. ADB 后端
 
@@ -161,7 +161,7 @@ OpenCode TUI 需要真正的 Windows pseudo console：
 2. 宿主通过经过生产验证的 `node-pty` 原生模块创建 Windows ConPTY 并启动随包 OpenCode。
 3. Qt 到宿主的 stdin 使用 `type + uint32 little-endian length + payload` 帧；输入、resize 和停止分别使用 `i`、`r`、`x` 类型。
 4. 宿主 stdout 只承载原始终端字节，stderr 只承载 `READY` 和 Base64 错误控制消息。
-5. 宿主在 8ms 窗口内合并 PTY 输出，每批最多 64KB，减少进程间消息数量。
+5. 宿主在每轮 Node.js 事件循环内合并 PTY 输出，每批最多 64KB；达到上限立即发送，否则使用 `setImmediate()` 发送，避免固定定时器造成可见延迟。
 6. xterm.js 输入不经 Shell 转义，resize 以字符列/行发送给 `node-pty`。
 7. 标签关闭或应用退出时终止宿主；宿主关闭 PTY，避免残留 OpenCode/ConPTY 进程。
 
@@ -245,6 +245,7 @@ OpenCode 官方架构中，TUI 是 Server 的客户端；Server 暴露 OpenAPI 3
 | `vim`/全屏 TUI | 进入和退出备用屏幕后原滚动区恢复 |
 | 高 DPI 和窗口缩放 | 字符网格稳定，无内容遮挡 |
 | 大量输出 | UI 不阻塞，内存有上限，滚动仍可操作 |
+| 工作区连续切换 | 终端与 Inspector 不空白、不重载，前台恢复回显目标小于 300ms |
 | 设备断开 | ADB 会话明确结束，OpenCode 会话不受影响 |
 | 应用退出 | ConPTY、ADB socket、OpenCode Server 和子进程全部回收 |
 

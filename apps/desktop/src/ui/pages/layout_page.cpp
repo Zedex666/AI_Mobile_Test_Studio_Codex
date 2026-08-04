@@ -28,6 +28,7 @@
 #include <QGridLayout>
 #include <QGroupBox>
 #include <QHeaderView>
+#include <QHideEvent>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonParseError>
@@ -44,6 +45,7 @@
 #include <QPointer>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QShowEvent>
 #include <QSplitter>
 #include <QStackedWidget>
 #include <QTableWidget>
@@ -164,7 +166,9 @@ void applyInspectorFont(QWebEnginePage *page, ui::AppLanguage language)
                             "font-style:normal;font-weight:500 600;font-display:block;}"
                             "@font-face{font-family:'%1';src:url('%4') format('truetype');"
                             "font-style:normal;font-weight:700 900;font-display:block;}"
-                            "html,body,#root,#root *{font-family:'%1' !important;"
+                            "html,body,#root{font-family:'%1' !important;"
+                            "letter-spacing:0 !important;}"
+                            "button,input,textarea,select{font-family:inherit !important;"
                             "letter-spacing:0 !important;}")
                             .arg(family,
                                  fontUrl(regularPath),
@@ -367,12 +371,8 @@ LayoutPage::LayoutPage(QWidget *parent)
                     if (loaded) {
                         applyInspectorFont(page,
                                            ui::AppPreferences::instance().language());
-                        page->setLifecycleState(QWebEnginePage::LifecycleState::Active);
-                        page->setVisible(true);
-                        page->runJavaScript(QStringLiteral(
-                            "requestAnimationFrame(()=>{"
-                            "void document.documentElement.offsetWidth;"
-                            "window.dispatchEvent(new Event('resize'));})"));
+                        updateWebInspectorActivity(
+                            isVisible() || m_webInspectorPreloadRequested);
                         if (m_webInspectorPreloadRequested) {
                             checkWebInspectorPreload();
                         }
@@ -419,16 +419,11 @@ void LayoutPage::preload()
         return;
     }
     m_webInspectorPreloadRequested = true;
+    updateWebInspectorActivity(true);
     if (m_webInspectorPreloadReady) {
         emit preloadReady();
         return;
     }
-    QWebEnginePage *page = webView->page();
-    page->setLifecycleState(QWebEnginePage::LifecycleState::Active);
-    page->setVisible(true);
-    page->runJavaScript(QStringLiteral(
-        "requestAnimationFrame(()=>{void document.documentElement.offsetWidth;"
-        "window.dispatchEvent(new Event('resize'));})"));
     checkWebInspectorPreload();
 #else
     emit preloadReady();
@@ -438,6 +433,41 @@ void LayoutPage::preload()
 void LayoutPage::finishPreload()
 {
     m_webInspectorPreloadRequested = false;
+    updateWebInspectorActivity(isVisible());
+}
+
+void LayoutPage::showEvent(QShowEvent *event)
+{
+    QWidget::showEvent(event);
+    updateWebInspectorActivity(true);
+}
+
+void LayoutPage::hideEvent(QHideEvent *event)
+{
+    QWidget::hideEvent(event);
+    QTimer::singleShot(0, this, [this] {
+        updateWebInspectorActivity(m_webInspectorPreloadRequested);
+    });
+}
+
+void LayoutPage::updateWebInspectorActivity(bool active)
+{
+#ifdef AI_MOBILE_TEST_STUDIO_HAS_WEBENGINE
+    auto *webView = qobject_cast<QWebEngineView *>(m_webInspector);
+    if (webView == nullptr) {
+        return;
+    }
+    QWebEnginePage *page = webView->page();
+    page->setLifecycleState(QWebEnginePage::LifecycleState::Active);
+    page->setVisible(true);
+    if (active) {
+        page->runJavaScript(QStringLiteral(
+            "requestAnimationFrame(()=>{void document.documentElement.offsetWidth;"
+            "window.dispatchEvent(new Event('resize'));})"));
+    }
+#else
+    Q_UNUSED(active)
+#endif
 }
 
 void LayoutPage::checkWebInspectorPreload()
