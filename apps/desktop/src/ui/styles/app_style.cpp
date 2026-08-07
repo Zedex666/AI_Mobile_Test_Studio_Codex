@@ -20,8 +20,7 @@ QString appStyleSheet()
             border-right: 1px solid #dfe7f3;
         }
         QScrollArea#SidebarNavigationScroll,
-        QWidget#SidebarNavigation,
-        QWidget#SidebarFooter {
+        QWidget#SidebarNavigation {
             background: #fbfdff;
             border: none;
         }
@@ -77,11 +76,6 @@ QString appStyleSheet()
         QPushButton#WorkspaceNavButton[active="true"] {
             background: #eaf2ff;
             color: #2f6df6;
-        }
-        QFrame#SideStatus {
-            background: #f6f9ff;
-            border: 1px solid #dfe7f3;
-            border-radius: 8px;
         }
         QFrame#Divider {
             background: #dfe7f3;
@@ -1563,7 +1557,7 @@ QString appStyleSheet()
             border: none;
             border-bottom: 1px solid rgba(60, 60, 67, 30);
         }
-        QFrame#Sidebar, QWidget#SidebarNavigation, QWidget#SidebarFooter {
+        QFrame#Sidebar, QWidget#SidebarNavigation {
             background: rgba(250, 250, 252, 224);
             border: none;
         }
@@ -1600,7 +1594,7 @@ QString appStyleSheet()
             border-color: rgba(0, 113, 227, 48);
             color: #0071e3;
         }
-        QFrame#SideStatus, QFrame#DeviceSelector {
+        QFrame#DeviceSelector {
             background: rgba(255, 255, 255, 190);
             border: 1px solid rgba(60, 60, 67, 24);
             border-radius: 12px;

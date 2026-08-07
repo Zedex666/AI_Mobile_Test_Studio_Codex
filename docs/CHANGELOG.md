@@ -33,9 +33,12 @@
 - 终端“+”新建菜单支持 OpenCode 与 ADB Shell，标签按类型命名，OpenCode 在无设备时仍可创建。
 - 新增 `node-pty` ConPTY 终端宿主和二进制帧协议，支持 OpenCode 输入、输出、resize、停止和错误回传。
 - 新增本地 xterm.js 6.0.0、FitAddon 0.11.0、Qt WebChannel 桥接、离线 CSP、复制粘贴和暗色终端主题；缺少 WebEngine 时保留基础显示降级。
-- 新增 `tools/runtime/runtime-lock.json`，锁定 Windows x64 OpenCode 1.18.5、Node.js 24.18.0 和 `node-pty` 1.1.0 的版本、官方来源、SHA-256 与许可证信息。
-- 新增 `stage-terminal-runtime.ps1`，在构建阶段下载、缓存、校验并原子 staging 终端运行时；应用启动阶段不联网下载依赖。
-- 新增构建产物 `runtime/manifest.json`，记录终端组件版本、相对路径、归档校验值和来源。
+- 新增 `tools/runtime/runtime-lock.json` schema 2，锁定 Windows x64 OpenCode 1.18.5、Node.js 24.18.0、npm 11.16.0、`node-pty` 1.1.0、Conda standalone 26.5.2、OpenJDK 8.0.502+7、Android command-line tools 8.0、platform-tools 37.0.1、Appium 3.5.2 和 UiAutomator2 driver 8.1.0 的版本、官方来源、SHA-256 与许可证信息。
+- 新增 `tools/runtime/appium/package.json` 和 `package-lock.json`，锁定 Appium、UiAutomator2 driver 及 npm 传递依赖，并由 runtime lock 固定 package lock 的 SHA-256。
+- 扩展 `stage-terminal-runtime.ps1`，在构建阶段下载、缓存、校验并原子 staging 当前完整 Windows x64 私有运行时，执行组件版本检查后生成 manifest；应用启动阶段不联网下载依赖或安装 driver。
+- 新增 schema 2 构建产物 `runtime/manifest.json`，记录锁文件哈希、npm lock 哈希、组件版本、相对路径、归档校验值、来源、许可证和版本检查结果。
+- 新增 `AppiumService`，启动时探测 `http://127.0.0.1:4723/status`，优先复用有效外部服务，否则通过随包 Node.js 启动随包 Appium，并注入私有 `PATH`、`JAVA_HOME`、`ANDROID_HOME`、`ANDROID_SDK_ROOT`、`APPIUM_HOME` 与 npm/Conda 缓存路径；退出时只停止自有进程。
+- 新增 `appium_reuses_existing_server`、`appium_missing_runtime` 和 `appium_bundled_runtime` 冒烟，分别覆盖外部服务复用、缺失运行时失败和随包 Appium 启动；与 `conpty_session_smoke`、`opencode_conpty_smoke` 合计 5 个 CTest 全部通过。
 - 新增 `opencode_conpty_smoke`，通过 Qt `ConPtySession`、随包 Node.js 和 `node-pty` 启动真实 `opencode.exe --version`；原有 `conpty_session_smoke` 继续覆盖输入、输出、resize 和退出。
 - 新增 ADB 持久终端工作区，支持 `shell,v2`、legacy 回退、多标签、输入输出、窗口尺寸同步、重置、复制粘贴和快捷命令。
 - 新增 `TerminalService`，直接通过 ADB server transport 管理独立设备 shell 会话，并在设备断开或切换时统一回收。
@@ -75,13 +78,15 @@
 
 ### Changed
 
-- 移除主工作区顶部设备与快捷操作栏，将设备选择和连接状态控件迁移到侧边栏底部；镜像启动与停止继续由 `Mirroring` 工作区提供。
+- 移除侧边栏底部重复的 ADB 状态卡，并将设备名称、连接状态和设备选择入口迁移到应用顶部标题栏的品牌区域右侧。
+- 移除主工作区顶部设备快捷操作栏；镜像启动与停止继续由 `Mirroring` 工作区提供。
 - “概览”主工作区参考 ADB-App Home 重建为设备标题、电池/RAM/存储指标、设备属性卡片和实时屏幕截图布局，并补充电源切换与 Shizuku 启动入口。
 - 侧边栏 `Files` 更名为“文件”；文件主工作区参考 ADB Explorer 重建双层资源管理器工具栏、设备驱动器主页、文件列表/网格和右侧详情面板，同时保留原有真实文件操作能力。
 - CMake 构建、安装和增量链接依赖新增 `resources/appium-inspector/`，构建后自动复制到应用旁的 `runtime/appium-inspector/`；完整 Inspector 推荐使用包含 WebEngineWidgets 的 MSVC Qt 套件。
 - 更新开发与便携运行时文档，补充 Appium Inspector 资源版本、MSVC WebEngine 构建方式、运行目录和浏览器版连接 Appium Server 所需的 `--allow-cors` 配置。
-- Windows 构建默认自动 staging 锁定的 OpenCode 终端运行时；仍支持同时使用 `AI_MOBILE_TEST_OPENCODE_EXECUTABLE`、`AI_MOBILE_TEST_NODE_EXECUTABLE` 和 `AI_MOBILE_TEST_NODE_PTY_MODULE` 覆盖，禁止只覆盖其中一部分造成版本混用。
-- Windows 主程序链接后默认执行 `windeployqt`，将当前 Debug/Release 配置对应的 Qt DLL、平台插件、MSVC runtime、`QtWebEngineProcess`、Chromium resources 和 locales 部署到可执行文件旁。
+- Windows 构建默认自动 staging 锁定的完整当前私有运行时并复制到可执行文件旁；仍支持同时使用 `AI_MOBILE_TEST_OPENCODE_EXECUTABLE`、`AI_MOBILE_TEST_NODE_EXECUTABLE` 和 `AI_MOBILE_TEST_NODE_PTY_MODULE` 覆盖 OpenCode 终端三组件，禁止只覆盖其中一部分造成版本混用。
+- Windows 主程序链接后默认通过 Qt 导入目标 `Qt6::windeployqt` 部署当前 Debug/Release 配置对应的 Qt DLL、平台插件、MSVC runtime、`QtWebEngineProcess`、Chromium resources 和 locales。
+- Android command-line tools 从需要 Java 17 的新版本调整为与随包 OpenJDK 8 兼容的 8.0；JDK、SDK tools、Appium 和 UiAutomator2 作为一组进行版本验证。
 - xterm.js、ConPTY 宿主脚本和应用元数据 JAR 现在作为链接依赖参与增量构建；资源变化会触发重新复制，不再继续使用构建目录中的旧静态文件。
 - 终端后端从页面内嵌 ADB 专用逻辑改为独立 ADB/OpenCode 会话实现；OpenCode 子进程由 `node-pty` 放入真实 Windows ConPTY，Qt `QProcess` 只承载宿主帧协议。
 - 首页侧栏入口由“对话”更名为“终端”，原静态聊天占位主工作区替换为真实 ADB 终端。
@@ -120,6 +125,7 @@
 - 修复 Qt Widgets 降级页中根 Remote Path 被拼接为 `//session`、删除已保存能力集时行定位不可靠，以及能力值编辑器初始化时重复插入控件的问题。
 - 修复完整 Qt WebEngine 部署后终端区域变成白屏的问题；本地页面导航校验不再混用 Qt 规范路径的正斜杠和 Windows 目录分隔符，CSP 允许 xterm.js 必需的动态样式，`terminal-web/index.html`、xterm.js 与 QWebChannel 可以正常加载和渲染。
 - 修复 Qt Creator 中可以启动、但从构建目录双击主程序会依次提示缺少 `Qt6Widgetsd.dll`、`Qt6WebChanneld.dll` 和 `Qt6WebEngineCored.dll` 等运行库的问题；Windows 构建现在链接后自动执行 `windeployqt`，同时部署 WebEngine 进程和资源。
+- 修复全新 CMake 配置依赖未定义 `QT_QMAKE_EXECUTABLE` 定位 `windeployqt`、导致 clean configure/build 失败的问题；现在直接使用 `Qt6::windeployqt` 导入目标，fresh build 与原有 `build-msvc-web` 均已通过。配置中的 `WrapVulkanHeaders` 和未设置 `VCINSTALLDIR` 提示确认为非致命警告。
 - 修复终端页始终显示 OpenCode 入口、但默认构建未复制 `opencode.exe`、Node.js 和 `node-pty`，导致新建 OpenCode 标签立即报“未找到可执行程序”的问题；Windows 构建现在使用锁定版本和 SHA-256 自动 staging 完整 ConPTY 运行时。
 - 修复性能工作区右侧存在大块空白、第四列 CPU 核心可能超出可视区域的问题。
 - 修复性能曲线每次采样才跳动一次的问题，时间网格和曲线现在会在两次采样之间平滑连续移动。

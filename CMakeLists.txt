@@ -10,12 +10,12 @@ set(AI_MOBILE_TEST_NODE_EXECUTABLE "" CACHE FILEPATH
 set(AI_MOBILE_TEST_NODE_PTY_MODULE "" CACHE PATH
     "Absolute path to a node-pty package staged for terminal hosting")
 option(AI_MOBILE_TEST_STAGE_TERMINAL_RUNTIME
-    "Download and verify the locked OpenCode terminal runtime during Windows builds" ON)
+    "Download and verify the isolated portable runtime during Windows builds" ON)
 option(AI_MOBILE_TEST_DEPLOY_QT_RUNTIME
     "Deploy Qt DLLs, plugins, and WebEngine resources beside Windows build outputs" ON)
 set(AI_MOBILE_TEST_RUNTIME_STAGE_ROOT
     "${CMAKE_BINARY_DIR}/runtime-stage/windows-x64" CACHE PATH
-    "Build-local staging directory for the locked Windows terminal runtime")
+    "Build-local staging directory for the locked Windows portable runtime")
 set(AI_MOBILE_TEST_RUNTIME_CACHE_ROOT
     "${CMAKE_BINARY_DIR}/runtime-cache" CACHE PATH
     "Download cache for locked runtime archives")
@@ -45,34 +45,45 @@ set(AI_MOBILE_TEST_NODE_RUNTIME_EXECUTABLE
 set(AI_MOBILE_TEST_NODE_PTY_RUNTIME_MODULE
     "${AI_MOBILE_TEST_NODE_PTY_MODULE}")
 set(AI_MOBILE_TEST_TERMINAL_RUNTIME_MANIFEST "")
+set(AI_MOBILE_TEST_PORTABLE_RUNTIME_ROOT "")
 set(AI_MOBILE_TEST_TERMINAL_RUNTIME_GENERATED FALSE)
 
-if(WIN32 AND AI_MOBILE_TEST_STAGE_TERMINAL_RUNTIME
-   AND _terminal_runtime_override_count EQUAL 0)
+if(WIN32 AND AI_MOBILE_TEST_STAGE_TERMINAL_RUNTIME)
     find_program(AI_MOBILE_TEST_POWERSHELL_EXECUTABLE
         NAMES pwsh powershell REQUIRED)
     file(READ "${CMAKE_SOURCE_DIR}/tools/runtime/runtime-lock.json"
         _terminal_runtime_lock_json)
     string(JSON AI_MOBILE_TEST_OPENCODE_RUNTIME_VERSION
         GET "${_terminal_runtime_lock_json}" components 0 version)
-    set(AI_MOBILE_TEST_OPENCODE_RUNTIME_EXECUTABLE
-        "${AI_MOBILE_TEST_RUNTIME_STAGE_ROOT}/opencode/opencode.exe")
-    set(AI_MOBILE_TEST_NODE_RUNTIME_EXECUTABLE
-        "${AI_MOBILE_TEST_RUNTIME_STAGE_ROOT}/node/node.exe")
-    set(AI_MOBILE_TEST_NODE_PTY_RUNTIME_MODULE
-        "${AI_MOBILE_TEST_RUNTIME_STAGE_ROOT}/node/node_modules/node-pty")
+    if(_terminal_runtime_override_count EQUAL 0)
+        set(AI_MOBILE_TEST_OPENCODE_RUNTIME_EXECUTABLE
+            "${AI_MOBILE_TEST_RUNTIME_STAGE_ROOT}/opencode/opencode.exe")
+        set(AI_MOBILE_TEST_NODE_RUNTIME_EXECUTABLE
+            "${AI_MOBILE_TEST_RUNTIME_STAGE_ROOT}/node/node.exe")
+        set(AI_MOBILE_TEST_NODE_PTY_RUNTIME_MODULE
+            "${AI_MOBILE_TEST_RUNTIME_STAGE_ROOT}/node/node_modules/node-pty")
+    endif()
     set(_terminal_runtime_manifest
         "${AI_MOBILE_TEST_RUNTIME_STAGE_ROOT}/manifest.json")
     set(_terminal_runtime_stamp
         "${AI_MOBILE_TEST_RUNTIME_STAGE_ROOT}/.complete")
+    set(AI_MOBILE_TEST_PORTABLE_RUNTIME_ROOT
+        "${AI_MOBILE_TEST_RUNTIME_STAGE_ROOT}")
     set(AI_MOBILE_TEST_TERMINAL_RUNTIME_MANIFEST
         "${_terminal_runtime_manifest}")
     add_custom_command(
         OUTPUT "${_terminal_runtime_stamp}"
         BYPRODUCTS
-            "${AI_MOBILE_TEST_OPENCODE_RUNTIME_EXECUTABLE}"
-            "${AI_MOBILE_TEST_NODE_RUNTIME_EXECUTABLE}"
-            "${AI_MOBILE_TEST_NODE_PTY_RUNTIME_MODULE}/package.json"
+            "${AI_MOBILE_TEST_RUNTIME_STAGE_ROOT}/opencode/opencode.exe"
+            "${AI_MOBILE_TEST_RUNTIME_STAGE_ROOT}/node/node.exe"
+            "${AI_MOBILE_TEST_RUNTIME_STAGE_ROOT}/node/node_modules/node-pty/package.json"
+            "${AI_MOBILE_TEST_RUNTIME_STAGE_ROOT}/node/npm.cmd"
+            "${AI_MOBILE_TEST_RUNTIME_STAGE_ROOT}/conda/conda.exe"
+            "${AI_MOBILE_TEST_RUNTIME_STAGE_ROOT}/jdk/bin/java.exe"
+            "${AI_MOBILE_TEST_RUNTIME_STAGE_ROOT}/android-sdk/platform-tools/adb.exe"
+            "${AI_MOBILE_TEST_RUNTIME_STAGE_ROOT}/android-sdk/cmdline-tools/latest/bin/sdkmanager.bat"
+            "${AI_MOBILE_TEST_RUNTIME_STAGE_ROOT}/appium/node_modules/appium/index.js"
+            "${AI_MOBILE_TEST_RUNTIME_STAGE_ROOT}/appium/node_modules/appium-uiautomator2-driver/package.json"
             "${_terminal_runtime_manifest}"
         COMMAND "${AI_MOBILE_TEST_POWERSHELL_EXECUTABLE}"
             -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass
@@ -82,7 +93,9 @@ if(WIN32 AND AI_MOBILE_TEST_STAGE_TERMINAL_RUNTIME
         DEPENDS
             "${CMAKE_SOURCE_DIR}/tools/runtime/stage-terminal-runtime.ps1"
             "${CMAKE_SOURCE_DIR}/tools/runtime/runtime-lock.json"
-        COMMENT "Staging locked OpenCode terminal runtime"
+            "${CMAKE_SOURCE_DIR}/tools/runtime/appium/package.json"
+            "${CMAKE_SOURCE_DIR}/tools/runtime/appium/package-lock.json"
+        COMMENT "Staging locked isolated portable runtime"
         VERBATIM
     )
     add_custom_target(ai_mobile_test_stage_terminal_runtime

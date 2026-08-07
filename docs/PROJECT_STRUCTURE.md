@@ -21,6 +21,7 @@ AI_Mobile_Test_Studio_Codex/
         services/
           adb_control_service.*
           adb_shell_session.*
+          appium_service.*
           apps_service.*
           file_manager_service.*
           package_manager_service.*
@@ -76,12 +77,15 @@ AI_Mobile_Test_Studio_Codex/
   plugins/                      # 早期空目录，非目标模块，可清理
   skills/                       # 早期空目录，非目标模块，可清理
   tests/
-    cpp/                        # ConPTY 输入/输出/resize/退出冒烟
+    cpp/                        # ConPTY、OpenCode 和 Appium 服务冒烟
   tools/
     android-app-metadata/
     runtime/
-      runtime-lock.json         # Windows 终端运行时版本、来源和 SHA-256
-      stage-terminal-runtime.ps1
+      runtime-lock.json         # Windows x64 私有运行时版本、来源、SHA-256 和许可证
+      stage-terminal-runtime.ps1 # 完整当前运行时下载、校验、原子 staging 和 manifest 生成
+      appium/
+        package.json
+        package-lock.json       # Appium 与 UiAutomator2 传递依赖锁
   docs/
 ```
 
@@ -108,9 +112,36 @@ flowchart LR
 5. Android KEYCODE 事实集中在 `core/device_command_catalog.*`。
 6. 第三方二进制不提交到普通源码目录。
 
-## 4. 目标新增结构
+## 4. 当前运行时输出与目标新增结构
 
-以下目录在对应里程碑实施时创建：
+Windows 构建当前会生成并复制以下运行时主体到可执行文件旁；二进制和 npm 依赖不提交 Git：
+
+```text
+runtime/
+  manifest.json                # schema 2
+  android/
+    app_metadata.jar
+  android-sdk/
+    cmdline-tools/latest/
+    platform-tools/
+  appium/node_modules/
+    appium/
+    appium-uiautomator2-driver/
+  appium-inspector/
+  conda/
+  fonts/
+  images/icons/
+  jdk/
+  node/
+    node.exe
+    npm.cmd
+    node_modules/node-pty/
+  opencode/
+  terminal-host/
+  terminal-web/
+```
+
+以下通用运行时管理、Python、打包和许可证目录仍在后续里程碑实施：
 
 ```text
 apps/desktop/src/
@@ -134,7 +165,6 @@ apps/desktop/src/
 
 tools/
   runtime/
-    runtime-lock.json
     fetch-runtime.ps1
     verify-runtime.ps1
     stage-runtime.ps1
@@ -144,16 +174,8 @@ tools/
     smoke-test-clean-windows.ps1
 
 runtime/
-  manifest.json
-  windows-x64/
-    android/
-    scrcpy/
-    opencode/
-    python/
-    node/
-    jdk/
-    appium/
-    terminal-web/
+  scrcpy/
+  python/
 
 licenses/
   THIRD_PARTY_NOTICES.md
@@ -199,13 +221,14 @@ flowchart LR
 | 应用入口 | `apps/desktop/src/app/` |
 | 桌面业务事实和目录 | `apps/desktop/src/core/` |
 | 当前设备/文件/应用服务 | `apps/desktop/src/services/` |
-| 运行时发现和进程监督 | `apps/desktop/src/runtime/`（规划） |
+| Appium 运行时定位和进程监督 | `apps/desktop/src/services/appium_service.*`（已实现） |
+| 通用运行时发现和进程监督 | `apps/desktop/src/runtime/`（规划） |
 | 终端会话后端 | `apps/desktop/src/terminal/`（规划） |
 | 主工作区页面 | `apps/desktop/src/ui/pages/` |
 | 复用控件和 xterm 宿主 | `apps/desktop/src/ui/widgets/` |
 | 应用级样式 | `apps/desktop/src/ui/styles/` |
 | 跨进程 JSON Schema | `packages/contracts/schemas/` |
-| 可复现运行时装配脚本 | `tools/runtime/`（终端 runtime 已实现，其余规划中） |
+| 可复现运行时装配脚本 | `tools/runtime/`（当前 Windows x64 私有 runtime 已实现，Python/scrcpy 与 notices 仍规划中） |
 | 发布打包脚本 | `tools/package/`（规划） |
 | 随包第三方许可证 | `licenses/`（规划） |
 | 用户任务产物 | workspace，不进入安装目录和 Git |

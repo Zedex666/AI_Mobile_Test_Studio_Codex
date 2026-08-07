@@ -11,6 +11,9 @@ struct HeaderSection {
     QWidget *widget = nullptr;
     QPushButton *deviceCenterButton = nullptr;
     QPushButton *settingsButton = nullptr;
+    QLabel *deviceNameLabel = nullptr;
+    QLabel *deviceStatusDot = nullptr;
+    QLabel *deviceStatusLabel = nullptr;
 };
 
 struct SidebarSection {
@@ -30,12 +33,6 @@ struct SidebarSection {
     QPushButton *logcatButton = nullptr;
     QPushButton *otherButton = nullptr;
     QPushButton *settingsButton = nullptr;
-    QLabel *statusDot = nullptr;
-    QLabel *statusTitle = nullptr;
-    QLabel *statusDetail = nullptr;
-    QLabel *deviceNameLabel = nullptr;
-    QLabel *deviceStatusDot = nullptr;
-    QLabel *deviceStatusLabel = nullptr;
 };
 
 HeaderSection createHeader();

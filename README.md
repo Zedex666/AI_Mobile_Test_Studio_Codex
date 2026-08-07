@@ -7,13 +7,14 @@ AI Mobile Test Studio 是一个面向 Android 设备调试与 AI 自动化测试
 - 发现和监控 Android 设备，管理 scrcpy 主屏幕、虚拟屏幕与摄像头镜像。
 - 通过 ADB `shell,v2` 和 legacy 回退提供持久、多标签设备终端。
 - 通过随包 OpenCode、Node.js、`node-pty` 和 Windows ConPTY 运行 OpenCode TUI。
+- 随包提供 npm、Conda、OpenJDK 8、Android SDK、Appium Server 和 UiAutomator2 driver；启动时复用默认端口上已有的 Appium，否则运行隔离的随包服务。
 - 使用本地 xterm.js、Qt WebEngine 和 QWebChannel 渲染终端，支持输入输出、resize、复制粘贴、背压和后台预热。
 - 提供设备控制、软件包、应用、文件、Recovery sideload、性能、进程、日志和其它 ADB 工具工作区。
 - 批量读取真实应用名称和 PNG 图标，并在进程列表复用应用图标。
 - 嵌入随包 Appium Inspector 2026.5.1 浏览器前端作为“布局”工作区。
 - 支持中英文即时切换、动态效果偏好，以及随包霞鹜文楷和 JetBrains Mono 字体。
 
-Python 自动化服务、Appium Server/Runner、OpenCode Server/SDK、Agent 编排、报告回填和完整安装包仍在规划或建设中，不能视为已完成能力。
+Python 自动化服务、Appium Runner、OpenCode Server/SDK、Agent 编排、报告回填和完整安装包仍在规划或建设中，不能视为已完成能力。
 
 ## 启动与缓存
 
@@ -27,6 +28,7 @@ Python 自动化服务、Appium Server/Runner、OpenCode Server/SDK、Agent 编�
 Qt Widgets pages
     -> desktop services
         -> adb child processes / ADB shell socket / scrcpy
+        -> AppiumService -> existing Appium or bundled Node.js/Appium
         -> TerminalService -> AdbShellSession
                            -> ConPtySession -> node-pty -> OpenCode
     -> Qt WebEngine
@@ -44,7 +46,7 @@ Qt Widgets pages
 - 与 Qt 套件匹配的 MSVC 或 MinGW C++17 工具链。
 - Android 真机、USB 调试授权，以及对应设备需要的 OEM 驱动。
 
-Windows 构建默认依据 `tools/runtime/runtime-lock.json` 下载、校验并暂存锁定的 OpenCode 终端运行时。构建过程可联网，应用运行过程不会下载这些工程依赖。
+Windows 构建默认依据 `tools/runtime/runtime-lock.json` 和 npm package lock 下载、校验并暂存隔离的便携运行时，包括 OpenCode、Node.js/npm、Conda、JDK 8、Android SDK 和 Appium。构建过程可联网，应用运行过程不会下载或安装这些工程依赖，也不会修改用户电脑上的同名工具和永久环境变量。
 
 ## 构建
 
@@ -62,7 +64,7 @@ Debug 可执行文件通常位于：
 build-msvc-web/Debug/AI_Mobile_Test_Studio_Codex.exe
 ```
 
-Windows 构建默认在链接后运行 `windeployqt`，并复制 xterm.js、Appium Inspector、字体、应用元数据提取器和已配置的终端运行时。仅需编译且不需要可直接启动目录时，可设置 `-DAI_MOBILE_TEST_DEPLOY_QT_RUNTIME=OFF`；有意跳过 OpenCode runtime staging 时，可设置 `-DAI_MOBILE_TEST_STAGE_TERMINAL_RUNTIME=OFF`。
+Windows 构建默认在链接后运行 `windeployqt`，并复制 xterm.js、Appium Inspector、字体、应用元数据提取器和已配置的便携运行时。仅需编译且不需要可直接启动目录时，可设置 `-DAI_MOBILE_TEST_DEPLOY_QT_RUNTIME=OFF`；有意跳过便携 runtime staging 时，可设置 `-DAI_MOBILE_TEST_STAGE_TERMINAL_RUNTIME=OFF`。
 
 ## 测试
 
@@ -70,7 +72,7 @@ Windows 构建默认在链接后运行 `windeployqt`，并复制 xterm.js、Appi
 ctest --test-dir build-msvc-web -C Debug --output-on-failure
 ```
 
-ConPTY 冒烟测试只有在构建配置提供 Node.js 和 ABI 匹配的 `node-pty` 后才会注册。设备相关能力还需要真机检查，包括授权、终端 UTF-8/中文输入、应用图标、进程、文件操作、断开重连和设备切换。
+测试包含 Appium 已有服务复用、运行时缺失和随包服务启动三种场景。ConPTY 冒烟测试只有在构建配置提供 Node.js 和 ABI 匹配的 `node-pty` 后才会注册。设备相关能力还需要真机检查，包括授权、终端 UTF-8/中文输入、应用图标、进程、文件操作、断开重连和设备切换。
 
 ## 仓库入口
 

@@ -2,7 +2,7 @@
 
 ## 1. 开发基线
 
-当前可运行产品是 Qt 6/C++17 桌面应用。ADB/OpenCode 统一终端、`node-pty` ConPTY 宿主、xterm.js/WebChannel 资源和 Appium Inspector 2026.5.1 浏览器前端已经接入；Python 服务、随包 Appium Server/driver、OpenCode Server/SDK 和完整便携运行时仍属于后续里程碑。
+当前可运行产品是 Qt 6/C++17 桌面应用。ADB/OpenCode 统一终端、`node-pty` ConPTY 宿主、xterm.js/WebChannel、Appium Inspector 2026.5.1、锁定的 Windows x64 便携运行时和 `AppiumService` 已经接入。Python Automation Service、测试 Runner、OpenCode Server/SDK、Python/scrcpy 统一装配和正式发布制品仍属于后续里程碑。
 
 开发原则：
 
@@ -20,9 +20,20 @@
 - 完整终端和“布局”工作区还需要 WebChannel、WebEngineWidgets 及 WebEngine 的传递依赖（Qt 6.8.3 当前包括 Qt Positioning）；缺少时自动使用 Qt Widgets 基础显示降级。
 - 支持 C++17 的 MinGW 或 MSVC 工具链。
 - Android 真机和 USB 调试，用于设备能力验证。
-- Windows 开发构建默认从锁文件 staging OpenCode、Node.js 和 `node-pty`；也可显式配置三个本地路径。正式包必须使用随包 runtime。
+- Windows 开发构建默认从锁文件 staging OpenCode、Node.js/npm、`node-pty`、Conda standalone、OpenJDK 8、Android command-line/platform-tools、Appium 和 UiAutomator2 driver；OpenCode 终端三组件也可显式配置本地路径。正式包必须使用随包 runtime。
 
-Node.js 和 ABI 匹配的 `node-pty` 是 OpenCode ConPTY 宿主的运行时组成部分，必须随正式制品装配；不能要求最终用户自行安装。xterm.js 静态资源已提交，不在应用启动时运行 npm。
+Node.js 和 ABI 匹配的 `node-pty` 是 OpenCode ConPTY 宿主的运行时组成部分；同一 Node.js 还负责启动随包 Appium。所有组件必须随正式制品装配，不能要求最终用户自行安装。xterm.js 静态资源已提交，Appium npm 依赖由 `tools/runtime/appium/package-lock.json` 锁定；应用启动时不运行 npm 或联网安装 driver。
+
+当前 `tools/runtime/runtime-lock.json` 锁定：
+
+| 组件 | 版本 |
+| --- | --- |
+| OpenCode | 1.18.5 |
+| Node.js / npm / `node-pty` | 24.18.0 / 11.16.0 / 1.1.0 |
+| Conda standalone | 26.5.2 |
+| OpenJDK | 8.0.502+7 |
+| Android command-line tools / platform-tools | 8.0 / 37.0.1 |
+| Appium / UiAutomator2 driver | 3.5.2 / 8.1.0 |
 
 ## 3. 构建
 
@@ -34,7 +45,9 @@ cmake -S . -B build-mingw -G Ninja `
 cmake --build build-mingw --parallel
 ```
 
-Windows 首次构建默认读取 `tools/runtime/runtime-lock.json`，下载到构建目录缓存，校验 SHA-256 后 staging 终端运行时；应用启动时不会联网下载。需要完全离线构建时，可同时提供三个本地路径覆盖：
+Windows 首次构建默认读取 `tools/runtime/runtime-lock.json` 和 `tools/runtime/appium/package-lock.json`，下载到构建目录缓存，校验 SHA-256 后原子 staging 完整的当前 Windows x64 私有运行时；脚本还会执行组件版本校验并生成 schema 2 `runtime/manifest.json`。应用启动时不会联网下载。
+
+以下三个参数只覆盖 OpenCode 终端链路，必须同时提供；Conda、JDK、Android SDK 和 Appium 仍由锁文件 staging：
 
 ```powershell
 cmake -S . -B build-terminal -G Ninja `
@@ -44,7 +57,7 @@ cmake -S . -B build-terminal -G Ninja `
   -DAI_MOBILE_TEST_NODE_PTY_MODULE="<runtime>/node_modules/node-pty"
 ```
 
-三个覆盖参数必须同时配置，避免 OpenCode、Node.js 和原生模块版本混用。要有意构建不含 OpenCode runtime 的变体，可设置 `-DAI_MOBILE_TEST_STAGE_TERMINAL_RUNTIME=OFF`。
+三个覆盖参数必须同时配置，避免 OpenCode、Node.js 和原生模块版本混用。要有意构建不含当前便携 runtime 的变体，可设置 `-DAI_MOBILE_TEST_STAGE_TERMINAL_RUNTIME=OFF`；该选项名称保留了早期“terminal runtime”命名，但目前控制的是整套已锁定运行时。
 
 也可在开发启动时用 `AI_MOBILE_TEST_OPENCODE_PATH`、`AI_MOBILE_TEST_WORKSPACE`、`AI_MOBILE_TEST_NODE_PATH` 和 `AI_MOBILE_TEST_NODE_PTY_PATH` 覆盖；这些覆盖必须是明确的绝对路径。
 
@@ -60,19 +73,23 @@ cmake --build build-msvc-web --config Debug --parallel
 
 当前可执行文件位于构建目录根部。Windows 构建默认在链接后运行 `windeployqt`，把当前配置对应的 Qt DLL、插件和 WebEngine 资源部署到可执行文件旁，因此可以从资源管理器直接双击运行。仅需编译、不需要可直接启动目录的特殊构建可设置 `-DAI_MOBILE_TEST_DEPLOY_QT_RUNTIME=OFF`。
 
+CMake 通过 Qt 提供的导入目标 `Qt6::windeployqt` 定位部署工具。不得恢复对未定义 `QT_QMAKE_EXECUTABLE` 的路径推导，否则全新配置目录会在生成阶段失败。配置日志中的 `WrapVulkanHeaders` 和未设置 `VCINSTALLDIR` 提示在当前已验证构建中属于非致命警告。
+
 UI PNG 图标位于 `resources/images/icons/`。链接完成后 CMake 会将整个目录复制到可执行文件旁的 `runtime/images/icons/`；如果界面退回字符图标或出现空图标，先确认启动的是最新构建，并检查该运行时目录是否完整包含图标文件。
 
-## 4. Appium Inspector
+## 4. Appium 运行时与 Inspector
 
 侧边栏“布局”工作区优先加载随包的 Appium Inspector 2026.5.1 官方浏览器构建，源资源位于 `resources/appium-inspector/`，构建后复制到 `runtime/appium-inspector/`。该页面直接提供 Session Builder、云提供商配置、能力集、Attach to Session、Source、Commands、Gestures、Recorder 和 Session Information。
 
-浏览器版 Inspector 连接 Appium Server 时受浏览器跨域策略约束。开发环境应允许 Inspector 来源访问，例如：
+应用启动时会创建 `AppiumService` 并异步调用 `ensureStarted()`。服务先探测 `http://127.0.0.1:4723/status`：有效时复用现有 Appium 且不取得其所有权；不可用时检查随包 Node.js、Appium、UiAutomator2、JDK 和 Android SDK，随后启动随包 Appium。子进程使用私有 `PATH`、`JAVA_HOME`、`ANDROID_HOME`、`ANDROID_SDK_ROOT` 和 `APPIUM_HOME`，driver metadata、npm 缓存和 Conda 缓存写入 `QStandardPaths::AppLocalDataLocation`。应用退出时只停止自己启动的 Appium。
+
+浏览器版 Inspector 直接连接开发者手工启动的外部 Appium Server 时可能受跨域策略约束。外部服务应允许 Inspector 来源访问，例如：
 
 ```powershell
 appium --allow-cors
 ```
 
-Appium Server 和 UiAutomator2 driver 当前仍由开发机或远端环境提供，不在本仓库运行时中自动安装。
+随包运行时使用 Appium 3.5.2 和 UiAutomator2 driver 8.1.0。Android command-line tools 固定为 8.0，因为该版本可与随包 JDK 8 共同工作；command-line tools 22 需要 Java 17，不能在当前 JDK 8 基线中直接替换。任何升级都必须成组验证 JDK、SDK tools、Appium 和 driver。
 
 ## 5. 当前真机运行
 
@@ -133,7 +150,7 @@ xterm.js/ConPTY 开发以 [TERMINAL_ARCHITECTURE.md](TERMINAL_ARCHITECTURE.md) �
 
 ## 9. 运行时组件更新
 
-正式 runtime 装配实现后，更新第三方组件必须：
+更新当前已实现的 runtime 组件必须：
 
 1. 修改 `tools/runtime/runtime-lock.json`。
 2. 只使用官方来源。
@@ -143,6 +160,8 @@ xterm.js/ConPTY 开发以 [TERMINAL_ARCHITECTURE.md](TERMINAL_ARCHITECTURE.md) �
 6. 生成 notices。
 7. 执行组件级和干净机回归。
 8. 在 `CHANGELOG.md` 记录版本变化。
+
+Appium 或 driver 版本变化还必须更新 `tools/runtime/appium/package.json` 与 `package-lock.json`，并同步更新 `runtime-lock.json` 中的 npm lock SHA-256。staging 脚本会拒绝 lock hash 不一致的输入。
 
 禁止在应用启动时自动执行包管理器安装、npm install、pip install 或在线升级工具。
 
@@ -182,13 +201,15 @@ pytest tests\python
 
 不可自动化的真机步骤必须写成可重复的验收清单。
 
+当前 CTest 已覆盖 5 个自动化冒烟并全部通过：`conpty_session_smoke`、`opencode_conpty_smoke`、`appium_reuses_existing_server`、`appium_missing_runtime` 和 `appium_bundled_runtime`。Appium 三项分别验证外部服务复用、缺失运行时失败以及随包服务启动。修改 Appium 启动参数、环境或 runtime 目录时必须重跑这三项。
+
 启动预取的真机验收还应覆盖：应用和进程页首次进入已有数据、`/` 与 `/sdcard` 首次进入命中缓存、手动刷新重新访问设备、文件变更后目录回读，以及断开重连/切换设备时缓存不串设备。
 
 ## 13. 打包开发
 
-目标流程见 [PORTABLE_RUNTIME.md](PORTABLE_RUNTIME.md)。关键要求：
+当前装配基础与目标发布流程见 [PORTABLE_RUNTIME.md](PORTABLE_RUNTIME.md)。关键要求：
 
-- CMake install 只负责项目产物组合；第三方 runtime 由可复现脚本 staging。
+- 当前 CMake 构建和 install 会把完整 staged runtime 复制到可执行文件旁；第三方 runtime 由可复现脚本 staging。
 - Qt 使用官方部署工具，WebEngine 资源不能漏包。
 - 安装包和 portable ZIP 使用同一 runtime manifest。
 - 打包脚本失败即停止，不允许生成缺组件但表面成功的制品。

@@ -1,6 +1,6 @@
 # 文档导航
 
-本目录是 AI Mobile Test Studio 的工程事实和目标设计入口。文档基线日期为 2026-08-02。
+本目录是 AI Mobile Test Studio 的工程事实和目标设计入口。文档基线日期为 2026-08-08。
 
 ## 状态约定
 
@@ -23,16 +23,18 @@
 - Android 应用名称与图标元数据提取器。
 - Apple 风格桌面界面、设置页、中英文即时切换，以及中文霞鹜文楷和英文 JetBrains Mono 本地字体。
 - 随包 Appium Inspector 2026.5.1 工作区，并支持语言对应字体、文件下载和外部链接。
+- Windows x64 构建期便携运行时，锁定并 staging OpenCode、Node.js/npm、`node-pty`、Conda standalone、OpenJDK 8、Android command-line/platform-tools、Appium 和 UiAutomator2 driver；版本、来源、SHA-256 与许可证记录进入锁文件和 schema 2 manifest。
+- `AppiumService` 启动时探测 `127.0.0.1:4723/status`，优先复用已有有效服务，否则使用随包 Node.js 和私有环境启动随包 Appium；应用退出时只停止自己拥有的进程。
 - 文件工作区设备主页，以及可直接进入 `/` 和 `/sdcard` 的驱动器入口。
 - 启动阶段预热 Appium Inspector、默认 OpenCode 会话和已连接设备的应用/进程/常用目录；设备快照按序列号保存在本次运行内存中。
 - 应用窗口、任务栏、应用内标题栏、侧边栏以及概览、显示、镜像、设备控制、软件包管理器、文件、恢复和其它工作区统一使用 `resources/images/icons/` 下的随包 PNG 图标。
 
 尚未实现完整产品闭环的部分：
 
-- Python 自动化服务、Appium Server 和测试 Runner。
+- Python 自动化服务、测试 Runner、Appium Session 编排和自动化证据闭环。
 - OpenCode TUI 的多输入法、鼠标、备用屏幕和高输出发布级兼容性矩阵，以及干净机端到端验收。
 - OpenCode Server/SDK 和 Agent 编排。
-- 完整便携运行时装配、安装包、自检、修复和第三方许可证产物。
+- Python、scrcpy 与现有 ADB/scrcpy 服务的统一运行时接入，以及安装包、自检、修复和完整第三方许可证产物。
 
 项目不实现独立插件系统或 Skill 运行器。AI 扩展统一使用 OpenCode 自带的 plugins、skills、agents 和 tools 机制，宿主只负责运行时装配、进程隔离、Server/SDK 接入和权限展示。
 

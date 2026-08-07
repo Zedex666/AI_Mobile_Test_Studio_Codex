@@ -2,7 +2,7 @@
 
 ## 1. 文档范围
 
-本文同时描述当前可运行架构和目标产品架构。OpenCode TUI 会话接入已进入进行中阶段；规划中的 Python、Appium、OpenCode Server/SDK 能力不会被描述为已经完成。
+本文同时描述当前可运行架构和目标产品架构。OpenCode TUI 会话、便携 Appium 运行时与 Appium Server 进程管理已经落地；Python Automation Service、测试 Runner、Appium Session 编排和 OpenCode Server/SDK 仍属于规划能力。
 
 ## 2. 架构原则
 
@@ -25,6 +25,10 @@ flowchart TB
     Services --> AdbSocket["ADB shell,v2 socket"]
     Services --> Scrcpy["scrcpy process"]
     Services --> Metadata["app_metadata.jar"]
+    Services --> AppiumService["AppiumService"]
+    AppiumService --> ExistingAppium["Existing Appium on 127.0.0.1:4723"]
+    AppiumService --> BundledAppium["Bundled Node.js + Appium"]
+    BundledAppium --> BundledSdk["Bundled JDK + Android SDK + UiAutomator2"]
     AdbProcess --> Device["Android Device"]
     AdbSocket --> Device
     Scrcpy --> Device
@@ -47,6 +51,7 @@ flowchart TB
 | `OtherService` | 自定义 Shell 与系统设置工具命令的异步执行和结果回传 |
 | `TerminalService` | 统一管理 ADB shell 与 OpenCode 会话，设备切换只回收 ADB 会话 |
 | `ConPtySession` | 通过随包 Node.js/`node-pty` 宿主创建 OpenCode ConPTY |
+| `AppiumService` | 探测默认 Appium 状态端点，复用有效外部服务或使用随包 Node.js、JDK、Android SDK 和 UiAutomator2 启动私有 Appium；只回收自己拥有的进程 |
 
 当前 Python `services/automation/`、contracts 和 tests 主要是目录骨架，尚未形成运行进程。仓库中的 `plugins/`、`skills/` 是早期空目录，不属于目标架构，后续可以清理。
 
@@ -81,20 +86,20 @@ flowchart TB
     Scrcpy --> PrivateAdb
 ```
 
-## 5. 目标进程模型
+## 5. 当前与目标进程模型
 
-| 进程 | 所有者 | 说明 |
+| 进程 | 当前/目标所有者 | 状态与说明 |
 | --- | --- | --- |
-| Qt 主进程 | 桌面端 | 页面、状态、轻量协议和子进程监督入口 |
-| Qt WebEngine 进程 | Qt 部署 | xterm.js 显示；仅加载随包本地资源 |
-| 私有 ADB server | Runtime Manager | 使用应用端口，不终止系统默认 server |
-| scrcpy | Runtime Manager | 镜像窗口或未来视频流 |
-| Node terminal host | `ConPtySession` | 帧协议、`node-pty` 与 ConPTY 生命周期 |
-| OpenCode TUI | node-pty / ConPTY | 面向用户的完整 AI 终端交互 |
-| OpenCode Server | Runtime Manager | OpenAPI/SDK、会话、权限和结构化事件 |
-| Python Automation Service | Runtime Manager | 本地 API、Agent 编排、附件和报告 |
-| Appium Server | Automation Service | Android 自动化会话 |
-| Python Test Runner | Automation Service | 隔离执行测试脚本和采集产物 |
+| Qt 主进程 | 桌面端 | 已实现：页面、状态、轻量协议和子进程监督入口 |
+| Qt WebEngine 进程 | Qt 部署 | 已实现：xterm.js 与 Appium Inspector；仅加载随包本地资源 |
+| 私有 ADB server | Runtime Manager | 规划：使用应用端口，不终止系统默认 server |
+| scrcpy | 当前 `ScrcpyService`，目标 Runtime Manager | 已实现进程管理，统一运行时定位仍待完成 |
+| Node terminal host | `ConPtySession` | 已实现：帧协议、`node-pty` 与 ConPTY 生命周期 |
+| OpenCode TUI | node-pty / ConPTY | 已实现基础链路：面向用户的 AI 终端交互 |
+| OpenCode Server | Runtime Manager | 规划：OpenAPI/SDK、会话、权限和结构化事件 |
+| Python Automation Service | Runtime Manager | 规划：本地 API、Agent 编排、附件和报告 |
+| Appium Server | 当前 `AppiumService`，目标由 Automation Service 使用 | 已实现启动、复用、健康探测和所有权回收；Session 与 Runner 编排仍待完成 |
+| Python Test Runner | Automation Service | 规划：隔离执行测试脚本和采集产物 |
 
 Qt 主进程退出时，Runtime Manager 必须按所有权只回收本应用启动的进程。
 
@@ -112,7 +117,7 @@ Qt 主进程退出时，Runtime Manager 必须按所有权只回收本应用启�
 
 ### 6.2 Desktop Services
 
-当前负责具体 ADB 和 scrcpy 操作。后续应进一步抽取：
+当前负责具体 ADB、scrcpy、终端和 Appium 进程操作。`AppiumService` 已负责默认端点探测、随包服务启动、私有子进程环境和所有权回收。后续应进一步抽取：
 
 - `RuntimeLocator`：按 manifest 解析组件绝对路径。
 - `RuntimeManager`：端口、环境、自检和进程生命周期。
@@ -189,7 +194,18 @@ sequenceDiagram
 
 桌面 UI 图标统一保存在 `resources/images/icons/`，由 CMake 在链接和安装阶段复制到可执行文件旁的 `runtime/images/icons/`。界面通过 `ui::imageResourcePath()`、`ui::imageIcon()` 和 `ui::imagePixmap()` 按相对路径加载，不依赖开发机绝对路径或字符字体图标。
 
-### 7.3 目标 AI 自动化
+### 7.3 当前 Appium 服务启动
+
+应用启动时创建并调用 `AppiumService::ensureStarted()`：
+
+1. 最多三次探测 `http://127.0.0.1:4723/status`，只接受有效 WebDriver JSON 状态响应。
+2. 已有服务有效时进入复用状态，不创建进程，也不在退出时停止该服务。
+3. 无可用服务时校验随包 Node.js、Appium、UiAutomator2、JDK 和 Android platform-tools 文件，随后使用随包 Node.js 启动 Appium。
+4. 子进程环境覆盖私有 `PATH`、`JAVA_HOME`、`ANDROID_HOME`、`ANDROID_SDK_ROOT` 和 `APPIUM_HOME`；npm 与 Conda 缓存写入 `QStandardPaths::AppLocalDataLocation`。
+5. UiAutomator2 driver metadata 写入应用数据目录，安装目录保持只读；启动后持续探测状态端点，超时或提前退出时返回结构化状态详情。
+6. 桌面进程退出时只停止 `QProcess` 所拥有的随包 Appium，不影响复用的外部实例。
+
+### 7.4 目标 AI 自动化
 
 ```mermaid
 sequenceDiagram
@@ -217,6 +233,7 @@ sequenceDiagram
 
 - 发布包自带工具，终端用户不安装或下载依赖。
 - 构建阶段锁定版本、来源和 SHA-256。
+- 当前 schema 2 manifest 已覆盖 OpenCode、Node.js/npm、`node-pty`、Conda standalone、OpenJDK 8、Android command-line/platform-tools、Appium 和 UiAutomator2 driver。
 - 子进程不读取系统同名工具。
 - 私有服务绑定 loopback 和应用端口。
 - 安装目录只读，用户数据进入 `QStandardPaths` 对应位置。

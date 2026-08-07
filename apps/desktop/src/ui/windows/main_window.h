@@ -118,9 +118,6 @@ private:
     QLabel *m_deviceNameLabel = nullptr;
     QLabel *m_deviceStatusDot = nullptr;
     QLabel *m_deviceStatusLabel = nullptr;
-    QLabel *m_sidebarStatusDot = nullptr;
-    QLabel *m_sidebarStatusTitle = nullptr;
-    QLabel *m_sidebarStatusDetail = nullptr;
     QLabel *m_workspacePreloadCover = nullptr;
     int m_selectedWorkspaceIndex = 0;
     quint64 m_workspacePreloadGeneration = 0;

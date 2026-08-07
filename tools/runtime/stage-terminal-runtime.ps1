@@ -55,6 +55,16 @@ function Test-Hash([string]$Path, [string]$ExpectedHash)
     return $actualHash.Equals($ExpectedHash, [StringComparison]::OrdinalIgnoreCase)
 }
 
+function Get-ComponentUrls([object]$Component)
+{
+    $urls = @($Component.url)
+    $mirrorsProperty = $Component.PSObject.Properties['mirrors']
+    if ($null -ne $mirrorsProperty) {
+        $urls += @($mirrorsProperty.Value)
+    }
+    return @($urls | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+}
+
 function Get-LockedArchive([object]$Component, [string]$CacheRoot)
 {
     $archivePath = Join-Path $CacheRoot $Component.archive
@@ -66,44 +76,47 @@ function Get-LockedArchive([object]$Component, [string]$CacheRoot)
     }
 
     $partialPath = "$archivePath.partial-$PID"
-    Write-Host "Downloading $($Component.id) $($Component.version)..."
-    try {
-        $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
-        if ($null -ne $curl) {
-            & $curl.Source --fail --location --silent --show-error `
-                --retry 4 --retry-delay 2 --connect-timeout 30 `
-                --output $partialPath $Component.url
-            if ($LASTEXITCODE -ne 0) {
-                throw "curl failed to download $($Component.url) (exit code $LASTEXITCODE)."
+    $lastError = $null
+    foreach ($url in Get-ComponentUrls $Component) {
+        Write-Host "Downloading $($Component.id) $($Component.version) from $url..."
+        try {
+            $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
+            if ($null -ne $curl) {
+                & $curl.Source --fail --location --silent --show-error `
+                    --retry 3 --retry-delay 2 --connect-timeout 30 --max-time 600 `
+                    --output $partialPath $url
+                if ($LASTEXITCODE -ne 0) {
+                    throw "curl failed with exit code $LASTEXITCODE."
+                }
+            } else {
+                $client = New-Object Net.WebClient
+                $client.Headers['User-Agent'] = 'AI-Mobile-Test-Studio-Runtime-Stager'
+                try {
+                    $client.DownloadFile([Uri]$url, $partialPath)
+                } finally {
+                    $client.Dispose()
+                }
             }
-        } else {
-            $client = New-Object Net.WebClient
-            $client.Headers['User-Agent'] = 'AI-Mobile-Test-Studio-Runtime-Stager'
-            try {
-                $client.DownloadFile([Uri]$Component.url, $partialPath)
-            } finally {
-                $client.Dispose()
-            }
-        }
-    } catch {
-        Remove-Item -Force -LiteralPath $partialPath -ErrorAction SilentlyContinue
-        throw
-    }
 
-    if (-not (Test-Hash $partialPath $Component.sha256)) {
-        Remove-Item -Force -LiteralPath $partialPath -ErrorAction SilentlyContinue
-        throw "SHA-256 verification failed for $($Component.archive)."
+            if (-not (Test-Hash $partialPath $Component.sha256)) {
+                throw "SHA-256 verification failed for $($Component.archive)."
+            }
+            Move-Item -Force -LiteralPath $partialPath -Destination $archivePath
+            return $archivePath
+        } catch {
+            $lastError = $_
+            Remove-Item -Force -LiteralPath $partialPath -ErrorAction SilentlyContinue
+        }
     }
-    Move-Item -Force -LiteralPath $partialPath -Destination $archivePath
-    return $archivePath
+    throw "Unable to download $($Component.id): $lastError"
 }
 
-function Expand-TarGzip([string]$Archive, [string]$OutputDirectory)
+function Expand-CMakeArchive([string]$Archive, [string]$OutputDirectory)
 {
     $cmake = Get-Command cmake -ErrorAction Stop
     Push-Location $OutputDirectory
     try {
-        & $cmake.Source -E tar xzf $Archive
+        & $cmake.Source -E tar xvf $Archive | Out-Null
         if ($LASTEXITCODE -ne 0) {
             throw "CMake failed to extract $Archive (exit code $LASTEXITCODE)."
         }
@@ -112,25 +125,76 @@ function Expand-TarGzip([string]$Archive, [string]$OutputDirectory)
     }
 }
 
-function Expand-LockedArchive([string]$Archive, [string]$OutputDirectory)
+function Copy-DirectoryContents([string]$Source, [string]$Destination)
 {
-    if ($Archive.EndsWith('.zip', [StringComparison]::OrdinalIgnoreCase)) {
-        Expand-Archive -LiteralPath $Archive -DestinationPath $OutputDirectory
-        return
-    }
-    if ($Archive.EndsWith('.tgz', [StringComparison]::OrdinalIgnoreCase) -or
-        $Archive.EndsWith('.tar.gz', [StringComparison]::OrdinalIgnoreCase)) {
-        Expand-TarGzip $Archive $OutputDirectory
-        return
-    }
-    throw "Unsupported runtime archive format: $Archive"
+    New-Item -ItemType Directory -Force -Path $Destination | Out-Null
+    Copy-Item -Path (Join-Path $Source '*') -Destination $Destination -Recurse -Force
 }
 
 function Write-Utf8Json([string]$Path, [object]$Value)
 {
-    $json = $Value | ConvertTo-Json -Depth 8
+    $json = $Value | ConvertTo-Json -Depth 12
     $encoding = New-Object Text.UTF8Encoding($false)
     [IO.File]::WriteAllText($Path, $json + [Environment]::NewLine, $encoding)
+}
+
+function ConvertTo-WindowsCommandLineArgument([string]$Argument)
+{
+    if ($Argument.Length -gt 0 -and $Argument -notmatch '[\s"]') {
+        return $Argument
+    }
+
+    $escaped = [regex]::Replace($Argument, '(\\*)"', '$1$1\"')
+    $escaped = [regex]::Replace($escaped, '(\\+)$', '$1$1')
+    return '"' + $escaped + '"'
+}
+
+function Invoke-Checked([string]$Program, [string[]]$Arguments, [string]$Description)
+{
+    $processInfo = New-Object Diagnostics.ProcessStartInfo
+    $programExtension = [IO.Path]::GetExtension($Program)
+    $formattedArguments = @($Arguments | ForEach-Object {
+        ConvertTo-WindowsCommandLineArgument $_
+    })
+    if ($programExtension -in @('.bat', '.cmd')) {
+        $command = (ConvertTo-WindowsCommandLineArgument $Program)
+        if ($formattedArguments.Count -gt 0) {
+            $command += ' ' + ($formattedArguments -join ' ')
+        }
+        $processInfo.FileName = $env:ComSpec
+        $processInfo.Arguments = '/D /S /C "' + $command + '"'
+    } else {
+        $processInfo.FileName = $Program
+        $processInfo.Arguments = $formattedArguments -join ' '
+    }
+    $processInfo.UseShellExecute = $false
+    $processInfo.CreateNoWindow = $true
+    $processInfo.RedirectStandardOutput = $true
+    $processInfo.RedirectStandardError = $true
+
+    $process = New-Object Diagnostics.Process
+    $process.StartInfo = $processInfo
+    try {
+        if (-not $process.Start()) {
+            throw "$Description failed to start."
+        }
+        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+        $stderrTask = $process.StandardError.ReadToEndAsync()
+        $process.WaitForExit()
+        $stdout = $stdoutTask.Result.Trim()
+        $stderr = $stderrTask.Result.Trim()
+        $output = @($stdout, $stderr) | Where-Object {
+            -not [string]::IsNullOrWhiteSpace($_)
+        }
+        $output = $output -join [Environment]::NewLine
+        $exitCode = $process.ExitCode
+    } finally {
+        $process.Dispose()
+    }
+    if ($exitCode -ne 0) {
+        throw "$Description failed: $output"
+    }
+    return $output
 }
 
 $lockPath = Get-FullPath $LockFile
@@ -145,35 +209,52 @@ if ([string]::IsNullOrWhiteSpace($destinationParent)) {
 }
 
 $lock = Get-Content -Raw -Encoding UTF8 $lockPath | ConvertFrom-Json
-if ($lock.schemaVersion -ne 1 -or $lock.platform -ne 'windows-x64') {
+if ($lock.schemaVersion -ne 2 -or $lock.platform -ne 'windows-x64') {
     throw "Unsupported runtime lock schema or platform in $lockPath"
 }
+$lockDirectory = Split-Path -Parent $lockPath
+$npmLockPath = Get-FullPath (Join-Path $lockDirectory $lock.npmRuntime.lockFile)
+if (-not (Test-Hash $npmLockPath $lock.npmRuntime.sha256)) {
+    throw "Appium package-lock.json does not match runtime-lock.json."
+}
+
 $lockHash = (Get-FileHash -LiteralPath $lockPath -Algorithm SHA256).Hash.ToLowerInvariant()
 $manifestPath = Join-Path $destinationPath 'manifest.json'
 $requiredPaths = @(
     (Join-Path $destinationPath 'opencode\opencode.exe'),
     (Join-Path $destinationPath 'node\node.exe'),
-    (Join-Path $destinationPath 'node\node_modules\node-pty\package.json')
+    (Join-Path $destinationPath 'node\npm.cmd'),
+    (Join-Path $destinationPath 'node\node_modules\node-pty\package.json'),
+    (Join-Path $destinationPath 'conda\conda.exe'),
+    (Join-Path $destinationPath 'jdk\bin\java.exe'),
+    (Join-Path $destinationPath 'jdk\bin\javac.exe'),
+    (Join-Path $destinationPath 'android-sdk\platform-tools\adb.exe'),
+    (Join-Path $destinationPath 'android-sdk\cmdline-tools\latest\bin\sdkmanager.bat'),
+    (Join-Path $destinationPath 'appium\node_modules\appium\index.js'),
+    (Join-Path $destinationPath 'appium\node_modules\appium-uiautomator2-driver\package.json')
 )
 if (Test-Path -LiteralPath $manifestPath -PathType Leaf) {
     $currentManifest = Get-Content -Raw -Encoding UTF8 $manifestPath | ConvertFrom-Json
     $currentLockProperty = $currentManifest.PSObject.Properties['lockSha256']
+    $currentNpmLockProperty = $currentManifest.PSObject.Properties['npmLockSha256']
     $missingPaths = @($requiredPaths | Where-Object {
         -not (Test-Path -LiteralPath $_ -PathType Leaf)
     })
-    $allFilesExist = $missingPaths.Count -eq 0
     if ($null -ne $currentLockProperty -and
-        $currentLockProperty.Value -eq $lockHash -and $allFilesExist) {
+        $null -ne $currentNpmLockProperty -and
+        $currentLockProperty.Value -eq $lockHash -and
+        $currentNpmLockProperty.Value -eq $lock.npmRuntime.sha256 -and
+        $missingPaths.Count -eq 0) {
         [IO.File]::WriteAllText((Join-Path $destinationPath '.complete'),
                                 $lockHash + [Environment]::NewLine,
                                 (New-Object Text.UTF8Encoding($false)))
-        Write-Host "Terminal runtime is current: $destinationPath"
+        Write-Host "Portable runtime is current: $destinationPath"
         exit 0
     }
 }
 
 New-Item -ItemType Directory -Force -Path $destinationParent, $cachePath | Out-Null
-$temporaryPath = Join-Path $destinationParent ('.terminal-runtime-' + [guid]::NewGuid().ToString('N'))
+$temporaryPath = Join-Path $destinationParent ('.portable-runtime-' + [guid]::NewGuid().ToString('N'))
 Assert-RemovableChildPath $temporaryPath $destinationParent
 New-Item -ItemType Directory -Path $temporaryPath | Out-Null
 
@@ -181,27 +262,70 @@ try {
     $opencode = Get-Component $lock 'opencode'
     $node = Get-Component $lock 'node'
     $nodePty = Get-Component $lock 'node-pty'
-    $opencodeArchive = Get-LockedArchive $opencode $cachePath
-    $nodeArchive = Get-LockedArchive $node $cachePath
-    $nodePtyArchive = Get-LockedArchive $nodePty $cachePath
+    $conda = Get-Component $lock 'conda'
+    $jdk = Get-Component $lock 'jdk'
+    $androidCli = Get-Component $lock 'android-command-line-tools'
+    $androidPlatformTools = Get-Component $lock 'android-platform-tools'
+
+    $archives = @{}
+    foreach ($component in @($opencode,
+                             $node,
+                             $nodePty,
+                             $conda,
+                             $jdk,
+                             $androidCli,
+                             $androidPlatformTools)) {
+        $archives[$component.id] = Get-LockedArchive $component $cachePath
+    }
 
     $extractRoot = Join-Path $temporaryPath '_extract'
-    $opencodeExtract = Join-Path $extractRoot 'opencode'
-    $nodeExtract = Join-Path $extractRoot 'node'
-    $nodePtyExtract = Join-Path $extractRoot 'node-pty'
-    New-Item -ItemType Directory -Force -Path $opencodeExtract, $nodeExtract, $nodePtyExtract | Out-Null
-    Expand-LockedArchive $opencodeArchive $opencodeExtract
-    Expand-LockedArchive $nodeArchive $nodeExtract
-    Expand-LockedArchive $nodePtyArchive $nodePtyExtract
+    $extractDirectories = @{}
+    foreach ($component in @($opencode,
+                             $node,
+                             $nodePty,
+                             $conda,
+                             $jdk,
+                             $androidCli,
+                             $androidPlatformTools)) {
+        $extractDirectory = Join-Path $extractRoot $component.id
+        New-Item -ItemType Directory -Force -Path $extractDirectory | Out-Null
+        Expand-CMakeArchive $archives[$component.id] $extractDirectory
+        $extractDirectories[$component.id] = $extractDirectory
+    }
 
-    $opencodeExecutable = Get-ChildItem -Path $opencodeExtract -Recurse -File -Filter opencode.exe |
+    $condaPayloadArchive = Get-ChildItem -Path $extractDirectories['conda'] -File `
+        -Filter 'pkg-*.tar.zst' | Select-Object -First 1
+    if ($null -eq $condaPayloadArchive) {
+        throw 'conda-standalone archive does not contain a package payload.'
+    }
+    $condaPayloadDirectory = Join-Path $extractRoot 'conda-payload'
+    New-Item -ItemType Directory -Force -Path $condaPayloadDirectory | Out-Null
+    Expand-CMakeArchive $condaPayloadArchive.FullName $condaPayloadDirectory
+
+    $opencodeExecutable = Get-ChildItem -Path $extractDirectories['opencode'] -Recurse `
+        -File -Filter opencode.exe | Select-Object -First 1
+    $nodeExecutable = Get-ChildItem -Path $extractDirectories['node'] -Recurse `
+        -File -Filter node.exe | Select-Object -First 1
+    $nodePtyPackage = Get-ChildItem -Path $extractDirectories['node-pty'] -Recurse `
+        -File -Filter package.json | Where-Object { $_.Directory.Name -eq 'package' } | `
         Select-Object -First 1
-    $nodeExecutable = Get-ChildItem -Path $nodeExtract -Recurse -File -Filter node.exe |
+    $condaExecutable = Get-ChildItem -Path $condaPayloadDirectory -Recurse `
+        -File -Filter conda.exe | Where-Object { $_.Directory.Name -eq 'standalone_conda' } | `
         Select-Object -First 1
-    $nodePtyPackage = Get-ChildItem -Path $nodePtyExtract -Recurse -File -Filter package.json |
-        Where-Object { $_.Directory.Name -eq 'package' } |
+    $javaExecutable = Get-ChildItem -Path $extractDirectories['jdk'] -Recurse `
+        -File -Filter java.exe | Where-Object { $_.Directory.Name -eq 'bin' } | `
         Select-Object -First 1
-    if ($null -eq $opencodeExecutable -or $null -eq $nodeExecutable -or $null -eq $nodePtyPackage) {
+    $sdkManager = Get-ChildItem -Path $extractDirectories['android-command-line-tools'] `
+        -Recurse -File -Filter sdkmanager.bat | Select-Object -First 1
+    $adbExecutable = Get-ChildItem -Path $extractDirectories['android-platform-tools'] `
+        -Recurse -File -Filter adb.exe | Select-Object -First 1
+    if (@($opencodeExecutable,
+          $nodeExecutable,
+          $nodePtyPackage,
+          $condaExecutable,
+          $javaExecutable,
+          $sdkManager,
+          $adbExecutable) -contains $null) {
         throw 'A locked runtime archive does not contain the expected files.'
     }
 
@@ -209,52 +333,155 @@ try {
     $stageOpenCode = Join-Path $stageRoot 'opencode'
     $stageNode = Join-Path $stageRoot 'node'
     $stageNodePty = Join-Path $stageNode 'node_modules\node-pty'
-    New-Item -ItemType Directory -Force -Path $stageOpenCode, $stageNode, $stageNodePty | Out-Null
-    Copy-Item -LiteralPath $opencodeExecutable.FullName -Destination (Join-Path $stageOpenCode 'opencode.exe')
-    Copy-Item -LiteralPath $nodeExecutable.FullName -Destination (Join-Path $stageNode 'node.exe')
-    Copy-Item -Path (Join-Path $nodePtyPackage.Directory.FullName '*') -Destination $stageNodePty -Recurse
+    $stageConda = Join-Path $stageRoot 'conda'
+    $stageJdk = Join-Path $stageRoot 'jdk'
+    $stageAndroidSdk = Join-Path $stageRoot 'android-sdk'
+    $stageAndroidCli = Join-Path $stageAndroidSdk 'cmdline-tools\latest'
+    $stagePlatformTools = Join-Path $stageAndroidSdk 'platform-tools'
+    $stageAppium = Join-Path $stageRoot 'appium'
 
-    $nodeLicense = Get-ChildItem -Path $nodeExecutable.Directory.FullName -File -Filter LICENSE |
-        Select-Object -First 1
-    if ($null -ne $nodeLicense) {
-        Copy-Item -LiteralPath $nodeLicense.FullName -Destination (Join-Path $stageNode 'LICENSE')
+    Copy-DirectoryContents $nodeExecutable.Directory.FullName $stageNode
+    Copy-DirectoryContents $nodePtyPackage.Directory.FullName $stageNodePty
+    Copy-DirectoryContents $javaExecutable.Directory.Parent.FullName $stageJdk
+    Copy-DirectoryContents $sdkManager.Directory.Parent.FullName $stageAndroidCli
+    Copy-DirectoryContents $adbExecutable.Directory.FullName $stagePlatformTools
+    New-Item -ItemType Directory -Force -Path $stageOpenCode, $stageConda, $stageAppium | `
+        Out-Null
+    Copy-Item -LiteralPath $opencodeExecutable.FullName `
+        -Destination (Join-Path $stageOpenCode 'opencode.exe')
+    Copy-Item -LiteralPath $condaExecutable.FullName `
+        -Destination (Join-Path $stageConda 'conda.exe')
+
+    $appiumPackageDirectory = Split-Path -Parent $npmLockPath
+    Copy-Item -LiteralPath (Join-Path $appiumPackageDirectory 'package.json') `
+        -Destination (Join-Path $stageAppium 'package.json')
+    Copy-Item -LiteralPath $npmLockPath `
+        -Destination (Join-Path $stageAppium 'package-lock.json')
+
+    $savedEnvironment = @{}
+    $temporaryEnvironment = [ordered]@{
+        PATH = $stageNode + [IO.Path]::PathSeparator + $env:PATH
+        NPM_CONFIG_CACHE = (Join-Path $cachePath 'npm')
+        NPM_CONFIG_PREFIX = (Join-Path $temporaryPath 'npm-prefix')
+        NPM_CONFIG_USERCONFIG = (Join-Path $temporaryPath 'isolated.npmrc')
+        NPM_CONFIG_FETCH_RETRIES = '1'
+        NPM_CONFIG_FETCH_RETRY_MINTIMEOUT = '1000'
+        NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT = '5000'
+        NPM_CONFIG_FETCH_TIMEOUT = '30000'
+        NPM_CONFIG_REGISTRY = 'https://registry.npmjs.org/'
+        NPM_CONFIG_REPLACE_REGISTRY_HOST = 'always'
+        APPIUM_HOME = (Join-Path $temporaryPath 'appium-home')
+        JAVA_HOME = $stageJdk
+        ANDROID_HOME = $stageAndroidSdk
+        ANDROID_SDK_ROOT = $stageAndroidSdk
+        CONDA_PKGS_DIRS = (Join-Path $temporaryPath 'conda-pkgs')
+        CONDARC = (Join-Path $temporaryPath 'isolated.condarc')
+    }
+    try {
+        foreach ($name in $temporaryEnvironment.Keys) {
+            $savedEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
+            [Environment]::SetEnvironmentVariable($name,
+                                                  $temporaryEnvironment[$name],
+                                                  'Process')
+        }
+
+        $npmExecutable = Join-Path $stageNode 'npm.cmd'
+        $npmInstallOutput = ''
+        $npmInstalled = $false
+        foreach ($registry in @('https://registry.npmjs.org/',
+                                 'https://registry.npmmirror.com/')) {
+            $nodeModules = Join-Path $stageAppium 'node_modules'
+            if (Test-Path -LiteralPath $nodeModules) {
+                Assert-RemovableChildPath $nodeModules $stageAppium
+                Remove-Item -Recurse -Force -LiteralPath $nodeModules
+            }
+            [Environment]::SetEnvironmentVariable('NPM_CONFIG_REGISTRY', $registry, 'Process')
+            [Environment]::SetEnvironmentVariable('NPM_CONFIG_REPLACE_REGISTRY_HOST',
+                                                   'always',
+                                                   'Process')
+            $npmInstallOutput = (& $npmExecutable ci --prefix $stageAppium --omit=dev `
+                --ignore-scripts --no-audit --no-fund 2>&1 | Out-String).Trim()
+            if ($LASTEXITCODE -eq 0) {
+                $npmInstalled = $true
+                break
+            }
+        }
+        if (-not $npmInstalled) {
+            throw "Installing the locked Appium runtime failed: $npmInstallOutput"
+        }
+
+        $opencodeVersion = Invoke-Checked (Join-Path $stageOpenCode 'opencode.exe') `
+            @('--version') 'OpenCode version check'
+        $nodeVersion = Invoke-Checked (Join-Path $stageNode 'node.exe') `
+            @('--version') 'Node.js version check'
+        $npmVersion = Invoke-Checked $npmExecutable @('--version') 'npm version check'
+        if ($npmVersion -ne [string]$lock.bundledComponents.npm.version) {
+            throw "npm version check returned '$npmVersion'; " +
+                "expected '$($lock.bundledComponents.npm.version)'."
+        }
+        $condaVersion = Invoke-Checked (Join-Path $stageConda 'conda.exe') `
+            @('--version') 'Conda version check'
+        $javaVersion = Invoke-Checked (Join-Path $stageJdk 'bin\java.exe') `
+            @('-version') 'JDK version check'
+        $adbVersion = Invoke-Checked (Join-Path $stagePlatformTools 'adb.exe') `
+            @('version') 'Android platform-tools version check'
+        $sdkManagerVersion = Invoke-Checked (Join-Path $stageAndroidCli 'bin\sdkmanager.bat') `
+            @('--version') 'Android command-line tools version check'
+        if ($sdkManagerVersion -notmatch '^\d+(?:\.\d+)*$' -or
+            $sdkManagerVersion -ne [string]$androidCli.version) {
+            throw "Android command-line tools version check returned '$sdkManagerVersion'; " +
+                "expected '$($androidCli.version)'."
+        }
+        $appiumVersion = Invoke-Checked (Join-Path $stageNode 'node.exe') `
+            @((Join-Path $stageAppium 'node_modules\appium\index.js'), '--version') `
+            'Appium version check'
+    } finally {
+        foreach ($name in $temporaryEnvironment.Keys) {
+            [Environment]::SetEnvironmentVariable($name, $savedEnvironment[$name], 'Process')
+        }
     }
 
-    $opencodeVersion = (& (Join-Path $stageOpenCode 'opencode.exe') --version 2>&1 | Out-String).Trim()
-    if ($LASTEXITCODE -ne 0) {
-        throw "Staged OpenCode failed its version check: $opencodeVersion"
+    $manifestComponents = [ordered]@{}
+    foreach ($component in $lock.components) {
+        $manifestComponents[$component.id] = [ordered]@{
+            version = $component.version
+            archiveSha256 = $component.sha256
+            source = $component.url
+            license = $component.license
+        }
     }
-    $nodeVersion = (& (Join-Path $stageNode 'node.exe') --version 2>&1 | Out-String).Trim()
-    if ($LASTEXITCODE -ne 0) {
-        throw "Staged Node.js failed its version check: $nodeVersion"
+    $manifestComponents['npm'] = [ordered]@{
+        version = $lock.bundledComponents.npm.version
+        path = $lock.bundledComponents.npm.path
+        parent = $lock.bundledComponents.npm.parent
+        license = $lock.bundledComponents.npm.license
+    }
+    $manifestComponents['appium'] = [ordered]@{
+        version = $lock.npmRuntime.components.appium.version
+        path = 'appium/node_modules/appium/index.js'
+        license = $lock.npmRuntime.components.appium.license
+    }
+    $manifestComponents['appium-uiautomator2-driver'] = [ordered]@{
+        version = $lock.npmRuntime.components.'appium-uiautomator2-driver'.version
+        path = 'appium/node_modules/appium-uiautomator2-driver'
+        license = $lock.npmRuntime.components.'appium-uiautomator2-driver'.license
     }
 
     $manifest = [ordered]@{
-        schemaVersion = 1
+        schemaVersion = 2
         platform = $lock.platform
         lockSha256 = $lockHash
-        components = [ordered]@{
-            opencode = [ordered]@{
-                version = $opencode.version
-                path = 'opencode/opencode.exe'
-                archiveSha256 = $opencode.sha256
-                source = $opencode.url
-                license = $opencode.license
-            }
-            node = [ordered]@{
-                version = $node.version
-                path = 'node/node.exe'
-                archiveSha256 = $node.sha256
-                source = $node.url
-                license = $node.license
-            }
-            'node-pty' = [ordered]@{
-                version = $nodePty.version
-                path = 'node/node_modules/node-pty'
-                archiveSha256 = $nodePty.sha256
-                source = $nodePty.url
-                license = $nodePty.license
-            }
+        npmLockSha256 = $lock.npmRuntime.sha256
+        components = $manifestComponents
+        checks = [ordered]@{
+            opencode = $opencodeVersion
+            node = $nodeVersion
+            npm = $npmVersion
+            conda = $condaVersion
+            java = $javaVersion
+            adb = $adbVersion
+            sdkManager = $sdkManagerVersion
+            appium = $appiumVersion
         }
     }
     Write-Utf8Json (Join-Path $stageRoot 'manifest.json') $manifest
@@ -267,7 +494,7 @@ try {
         Remove-Item -Recurse -Force -LiteralPath $destinationPath
     }
     Move-Item -LiteralPath $stageRoot -Destination $destinationPath
-    Write-Host "Staged OpenCode $opencodeVersion and Node.js $nodeVersion at $destinationPath"
+    Write-Host "Staged isolated portable runtime at $destinationPath"
 } finally {
     if (Test-Path -LiteralPath $temporaryPath) {
         Assert-RemovableChildPath $temporaryPath $destinationParent

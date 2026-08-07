@@ -9,6 +9,8 @@ qt_add_executable(${DESKTOP_TARGET}
     src/services/adb_control_service.h
     src/services/adb_shell_session.cpp
     src/services/adb_shell_session.h
+    src/services/appium_service.cpp
+    src/services/appium_service.h
     src/services/apps_service.cpp
     src/services/apps_service.h
     src/services/display_service.cpp
@@ -146,6 +148,15 @@ if(TARGET ai_mobile_test_stage_terminal_runtime)
     add_dependencies(${DESKTOP_TARGET} ai_mobile_test_stage_terminal_runtime)
 endif()
 
+if(AI_MOBILE_TEST_PORTABLE_RUNTIME_ROOT)
+    add_custom_command(TARGET ${DESKTOP_TARGET} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${AI_MOBILE_TEST_PORTABLE_RUNTIME_ROOT}"
+            "$<TARGET_FILE_DIR:${DESKTOP_TARGET}>/runtime"
+        VERBATIM
+    )
+endif()
+
 if(AI_MOBILE_TEST_OPENCODE_RUNTIME_EXECUTABLE)
     if(NOT AI_MOBILE_TEST_TERMINAL_RUNTIME_GENERATED
        AND NOT EXISTS "${AI_MOBILE_TEST_OPENCODE_RUNTIME_EXECUTABLE}")
@@ -207,14 +218,13 @@ if(AI_MOBILE_TEST_TERMINAL_RUNTIME_MANIFEST)
 endif()
 
 if(WIN32 AND AI_MOBILE_TEST_DEPLOY_QT_RUNTIME)
-    get_filename_component(_qt_binary_directory
-        "${QT_QMAKE_EXECUTABLE}" DIRECTORY)
-    find_program(AI_MOBILE_TEST_WINDEPLOYQT_EXECUTABLE
-        NAMES windeployqt
-        HINTS "${_qt_binary_directory}"
-        NO_DEFAULT_PATH REQUIRED)
+    if(NOT TARGET Qt6::windeployqt)
+        message(FATAL_ERROR
+            "Qt6::windeployqt is unavailable; install the Qt 6 Core tools component "
+            "or configure with -DAI_MOBILE_TEST_DEPLOY_QT_RUNTIME=OFF")
+    endif()
     add_custom_command(TARGET ${DESKTOP_TARGET} POST_BUILD
-        COMMAND "${AI_MOBILE_TEST_WINDEPLOYQT_EXECUTABLE}"
+        COMMAND "$<TARGET_FILE:Qt6::windeployqt>"
             "$<IF:$<CONFIG:Debug>,--debug,--release>"
             --compiler-runtime
             "$<TARGET_FILE:${DESKTOP_TARGET}>"
@@ -274,6 +284,10 @@ install(DIRECTORY
 if(AI_MOBILE_TEST_OPENCODE_RUNTIME_EXECUTABLE)
     install(PROGRAMS "${AI_MOBILE_TEST_OPENCODE_RUNTIME_EXECUTABLE}"
         DESTINATION "runtime/opencode")
+endif()
+if(AI_MOBILE_TEST_PORTABLE_RUNTIME_ROOT)
+    install(DIRECTORY "${AI_MOBILE_TEST_PORTABLE_RUNTIME_ROOT}/"
+        DESTINATION "runtime")
 endif()
 if(AI_MOBILE_TEST_NODE_RUNTIME_EXECUTABLE)
     install(PROGRAMS "${AI_MOBILE_TEST_NODE_RUNTIME_EXECUTABLE}"

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "platform": "windows-x64",
   "components": [
     {
@@ -25,6 +25,63 @@
       "url": "https://registry.npmjs.org/node-pty/-/node-pty-1.1.0.tgz",
       "sha256": "c7517f19083ddcb05f276904680eb2b11a6b5ecab778b8e4e5685a6d645b3f60",
       "license": "MIT"
+    },
+    {
+      "id": "conda",
+      "version": "26.5.2",
+      "archive": "conda-standalone-26.5.2-h57928b3_0.conda",
+      "url": "https://conda.anaconda.org/conda-forge/win-64/conda-standalone-26.5.2-h57928b3_0.conda",
+      "mirrors": [
+        "https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge/win-64/conda-standalone-26.5.2-h57928b3_0.conda"
+      ],
+      "sha256": "eaf08294e5605e8a3a9b159a8861f19772f549a64ca1ab0dc8a8d7e71dcb0441",
+      "license": "BSD-3-Clause"
+    },
+    {
+      "id": "jdk",
+      "version": "8.0.502+7",
+      "archive": "zulu8.96.0.19-ca-jdk8.0.502-win_x64.zip",
+      "url": "https://cdn.azul.com/zulu/bin/zulu8.96.0.19-ca-jdk8.0.502-win_x64.zip",
+      "sha256": "0d64e817ba56962d447339040f9e7bd1119f98b813d0a968e3485aab0c530a47",
+      "license": "GPL-2.0-with-classpath-exception"
+    },
+    {
+      "id": "android-command-line-tools",
+      "version": "8.0",
+      "archive": "commandlinetools-win-9123335_latest.zip",
+      "url": "https://dl.google.com/android/repository/commandlinetools-win-9123335_latest.zip",
+      "sha256": "8a90e6a3deb2fa13229b2e335efd07687dcc8a55a3c544da9f40b41404993e7d",
+      "license": "Android-SDK-License"
+    },
+    {
+      "id": "android-platform-tools",
+      "version": "37.0.1",
+      "archive": "platform-tools_r37.0.1-win.zip",
+      "url": "https://dl.google.com/android/repository/platform-tools_r37.0.1-win.zip",
+      "sha256": "45f4d63113e895ebde0c90f194099a4676b6ac653bd28d54314a9e022bbc1a99",
+      "license": "Apache-2.0"
     }
-  ]
+  ],
+  "bundledComponents": {
+    "npm": {
+      "version": "11.16.0",
+      "path": "node/npm.cmd",
+      "parent": "node",
+      "license": "Artistic-2.0"
+    }
+  },
+  "npmRuntime": {
+    "lockFile": "appium/package-lock.json",
+    "sha256": "ff7b78fcfef4dc6dcbdba62677027c68ee0d9e510c414e96341fbe047870960a",
+    "components": {
+      "appium": {
+        "version": "3.5.2",
+        "license": "Apache-2.0"
+      },
+      "appium-uiautomator2-driver": {
+        "version": "8.1.0",
+        "license": "Apache-2.0"
+      }
+    }
+  }
 }

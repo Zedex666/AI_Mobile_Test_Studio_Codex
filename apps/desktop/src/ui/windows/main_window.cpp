@@ -159,6 +159,9 @@ void MainWindow::buildUi()
     const ui::HeaderSection header = ui::createHeader();
     m_headerDeviceCenterButton = header.deviceCenterButton;
     m_headerSettingsButton = header.settingsButton;
+    m_deviceNameLabel = header.deviceNameLabel;
+    m_deviceStatusDot = header.deviceStatusDot;
+    m_deviceStatusLabel = header.deviceStatusLabel;
     rootLayout->addWidget(header.widget);
 
     auto *content = new QWidget;
@@ -182,12 +185,6 @@ void MainWindow::buildUi()
     m_otherNavButton = sidebar.otherButton;
     m_settingsNavButton = sidebar.settingsButton;
     m_sidebarWidget = sidebar.widget;
-    m_sidebarStatusDot = sidebar.statusDot;
-    m_sidebarStatusTitle = sidebar.statusTitle;
-    m_sidebarStatusDetail = sidebar.statusDetail;
-    m_deviceNameLabel = sidebar.deviceNameLabel;
-    m_deviceStatusDot = sidebar.deviceStatusDot;
-    m_deviceStatusLabel = sidebar.deviceStatusLabel;
     contentLayout->addWidget(sidebar.widget);
 
     auto *workspace = new QWidget;
@@ -1132,9 +1129,6 @@ void MainWindow::applyLanguage()
         m_settingsPage->refreshPreferences();
     }
 
-    if (m_deviceState == ScrcpyService::DeviceState::Connected && !m_deviceSerial.isEmpty()) {
-        m_sidebarStatusDetail->setText(ui::text("设备 %1").arg(m_deviceSerial));
-    }
 }
 
 void MainWindow::updateDeviceUi(ScrcpyService::DeviceState state,
@@ -1226,49 +1220,36 @@ void MainWindow::updateDeviceUi(ScrcpyService::DeviceState state,
     QString deviceName;
     QString statusText;
     QString statusColor;
-    QString sidebarTitle;
-    QString sidebarDetail = detail;
 
     switch (state) {
     case ScrcpyService::DeviceState::ToolUnavailable:
         deviceName = ui::text("scrcpy 不可用");
         statusText = ui::text("不可用");
         statusColor = QStringLiteral("#d45b5b");
-        sidebarTitle = ui::text("ADB 不可用");
         break;
     case ScrcpyService::DeviceState::Disconnected:
         deviceName = ui::text("未检测到设备");
         statusText = ui::text("未连接");
         statusColor = QStringLiteral("#aab3c2");
-        sidebarTitle = ui::text("ADB 未连接");
         break;
     case ScrcpyService::DeviceState::Unauthorized:
         deviceName = serial.isEmpty() ? ui::text("Android 设备") : serial;
         statusText = ui::text("未授权");
         statusColor = QStringLiteral("#e2a43a");
-        sidebarTitle = ui::text("ADB 等待授权");
-        sidebarDetail = serial;
         break;
     case ScrcpyService::DeviceState::Sideload:
         deviceName = serial.isEmpty() ? ui::text("Recovery 设备") : serial;
         statusText = ui::text("侧载模式");
         statusColor = QStringLiteral("#e2a43a");
-        sidebarTitle = ui::text("Recovery 侧载已就绪");
-        sidebarDetail = serial;
         break;
     case ScrcpyService::DeviceState::Connected:
         deviceName = serial;
         statusText = ui::text("已连接");
         statusColor = QStringLiteral("#66c95e");
-        sidebarTitle = ui::text("ADB 连接正常");
-        sidebarDetail = ui::text("设备 %1").arg(serial);
         break;
     }
 
     m_deviceNameLabel->setText(deviceName);
     m_deviceStatusLabel->setText(statusText);
     m_deviceStatusDot->setStyleSheet(QStringLiteral("color:%1;").arg(statusColor));
-    m_sidebarStatusDot->setStyleSheet(QStringLiteral("color:%1;").arg(statusColor));
-    m_sidebarStatusTitle->setText(sidebarTitle);
-    m_sidebarStatusDetail->setText(sidebarDetail);
 }

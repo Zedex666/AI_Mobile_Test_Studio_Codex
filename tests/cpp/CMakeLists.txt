@@ -1,4 +1,30 @@
 if(WIN32)
+    qt_add_executable(appium_service_smoke
+        appium_service_smoke.cpp
+        ../../apps/desktop/src/services/appium_service.cpp
+        ../../apps/desktop/src/services/appium_service.h
+    )
+    target_compile_features(appium_service_smoke PRIVATE cxx_std_17)
+    set_target_properties(appium_service_smoke PROPERTIES WIN32_EXECUTABLE FALSE)
+    target_include_directories(appium_service_smoke PRIVATE ../../apps/desktop/src)
+    target_link_libraries(appium_service_smoke PRIVATE Qt::Core Qt::Network)
+    add_test(NAME appium_reuses_existing_server COMMAND appium_service_smoke)
+    add_test(NAME appium_missing_runtime COMMAND appium_service_smoke --missing-runtime)
+    set(_appium_smoke_tests appium_reuses_existing_server appium_missing_runtime)
+    if(AI_MOBILE_TEST_PORTABLE_RUNTIME_ROOT)
+        add_dependencies(appium_service_smoke ai_mobile_test_stage_terminal_runtime)
+        add_test(NAME appium_bundled_runtime
+            COMMAND appium_service_smoke
+                --bundled-runtime "${AI_MOBILE_TEST_PORTABLE_RUNTIME_ROOT}")
+        list(APPEND _appium_smoke_tests appium_bundled_runtime)
+    endif()
+    set_tests_properties(${_appium_smoke_tests} PROPERTIES
+        TIMEOUT 10
+        ENVIRONMENT "PATH=$<TARGET_FILE_DIR:Qt::Core>\;$ENV{PATH}")
+    if(TEST appium_bundled_runtime)
+        set_tests_properties(appium_bundled_runtime PROPERTIES TIMEOUT 30)
+    endif()
+
     add_executable(conpty_echo_helper conpty_echo_helper.cpp)
     set_target_properties(conpty_echo_helper PROPERTIES WIN32_EXECUTABLE FALSE)
 
@@ -13,6 +39,8 @@ if(WIN32)
     target_include_directories(conpty_session_smoke PRIVATE ../../apps/desktop/src)
     target_link_libraries(conpty_session_smoke PRIVATE Qt::Core)
     if(MSVC)
+        target_compile_options(appium_service_smoke PRIVATE
+            /utf-8 /Zc:__cplusplus /permissive-)
         target_compile_options(conpty_session_smoke PRIVATE
             /utf-8 /Zc:__cplusplus /permissive-)
     endif()

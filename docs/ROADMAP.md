@@ -34,16 +34,22 @@
 
 ## 4. M2 便携运行时基础
 
-状态：**进行中，下一优先级**
+状态：**进行中**
 
-已完成：OpenCode、Node.js 和 `node-pty` 的 Windows x64 锁文件、SHA-256 下载校验、构建期 staging、应用目录复制和 ConPTY 冒烟。
+已完成：
 
-任务：
+- `runtime-lock.json` schema 2 锁定 OpenCode 1.18.5、Node.js 24.18.0、npm 11.16.0、`node-pty` 1.1.0、Conda standalone 26.5.2、OpenJDK 8.0.502+7、Android command-line tools 8.0、platform-tools 37.0.1、Appium 3.5.2 和 UiAutomator2 driver 8.1.0。
+- `package-lock.json` 锁定 Appium npm 传递依赖。
+- `stage-terminal-runtime.ps1` 完成下载、镜像回退、SHA-256 校验、原子 staging、组件版本验证和 schema 2 manifest 生成。
+- CMake 将完整 staged runtime 复制到可执行文件旁，并通过 `Qt6::windeployqt` 部署 Qt 与 WebEngine 运行库。
+- ConPTY/OpenCode 与 Appium 服务共 5 个 CTest 冒烟全部通过。
+
+剩余任务：
 
 - 实现 `RuntimeManifest`、`RuntimeLocator`、`RuntimeManager`。
 - 删除发布构建的开发机硬编码路径。
-- 建立 runtime lock、下载、SHA-256 校验和 staging 脚本。
-- 随包装配 Qt、ADB、scrcpy 和 OpenCode。
+- 将 scrcpy 和 Python 纳入统一锁文件与 staging。
+- 让现有 ADB/scrcpy 服务统一使用 manifest 组件路径。
 - 建立第三方 notices 和许可证门禁。
 - 使用私有 ADB server 端口，所有组件共享同一连接参数。
 - 完成启动自检和诊断页。
@@ -101,12 +107,19 @@
 
 ## 7. M5 自动化运行时
 
-状态：**待开始**
+状态：**进行中（运行时和 Appium 服务基础已完成）**
 
-任务：
+已完成：
+
+- 随包装配 Node.js、Conda standalone、JDK、Android command-line/platform-tools、Appium 和 UiAutomator2 driver。
+- `AppiumService` 探测并复用已有 `127.0.0.1:4723` 服务，或使用随包 Node.js 和私有环境启动 Appium。
+- Appium driver metadata、npm/Conda 缓存进入 `QStandardPaths::AppLocalDataLocation`，应用退出只停止自有 Appium 进程。
+- 自动化冒烟覆盖外部服务复用、缺失 runtime 失败和随包 Appium 启动。
+
+剩余任务：
 
 - 实现 Python Automation Service。
-- 随包 Python、Node.js、JDK、Appium 和 UiAutomator2 driver。
+- 随包装配锁定的 Python 环境。
 - 实现本机 API、任务队列、事件流和进程监督。
 - 创建 Appium Session 并运行最小点击用例。
 - 采集截图、page source、logcat 和失败上下文。
@@ -166,7 +179,7 @@
 任务：
 
 - 代码签名、安装包和便携 ZIP。
-- 完整 runtime manifest 和 notices。
+- 将现有 schema 2 runtime manifest 扩展到 Python、scrcpy 和最终发布组件，并生成完整 notices。
 - 干净机、升级、卸载和损坏修复测试。
 - 组件版本升级回归矩阵。
 - 诊断包导出。

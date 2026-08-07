@@ -1,0 +1,11 @@
+{
+  "name": "ai-mobile-test-studio-appium-runtime",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Locked Appium runtime for AI Mobile Test Studio",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "appium": "3.5.2",
+    "appium-uiautomator2-driver": "8.1.0"
+  }
+}

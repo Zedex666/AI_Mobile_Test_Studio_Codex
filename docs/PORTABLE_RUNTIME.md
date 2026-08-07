@@ -8,8 +8,9 @@
 - Android platform-tools，包括应用实际使用的 `adb`。
 - scrcpy 及其配套文件。
 - OpenCode 可执行程序。
-- OpenCode ConPTY 宿主需要的 Node.js 和 ABI 匹配的 `node-pty`。
-- 后续自动化闭环需要的 Python、JDK、Appium 和 UiAutomator2 driver。
+- OpenCode ConPTY 宿主需要的 Node.js、npm 和 ABI 匹配的 `node-pty`。
+- Conda standalone、OpenJDK 8、Android command-line tools、Appium 和 UiAutomator2 driver。
+- 后续自动化闭环需要的 Python 运行环境。
 - xterm.js 及官方 addons 的静态前端资源。
 - Appium Inspector 浏览器前端、语言包、云提供商图标和许可证。
 
@@ -25,16 +26,33 @@
 - 本地模型属于独立可选运行时，体积、硬件要求和模型许可证需要单独评审。
 - Windows ConPTY 由操作系统提供，不随应用复制；最低 Windows 版本必须在发布矩阵中声明。
 
-## 3. 当前差距
+## 3. 当前状态与差距
 
-当前构建会复制 `app_metadata.jar`、xterm.js、Appium Inspector 2026.5.1 静态资源和 ConPTY 宿主脚本。Windows 构建默认按 `tools/runtime/runtime-lock.json` 下载并校验 OpenCode、Node.js 和 `node-pty`，将它们 staging 到构建目录并复制到应用旁的 `runtime/`；也可用三个 CMake 路径参数整体覆盖。主程序链接后还会运行 `windeployqt`，部署 Qt DLL、插件和 WebEngine 资源，使构建目录可以直接启动。scrcpy、ADB、Appium Server/driver 和其余组件仍未进入统一锁文件，且 `MainWindow` 仍保留开发机 scrcpy 绝对路径回退。
+当前构建会复制 `app_metadata.jar`、xterm.js、Appium Inspector 2026.5.1 静态资源和 ConPTY 宿主脚本。Windows 构建默认按 `tools/runtime/runtime-lock.json` 和 npm package lock 下载并校验 OpenCode、Node.js/npm、`node-pty`、Conda standalone、OpenJDK 8、Android SDK command-line/platform-tools、Appium Server 和 UiAutomator2 driver，将它们 staging 到构建目录并复制到应用旁的 `runtime/`。主程序链接后还会运行 `windeployqt`，部署 Qt DLL、插件和 WebEngine 资源，使构建目录可以直接启动。
+
+当前 Windows x64 锁定版本：
+
+| 组件 | 版本 |
+| --- | --- |
+| OpenCode | 1.18.5 |
+| Node.js / npm / `node-pty` | 24.18.0 / 11.16.0 / 1.1.0 |
+| Conda standalone | 26.5.2 |
+| OpenJDK | 8.0.502+7 |
+| Android command-line tools / platform-tools | 8.0 / 37.0.1 |
+| Appium / UiAutomator2 driver | 3.5.2 / 8.1.0 |
+
+Appium 的 npm 依赖树由 `tools/runtime/appium/package-lock.json` 锁定，其 SHA-256 同时记录在 `runtime-lock.json`。Android command-line tools 8.0 是当前 JDK 8 基线下的兼容选择；command-line tools 22 需要 Java 17，不能单独升级。JDK、Android SDK tools、Appium 和 driver 必须作为兼容组共同回归。
+
+`AppiumService` 启动时先探测默认地址 `127.0.0.1:4723/status`：可用时不启动任何子进程，否则使用随包 Node.js 启动随包 Appium。其环境、driver manifest 和缓存均为应用私有，退出时只停止本应用拥有的进程。
+
+仍未完成统一装配的主要组件是 Python 环境和 scrcpy；现有其它 ADB/scrcpy 服务仍需进一步统一到 `RuntimeLocator`，并移除开发机绝对路径回退。
 
 在正式发布前必须完成：
 
 1. 删除发布构建中的开发机绝对路径回退。
 2. 建立统一 `RuntimeLocator` 和 `RuntimeManager`。
-3. 将现有终端 runtime 锁和 SHA-256 装配扩展到全部组件，并生成完整许可证清单。
-4. 让所有服务通过组件 ID 获取绝对路径，不读取系统 `PATH`。
+3. 将 Python 和 scrcpy 纳入统一锁文件，并生成完整许可证清单。
+4. 让其余服务通过组件 ID 获取绝对路径，不读取系统 `PATH`。
 5. 在干净 Windows 沙箱中完成无外部工具验收。
 
 ## 4. 目标发布目录
@@ -53,35 +71,43 @@ AI-Mobile-Test-Studio/
   translations/
   runtime/
     manifest.json
-    windows-x64/
-      android/
-        platform-tools/
-          adb.exe
-          AdbWinApi.dll
-          AdbWinUsbApi.dll
-        app_metadata.jar
-      scrcpy/
-        scrcpy.exe
-        ...上游发布包的完整配套文件
-      opencode/
-        opencode.exe
-      python/
-      node/
-        node.exe
-        node_modules/node-pty/
-      jdk/
+    android/
+      app_metadata.jar
+    android-sdk/
+      cmdline-tools/latest/
+      platform-tools/
+        adb.exe
+        AdbWinApi.dll
+        AdbWinUsbApi.dll
+    conda/
+      conda.exe
+    jdk/bin/
+      java.exe
+      javac.exe
+    appium/node_modules/
       appium/
-      appium-inspector/
-        index.html
-        assets/
-        locales/
-        LICENSE
-        NOTICE.md
-      terminal-web/
-        index.html
-        vendor/
-      terminal-host/
-        conpty_host.js
+      appium-uiautomator2-driver/
+    scrcpy/
+      scrcpy.exe
+      ...上游发布包的完整配套文件
+    opencode/
+      opencode.exe
+    python/
+    node/
+      node.exe
+      npm.cmd
+      node_modules/node-pty/
+    appium-inspector/
+      index.html
+      assets/
+      locales/
+      LICENSE
+      NOTICE.md
+    terminal-web/
+      index.html
+      vendor/
+    terminal-host/
+      conpty_host.js
   licenses/
     THIRD_PARTY_NOTICES.md
     components/
@@ -100,12 +126,12 @@ AI-Mobile-Test-Studio/
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "platform": "windows-x64",
   "components": {
     "adb": {
       "version": "pinned-version",
-      "path": "android/platform-tools/adb.exe",
+      "path": "android-sdk/platform-tools/adb.exe",
       "sha256": "...",
       "source": "official-source-url",
       "license": "review-required"
@@ -185,14 +211,24 @@ AI-Mobile-Test-Studio/
 - 明确传递 workspace、临时目录、语言和端口。
 - 记录环境变量名称和非敏感摘要，不记录密钥值。
 
+### 6.5 Appium 隔离与复用
+
+- 仅探测默认本机端点 `http://127.0.0.1:4723/status`；收到有效 WebDriver 状态响应时直接复用，不启动随包进程。
+- 无可用服务时，使用绝对路径运行 `runtime/node/node.exe` 和 `runtime/appium/node_modules/appium/index.js`。
+- 私有 `PATH` 只存在于 Appium 子进程，随包 Node.js、Android SDK、JDK 和 Conda 路径排在继承路径之前。
+- 覆盖子进程的 `JAVA_HOME`、`ANDROID_HOME`、`ANDROID_SDK_ROOT` 和 `APPIUM_HOME`，不写入父进程外的永久环境。
+- Appium driver metadata 写入 `QStandardPaths::AppLocalDataLocation` 下的应用专属目录，并使用随包 driver 的绝对路径。
+- 只终止 `QProcess` 启动且仍由本应用拥有的 Appium；不得终止复用的外部服务。
+
 ## 7. 构建和装配流水线
 
 建议新增：
 
 ```text
 tools/runtime/
-  runtime-lock.json             # 已实现：OpenCode/Node.js/node-pty
-  stage-terminal-runtime.ps1    # 已实现
+  runtime-lock.json             # 已实现：当前 Windows x64 私有运行时
+  appium/package-lock.json      # 已实现：Appium/driver 传递依赖锁
+  stage-terminal-runtime.ps1    # 已实现：下载、校验、原子 staging
   fetch-runtime.ps1
   verify-runtime.ps1
   stage-runtime.ps1
@@ -254,8 +290,9 @@ tools/package/
 5. scrcpy 能启动和停止。
 6. OpenCode TUI 能在指定 workspace 启动、输入、退出和恢复。
 7. OpenCode Server/SDK 能获取结构化会话状态。
-8. Appium 最小用例可运行。
-9. 卸载后不删除用户 workspace，不残留后台进程和监听端口。
+8. 已运行的外部 Appium 被复用且不被应用终止。
+9. 没有外部 Appium 时随包服务能启动，并使用随包 JDK/Android SDK/driver。
+10. 卸载后不删除用户 workspace，不残留后台进程和监听端口。
 
 ## 11. 参考资料
 

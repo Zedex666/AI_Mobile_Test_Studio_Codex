@@ -21,9 +21,10 @@ AI Mobile Test Studio 是面向 Android 设备调试与 AI 自动化测试的 Wi
 - **进程**：进程指标、应用图标、过滤、排序和强制停止，列表按 PID 差量刷新。
 - **镜像**：通过 scrcpy 独立进程启动和停止设备镜像。
 - **布局**：随包 Appium Inspector 2026.5.1 浏览器工作区。
+- **Appium 服务基础**：构建期装配锁定的 Node.js、JDK、Android SDK、Appium 3.5.2 和 UiAutomator2 driver 8.1.0；启动时复用 `127.0.0.1:4723` 的有效服务，否则启动随包服务并只回收自有进程。
 - **设置与国际化**：中英文即时切换、动态效果偏好，以及随包霞鹜文楷和 JetBrains Mono 字体。
 
-当前限制：OpenCode、Node.js 和 `node-pty` 已形成锁定的 Windows x64 开发构建 runtime，Qt WebEngine/xterm.js 已通过 ConPTY 回显和真实 OpenCode 1.18.5 基本交互验证；scrcpy/ADB 和其余依赖尚未进入统一锁文件。OpenCode TUI 已完成中文输入合并发送优化，但多输入法、鼠标、备用屏幕与高输出发布级矩阵，以及 OpenCode Server/SDK、Appium Server/Runner、Python 服务、附件解析、报告和完整安装包尚未完成。
+当前限制：Windows x64 开发构建 runtime 已锁定 OpenCode、Node.js/npm、`node-pty`、Conda standalone、OpenJDK 8、Android command-line/platform-tools、Appium 和 UiAutomator2 driver，并生成 schema 2 manifest；Qt WebEngine/xterm.js 已通过 ConPTY 回显和真实 OpenCode 1.18.5 基本交互验证，Appium 已覆盖外部服务复用、缺失运行时失败和随包启动冒烟。scrcpy 和 Python 尚未进入统一锁文件，现有 ADB/scrcpy 服务也未全部迁移到统一 `RuntimeLocator`。OpenCode TUI 的发布级兼容性矩阵、OpenCode Server/SDK、Python Automation Service、测试 Runner、Appium Session 编排、附件解析、报告、安装包和完整许可证产物仍未完成。
 
 ## 3. 目标用户
 
@@ -147,7 +148,7 @@ OpenCode TUI 用于用户观察和干预，产品状态使用 OpenCode Server/SD
 - 终端、设备控制、应用、包、文件、Recovery 和性能工作区可用。
 - 设备断开和错误不会阻塞 UI。
 
-当前状态：大部分已实现，便携依赖装配尚未完成。
+当前状态：大部分设备工具已实现；便携运行时基础和 Appium 服务已完成，scrcpy/Python 统一装配、私有 ADB 与正式发布验收尚未完成。
 
 ### 10.2 便携发布版
 

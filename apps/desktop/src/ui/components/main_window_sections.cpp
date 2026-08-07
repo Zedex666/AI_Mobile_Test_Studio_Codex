@@ -21,13 +21,6 @@ struct DeviceSelector {
     QLabel *statusLabel = nullptr;
 };
 
-struct SideStatus {
-    QFrame *widget = nullptr;
-    QLabel *statusDot = nullptr;
-    QLabel *statusTitle = nullptr;
-    QLabel *statusDetail = nullptr;
-};
-
 QLabel *makeLabel(const QString &value,
                   int size = 10,
                   QFont::Weight weight = QFont::Normal,
@@ -114,11 +107,13 @@ DeviceSelector makeDeviceSelector()
 {
     DeviceSelector selector;
     selector.widget = makePanel("DeviceSelector");
-    selector.widget->setFixedHeight(44);
-    selector.widget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    selector.widget->setFixedHeight(40);
+    selector.widget->setMinimumWidth(260);
+    selector.widget->setMaximumWidth(340);
+    selector.widget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     auto *layout = new QHBoxLayout(selector.widget);
-    layout->setContentsMargins(10, 0, 9, 0);
-    layout->setSpacing(6);
+    layout->setContentsMargins(12, 0, 11, 0);
+    layout->setSpacing(7);
 
     auto *deviceIcon = new QLabel;
     deviceIcon->setPixmap(imagePixmap(QStringLiteral("icons/设备/手机.png"), QSize(18, 18)));
@@ -135,29 +130,6 @@ DeviceSelector makeDeviceSelector()
     layout->addWidget(selector.statusLabel);
     layout->addWidget(makeLabel(text("⌄"), 10, QFont::Normal, "#7b8798"));
     return selector;
-}
-
-SideStatus makeSideStatus()
-{
-    SideStatus status;
-    status.widget = makePanel("SideStatus");
-    status.widget->setFixedHeight(56);
-    auto *layout = new QHBoxLayout(status.widget);
-    layout->setContentsMargins(14, 10, 14, 10);
-    layout->setSpacing(10);
-
-    auto *texts = new QVBoxLayout;
-    texts->setContentsMargins(0, 0, 0, 0);
-    texts->setSpacing(4);
-    status.statusTitle = makeLabel(text("正在检测 ADB"), 10, QFont::DemiBold, "#293243");
-    status.statusDetail = makeLabel(text("等待设备状态"), 8, QFont::Normal, "#7b8798");
-    texts->addWidget(status.statusTitle);
-    texts->addWidget(status.statusDetail);
-
-    status.statusDot = makeLabel(text("●"), 12, QFont::DemiBold, "#aab3c2");
-    layout->addWidget(status.statusDot, 0, Qt::AlignTop);
-    layout->addLayout(texts);
-    return status;
 }
 
 QFrame *makeStepRow(const QString &index,
@@ -300,6 +272,12 @@ HeaderSection createHeader()
                                 13,
                                 QFont::DemiBold,
                                 "#1d1d1f"));
+    layout->addSpacing(18);
+    const DeviceSelector selector = makeDeviceSelector();
+    section.deviceNameLabel = selector.nameLabel;
+    section.deviceStatusDot = selector.statusDot;
+    section.deviceStatusLabel = selector.statusLabel;
+    layout->addWidget(selector.widget);
     layout->addStretch();
     layout->addWidget(makeImageIconButton(QStringLiteral("icons/标题栏/通知.png"), text("通知")));
     section.deviceCenterButton = makeImageIconButton(
@@ -371,23 +349,6 @@ SidebarSection createSidebar()
     navigationLayout->addStretch();
     navigationScroll->setWidget(navigation);
     layout->addWidget(navigationScroll, 1);
-
-    auto *footer = new QWidget;
-    footer->setObjectName("SidebarFooter");
-    auto *footerLayout = new QVBoxLayout(footer);
-    footerLayout->setContentsMargins(22, 4, 22, 8);
-    footerLayout->setSpacing(3);
-    const SideStatus sideStatus = makeSideStatus();
-    section.statusDot = sideStatus.statusDot;
-    section.statusTitle = sideStatus.statusTitle;
-    section.statusDetail = sideStatus.statusDetail;
-    footerLayout->addWidget(sideStatus.widget);
-    const DeviceSelector selector = makeDeviceSelector();
-    section.deviceNameLabel = selector.nameLabel;
-    section.deviceStatusDot = selector.statusDot;
-    section.deviceStatusLabel = selector.statusLabel;
-    footerLayout->addWidget(selector.widget);
-    layout->addWidget(footer);
     return section;
 }
 
