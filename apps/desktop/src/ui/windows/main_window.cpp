@@ -34,12 +34,14 @@
 #include "ui/styles/app_style.h"
 #include "ui/windows/device_center_window.h"
 
+#include <QAction>
 #include <QApplication>
 #include <QBoxLayout>
 #include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
 #include <QLabel>
+#include <QMenu>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QResizeEvent>
@@ -157,6 +159,7 @@ void MainWindow::buildUi()
     rootLayout->setContentsMargins(0, 0, 0, 0);
     rootLayout->setSpacing(0);
     const ui::HeaderSection header = ui::createHeader();
+    m_deviceSelectorButton = header.deviceSelectorButton;
     m_headerDeviceCenterButton = header.deviceCenterButton;
     m_headerSettingsButton = header.settingsButton;
     m_deviceNameLabel = header.deviceNameLabel;
@@ -257,11 +260,23 @@ void MainWindow::configureScrcpy()
     }
 
     m_scrcpyService = new ScrcpyService(scrcpyPath, this);
+    m_deviceSelectorMenu = new QMenu(this);
 
     connect(m_scrcpyService,
             &ScrcpyService::deviceStateChanged,
             this,
             &MainWindow::updateDeviceUi);
+    connect(m_scrcpyService,
+            &ScrcpyService::connectedDevicesChanged,
+            this,
+            [this](const QStringList &serials) {
+                m_connectedDeviceSerials = serials;
+                rebuildDeviceSelectorMenu();
+            });
+    connect(m_deviceSelectorButton,
+            &QPushButton::clicked,
+            this,
+            &MainWindow::showDeviceSelectorMenu);
     connect(m_scrcpyService,
             &ScrcpyService::mirrorRunningChanged,
             m_mirroringPage,
@@ -936,6 +951,48 @@ void MainWindow::showDeviceCenter()
     m_deviceCenterWindow->activateWindow();
 }
 
+void MainWindow::showDeviceSelectorMenu()
+{
+    if (m_scrcpyService == nullptr || m_deviceSelectorButton == nullptr
+        || m_deviceSelectorMenu == nullptr) {
+        return;
+    }
+
+    m_scrcpyService->refreshDeviceState();
+    rebuildDeviceSelectorMenu();
+    const QPoint menuPosition = m_deviceSelectorButton->mapToGlobal(
+        QPoint(0, m_deviceSelectorButton->height() + 4));
+    m_deviceSelectorMenu->popup(menuPosition);
+}
+
+void MainWindow::rebuildDeviceSelectorMenu()
+{
+    if (m_deviceSelectorMenu == nullptr) {
+        return;
+    }
+
+    m_deviceSelectorMenu->clear();
+    if (m_deviceSelectorButton != nullptr) {
+        m_deviceSelectorMenu->setMinimumWidth(m_deviceSelectorButton->width());
+    }
+
+    if (m_connectedDeviceSerials.isEmpty()) {
+        QAction *emptyAction = m_deviceSelectorMenu->addAction(
+            ui::text("未检测到已连接设备"));
+        emptyAction->setEnabled(false);
+        return;
+    }
+
+    for (const QString &serial : m_connectedDeviceSerials) {
+        QAction *deviceAction = m_deviceSelectorMenu->addAction(serial);
+        deviceAction->setCheckable(true);
+        deviceAction->setChecked(serial == m_deviceSerial);
+        connect(deviceAction, &QAction::triggered, this, [this, serial] {
+            m_scrcpyService->setPreferredDeviceSerial(serial);
+        });
+    }
+}
+
 void MainWindow::preloadDeviceData(const QString &serial)
 {
     QTimer::singleShot(0, this, [this, serial] {
@@ -1252,4 +1309,5 @@ void MainWindow::updateDeviceUi(ScrcpyService::DeviceState state,
     m_deviceNameLabel->setText(deviceName);
     m_deviceStatusLabel->setText(statusText);
     m_deviceStatusDot->setStyleSheet(QStringLiteral("color:%1;").arg(statusColor));
+    rebuildDeviceSelectorMenu();
 }

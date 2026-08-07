@@ -15,7 +15,7 @@ namespace ui {
 namespace {
 
 struct DeviceSelector {
-    QFrame *widget = nullptr;
+    QPushButton *widget = nullptr;
     QLabel *nameLabel = nullptr;
     QLabel *statusDot = nullptr;
     QLabel *statusLabel = nullptr;
@@ -106,11 +106,15 @@ QPushButton *makeWorkspaceNavButton(const QString &iconPath,
 DeviceSelector makeDeviceSelector()
 {
     DeviceSelector selector;
-    selector.widget = makePanel("DeviceSelector");
+    selector.widget = new QPushButton;
+    selector.widget->setObjectName("DeviceSelector");
     selector.widget->setFixedHeight(40);
     selector.widget->setMinimumWidth(260);
     selector.widget->setMaximumWidth(340);
     selector.widget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+    selector.widget->setCursor(Qt::PointingHandCursor);
+    selector.widget->setAccessibleName(text("设备选择器"));
+    selector.widget->setToolTip(text("选择已连接设备"));
     auto *layout = new QHBoxLayout(selector.widget);
     layout->setContentsMargins(12, 0, 11, 0);
     layout->setSpacing(7);
@@ -119,16 +123,19 @@ DeviceSelector makeDeviceSelector()
     deviceIcon->setPixmap(imagePixmap(QStringLiteral("icons/设备/手机.png"), QSize(18, 18)));
     deviceIcon->setFixedSize(18, 18);
     deviceIcon->setAlignment(Qt::AlignCenter);
+    deviceIcon->setAttribute(Qt::WA_TransparentForMouseEvents);
     layout->addWidget(deviceIcon);
     selector.nameLabel = makeLabel(text("正在检测设备"), 9, QFont::DemiBold, "#172033");
     selector.nameLabel->setMinimumWidth(0);
     selector.nameLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    selector.nameLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
     layout->addWidget(selector.nameLabel, 1);
     selector.statusDot = makeLabel(text("●"), 10, QFont::DemiBold, "#aab3c2");
     selector.statusLabel = makeLabel(text("检测中"), 8, QFont::Normal, "#596579");
+    selector.statusDot->setAttribute(Qt::WA_TransparentForMouseEvents);
+    selector.statusLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
     layout->addWidget(selector.statusDot);
     layout->addWidget(selector.statusLabel);
-    layout->addWidget(makeLabel(text("⌄"), 10, QFont::Normal, "#7b8798"));
     return selector;
 }
 
@@ -274,6 +281,7 @@ HeaderSection createHeader()
                                 "#1d1d1f"));
     layout->addSpacing(18);
     const DeviceSelector selector = makeDeviceSelector();
+    section.deviceSelectorButton = selector.widget;
     section.deviceNameLabel = selector.nameLabel;
     section.deviceStatusDot = selector.statusDot;
     section.deviceStatusLabel = selector.statusLabel;

@@ -199,7 +199,7 @@
 
 | 文件 | 状态 |
 | --- | --- |
-| `resources/images/icons/设备/手机.png` | 已使用，侧边栏设备选择器 |
+| `resources/images/icons/设备/手机.png` | 已使用，顶部标题栏设备选择器 |
 | `resources/images/icons/设备/平板电脑.png` | 预留 |
 | `resources/images/icons/设备/手表.png` | 预留 |
 | `resources/images/icons/设备/智能眼镜.png` | 预留 |

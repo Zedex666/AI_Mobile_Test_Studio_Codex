@@ -49,11 +49,15 @@ QString appStyleSheet()
             background: #ffffff;
             border: none;
         }
-        QFrame#DeviceSelector {
+        QPushButton#DeviceSelector {
             background: #ffffff;
             border: 1px solid #d9e4f4;
             border-radius: 8px;
+            padding: 0;
+            text-align: left;
         }
+        QPushButton#DeviceSelector:hover { background: #f7faff; border-color: #bcd0ed; }
+        QPushButton#DeviceSelector:pressed { background: #edf4ff; border-color: #9fbee8; }
         QFrame#NavItem, QFrame#PlainRow {
             background: transparent;
             border: none;
@@ -1594,10 +1598,20 @@ QString appStyleSheet()
             border-color: rgba(0, 113, 227, 48);
             color: #0071e3;
         }
-        QFrame#DeviceSelector {
+        QPushButton#DeviceSelector {
             background: rgba(255, 255, 255, 190);
             border: 1px solid rgba(60, 60, 67, 24);
             border-radius: 12px;
+            padding: 0;
+            text-align: left;
+        }
+        QPushButton#DeviceSelector:hover {
+            background: rgba(0, 113, 227, 12);
+            border-color: rgba(0, 113, 227, 48);
+        }
+        QPushButton#DeviceSelector:pressed {
+            background: rgba(0, 113, 227, 22);
+            border-color: rgba(0, 113, 227, 68);
         }
         QFrame#Panel, QFrame#CommandCategory, QFrame#SettingsCard,
         QFrame#OverviewMetricCard, QFrame#OverviewInfoCard,

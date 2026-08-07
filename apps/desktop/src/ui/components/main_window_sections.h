@@ -9,6 +9,7 @@ namespace ui {
 
 struct HeaderSection {
     QWidget *widget = nullptr;
+    QPushButton *deviceSelectorButton = nullptr;
     QPushButton *deviceCenterButton = nullptr;
     QPushButton *settingsButton = nullptr;
     QLabel *deviceNameLabel = nullptr;

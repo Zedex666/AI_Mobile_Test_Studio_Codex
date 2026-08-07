@@ -35,6 +35,7 @@ class ProcessService;
 class TerminalPage;
 class TerminalService;
 class QLabel;
+class QMenu;
 class QPushButton;
 class QStackedWidget;
 class QResizeEvent;
@@ -55,6 +56,8 @@ private:
     void buildUi();
     void configureScrcpy();
     void configureDeviceControls();
+    void showDeviceSelectorMenu();
+    void rebuildDeviceSelectorMenu();
     void showDeviceCenter();
     void preloadWebWorkspaces();
     void cancelWorkspacePreload();
@@ -112,8 +115,10 @@ private:
     QPushButton *m_logcatNavButton = nullptr;
     QPushButton *m_otherNavButton = nullptr;
     QPushButton *m_settingsNavButton = nullptr;
+    QPushButton *m_deviceSelectorButton = nullptr;
     QPushButton *m_headerSettingsButton = nullptr;
     QPushButton *m_headerDeviceCenterButton = nullptr;
+    QMenu *m_deviceSelectorMenu = nullptr;
     QWidget *m_sidebarWidget = nullptr;
     QLabel *m_deviceNameLabel = nullptr;
     QLabel *m_deviceStatusDot = nullptr;
@@ -125,5 +130,6 @@ private:
     ScrcpyService::DeviceState m_deviceState = ScrcpyService::DeviceState::ToolUnavailable;
     QString m_deviceSerial;
     QString m_deviceDetail;
+    QStringList m_connectedDeviceSerials;
 };
 #endif // AI_MOBILE_TEST_STUDIO_UI_MAIN_WINDOW_H

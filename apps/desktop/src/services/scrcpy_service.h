@@ -30,6 +30,7 @@ public:
     QString scrcpyPath() const;
     QString adbExecutablePath() const;
     QString preferredDeviceSerial() const;
+    QStringList connectedDeviceSerials() const;
     bool mirrorRunning() const;
 
     void startMonitoring();
@@ -45,6 +46,7 @@ signals:
     void deviceStateChanged(ScrcpyService::DeviceState state,
                             const QString &serial,
                             const QString &detail);
+    void connectedDevicesChanged(const QStringList &serials);
     void mirrorRunningChanged(bool running);
     void camerasLoaded(const QStringList &cameras);
     void operationError(const QString &message);
@@ -53,12 +55,14 @@ private:
     void handleProbeFinished(int exitCode, QProcess::ExitStatus exitStatus);
     void handleMirrorFinished(int exitCode, QProcess::ExitStatus exitStatus);
     void setDeviceState(DeviceState state, const QString &serial, const QString &detail);
+    void setConnectedDeviceSerials(const QStringList &serials);
     void setMirrorRunning(bool running);
     QString adbPath() const;
     QString recentMirrorLog() const;
 
     QString m_scrcpyPath;
     QString m_preferredDeviceSerial;
+    QStringList m_connectedDeviceSerials;
     QString m_deviceSerial;
     QString m_deviceDetail;
     QString m_mirrorLog;

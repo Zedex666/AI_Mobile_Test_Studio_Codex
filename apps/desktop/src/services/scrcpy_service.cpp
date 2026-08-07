@@ -30,6 +30,7 @@ ScrcpyService::ScrcpyService(QString scrcpyPath, QObject *parent)
             &ScrcpyService::handleProbeFinished);
     connect(&m_probeProcess, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
         if (error == QProcess::FailedToStart) {
+            setConnectedDeviceSerials(QStringList());
             setDeviceState(DeviceState::ToolUnavailable,
                            QString(),
                            tr("无法启动 adb.exe：%1").arg(m_probeProcess.errorString()));
@@ -145,6 +146,11 @@ QString ScrcpyService::preferredDeviceSerial() const
     return m_preferredDeviceSerial;
 }
 
+QStringList ScrcpyService::connectedDeviceSerials() const
+{
+    return m_connectedDeviceSerials;
+}
+
 bool ScrcpyService::mirrorRunning() const
 {
     return m_mirrorRunning;
@@ -163,6 +169,7 @@ void ScrcpyService::refreshDeviceState()
     }
 
     if (!QFileInfo::exists(m_scrcpyPath)) {
+        setConnectedDeviceSerials(QStringList());
         setDeviceState(DeviceState::ToolUnavailable,
                        QString(),
                        tr("未找到 scrcpy.exe：%1").arg(QDir::toNativeSeparators(m_scrcpyPath)));
@@ -171,6 +178,7 @@ void ScrcpyService::refreshDeviceState()
 
     const QString currentAdbPath = adbPath();
     if (!QFileInfo::exists(currentAdbPath)) {
+        setConnectedDeviceSerials(QStringList());
         setDeviceState(DeviceState::ToolUnavailable,
                        QString(),
                        tr("未找到 adb.exe：%1").arg(QDir::toNativeSeparators(currentAdbPath)));
@@ -282,6 +290,7 @@ void ScrcpyService::handleProbeFinished(int exitCode, QProcess::ExitStatus exitS
 {
     if (exitStatus != QProcess::NormalExit || exitCode != 0) {
         const QString error = QString::fromLocal8Bit(m_probeProcess.readAllStandardError()).trimmed();
+        setConnectedDeviceSerials(QStringList());
         setDeviceState(DeviceState::ToolUnavailable,
                        QString(),
                        error.isEmpty() ? tr("adb 设备检测失败。") : error);
@@ -298,6 +307,7 @@ void ScrcpyService::handleProbeFinished(int exitCode, QProcess::ExitStatus exitS
     QString preferredSideloadSerial;
     QString firstUnauthorizedSerial;
     QString preferredUnauthorizedSerial;
+    QStringList connectedSerials;
     for (const QString &line : lines) {
         if (line.startsWith(QStringLiteral("List of devices"))) {
             continue;
@@ -311,6 +321,7 @@ void ScrcpyService::handleProbeFinished(int exitCode, QProcess::ExitStatus exitS
         const QString serial = columns[0];
         const QString state = columns[1];
         if (state == QStringLiteral("device")) {
+            connectedSerials.append(serial);
             if (firstConnectedSerial.isEmpty()) {
                 firstConnectedSerial = serial;
             }
@@ -337,6 +348,8 @@ void ScrcpyService::handleProbeFinished(int exitCode, QProcess::ExitStatus exitS
             }
         }
     }
+    connectedSerials.removeDuplicates();
+    setConnectedDeviceSerials(connectedSerials);
 
     const QString connectedSerial = preferredConnectedSerial.isEmpty()
         ? firstConnectedSerial
@@ -403,6 +416,16 @@ void ScrcpyService::setDeviceState(DeviceState state,
     m_deviceSerial = serial;
     m_deviceDetail = detail;
     emit deviceStateChanged(state, serial, detail);
+}
+
+void ScrcpyService::setConnectedDeviceSerials(const QStringList &serials)
+{
+    if (m_connectedDeviceSerials == serials) {
+        return;
+    }
+
+    m_connectedDeviceSerials = serials;
+    emit connectedDevicesChanged(serials);
 }
 
 void ScrcpyService::setMirrorRunning(bool running)
