@@ -327,6 +327,7 @@ SidebarSection createSidebar()
     section.displayButton = makeWorkspaceNavButton(QStringLiteral("icons/侧边栏/显示.png"), text("显示"), false);
     section.mirroringButton = makeWorkspaceNavButton(QStringLiteral("icons/侧边栏/镜像.png"), text("镜像"), false);
     section.chatButton = makeWorkspaceNavButton(QStringLiteral("icons/侧边栏/终端.png"), text("终端"), false);
+    section.automationButton = makeWorkspaceNavButton(QStringLiteral("icons/侧边栏/对话.png"), text("自动化"), false);
     section.deviceControlButton = makeWorkspaceNavButton(QStringLiteral("icons/侧边栏/设备控制.png"), text("设备控制"), false);
     section.packageManagerButton = makeWorkspaceNavButton(QStringLiteral("icons/侧边栏/软件包管理器.png"), text("软件包管理器"), false);
     section.appsButton = makeWorkspaceNavButton(QStringLiteral("icons/侧边栏/应用.png"), text("应用"), false);
@@ -341,6 +342,7 @@ SidebarSection createSidebar()
     navigationLayout->addWidget(section.displayButton);
     navigationLayout->addWidget(section.mirroringButton);
     navigationLayout->addWidget(section.chatButton);
+    navigationLayout->addWidget(section.automationButton);
     navigationLayout->addWidget(section.deviceControlButton);
     navigationLayout->addWidget(section.packageManagerButton);
     navigationLayout->addWidget(section.appsButton);

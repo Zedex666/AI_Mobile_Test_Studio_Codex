@@ -1,0 +1,10 @@
+{
+  "name": "ai-mobile-test-studio-opencode-extension",
+  "version": "1.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "dependencies": {
+    "@opencode-ai/plugin": "1.18.5"
+  }
+}

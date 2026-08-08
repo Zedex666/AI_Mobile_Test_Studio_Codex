@@ -8,6 +8,13 @@
 
 ### Added
 
+- 左侧导航新增“自动化”工作区，递归显示 workspace 中 `automation/scripts` 和 `automation/reports` 下的 HTML 产物，支持搜索、双击以及右上角“打开/运行”调用系统默认浏览器。
+- 新增 `AutomationArtifactService` 和 `automation_artifact_service_smoke`，自动创建 `scripts`、`reports`、`assets`、`runs` 目录，通过文件监听和定时刷新发现产物，并拒绝目录外路径。
+- OpenCode 插件新增 `amts_automation_paths`，返回脚本、报告、共享资源和运行记录目录，约束自动化脚本与文档报告最终交付为可直接打开的 HTML。
+- 新增 OpenCode 专用 Studio Control API：使用当前用户命名管道、4 字节 little-endian JSON-RPC 分帧、每次运行随机 Token 和 1 MiB 帧限制，支持状态、稳定工作区、设备刷新、设备概览、应用列表、安全动作及异步操作查询/取消。
+- 新增 `StudioOperationManager`，每个 API 请求使用独立 ADB `QProcess`；设备概览与应用列表可并行，安全控制动作按设备资源锁串行化，不复用页面 service 的进程和输出状态。
+- 新增随包 OpenCode 插件工具 `amts_status`、`amts_workspace_open`、`amts_automation_paths`、`amts_device_refresh`、`amts_device_read`、`amts_safe_action`、`amts_operation_get` 和 `amts_operation_cancel`，并通过锁定 package lock 在构建阶段 staging 完整依赖。
+- 新增 Studio Control 服务器与操作管理器冒烟测试，覆盖协议分帧、认证、16 个稳定工作区、并行只读设备操作、动作锁和取消。
 - 新增 `UI_ICON_RESOURCES.md`，记录当前 108 个随包 PNG 图标的完整分类、101 个已使用与 7 个预留状态，以及后续新增、替换和运行时一致性验收流程。
 - 设备中心工具栏的无线模式、断开设备、删除离线设备和刷新操作接入对应 PNG 图标，替换 Qt 系统占位图标。
 - 文件工作区的列表/网格视图切换与应用内标题栏的通知、设备中心、设置入口接入新增 PNG 图标；标题栏品牌标识改为复用应用窗口和任务栏的 `app.png`。

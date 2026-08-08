@@ -23,6 +23,7 @@ struct SidebarSection {
     QPushButton *displayButton = nullptr;
     QPushButton *mirroringButton = nullptr;
     QPushButton *chatButton = nullptr;
+    QPushButton *automationButton = nullptr;
     QPushButton *deviceControlButton = nullptr;
     QPushButton *packageManagerButton = nullptr;
     QPushButton *appsButton = nullptr;

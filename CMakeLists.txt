@@ -47,6 +47,9 @@ set(AI_MOBILE_TEST_NODE_PTY_RUNTIME_MODULE
 set(AI_MOBILE_TEST_TERMINAL_RUNTIME_MANIFEST "")
 set(AI_MOBILE_TEST_PORTABLE_RUNTIME_ROOT "")
 set(AI_MOBILE_TEST_TERMINAL_RUNTIME_GENERATED FALSE)
+set(AI_MOBILE_TEST_OPENCODE_EXTENSION_STAGE_ROOT
+    "${CMAKE_BINARY_DIR}/opencode-extension-stage" CACHE PATH
+    "Build-local staged OpenCode plugin and locked dependencies")
 
 if(WIN32 AND AI_MOBILE_TEST_STAGE_TERMINAL_RUNTIME)
     find_program(AI_MOBILE_TEST_POWERSHELL_EXECUTABLE
@@ -101,6 +104,47 @@ if(WIN32 AND AI_MOBILE_TEST_STAGE_TERMINAL_RUNTIME)
     add_custom_target(ai_mobile_test_stage_terminal_runtime
         DEPENDS "${_terminal_runtime_stamp}")
     set(AI_MOBILE_TEST_TERMINAL_RUNTIME_GENERATED TRUE)
+endif()
+
+if(WIN32)
+    if(NOT AI_MOBILE_TEST_POWERSHELL_EXECUTABLE)
+        find_program(AI_MOBILE_TEST_POWERSHELL_EXECUTABLE
+            NAMES pwsh powershell REQUIRED)
+    endif()
+    if(AI_MOBILE_TEST_PORTABLE_RUNTIME_ROOT)
+        set(_opencode_extension_npm
+            "${AI_MOBILE_TEST_PORTABLE_RUNTIME_ROOT}/node/npm.cmd")
+    else()
+        find_program(_opencode_extension_npm NAMES npm.cmd npm REQUIRED)
+    endif()
+    set(_opencode_extension_stamp
+        "${AI_MOBILE_TEST_OPENCODE_EXTENSION_STAGE_ROOT}/.complete")
+    file(GLOB_RECURSE _opencode_extension_sources CONFIGURE_DEPENDS
+        "${CMAKE_SOURCE_DIR}/resources/opencode-extension/*")
+    add_custom_command(
+        OUTPUT "${_opencode_extension_stamp}"
+        BYPRODUCTS
+            "${AI_MOBILE_TEST_OPENCODE_EXTENSION_STAGE_ROOT}/plugins/ai-mobile-test-studio.ts"
+            "${AI_MOBILE_TEST_OPENCODE_EXTENSION_STAGE_ROOT}/node_modules/@opencode-ai/plugin/package.json"
+        COMMAND "${AI_MOBILE_TEST_POWERSHELL_EXECUTABLE}"
+            -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass
+            -File "${CMAKE_SOURCE_DIR}/tools/runtime/stage-opencode-extension.ps1"
+            -Source "${CMAKE_SOURCE_DIR}/resources/opencode-extension"
+            -Destination "${AI_MOBILE_TEST_OPENCODE_EXTENSION_STAGE_ROOT}"
+            -NpmExecutable "${_opencode_extension_npm}"
+            -CacheDirectory "${AI_MOBILE_TEST_RUNTIME_CACHE_ROOT}/opencode-extension-npm"
+        DEPENDS
+            "${CMAKE_SOURCE_DIR}/tools/runtime/stage-opencode-extension.ps1"
+            ${_opencode_extension_sources}
+        COMMENT "Staging locked OpenCode extension"
+        VERBATIM
+    )
+    add_custom_target(ai_mobile_test_stage_opencode_extension
+        DEPENDS "${_opencode_extension_stamp}")
+    if(TARGET ai_mobile_test_stage_terminal_runtime)
+        add_dependencies(ai_mobile_test_stage_opencode_extension
+            ai_mobile_test_stage_terminal_runtime)
+    endif()
 endif()
 
 find_package(Qt6 6.5 REQUIRED COMPONENTS Core Network Widgets)

@@ -24,7 +24,8 @@ public:
                                   const QString &workingDirectory,
                                   const QString &nodeExecutablePath,
                                   const QString &nodePtyModulePath,
-                                  const QString &hostScriptPath);
+                                  const QString &hostScriptPath,
+                                  const QHash<QString, QString> &environmentVariables = {});
 
 public slots:
     void createSession(const QString &sessionId, const QString &kindId);
@@ -50,6 +51,7 @@ private:
     QString m_nodeExecutablePath;
     QString m_nodePtyModulePath;
     QString m_terminalHostScriptPath;
+    QHash<QString, QString> m_openCodeEnvironment;
     QHash<QString, TerminalSession *> m_sessions;
     QHash<QString, TerminalSessionKind> m_sessionKinds;
 };

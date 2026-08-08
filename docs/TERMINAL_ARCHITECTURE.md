@@ -196,8 +196,24 @@ CMake staging 参数：
 - 终端类型使用兼容 xterm 的环境配置。
 - 标签关闭时执行可控退出；强制终止前给进程有限清理时间。
 - OpenCode 的配置、缓存、会话和凭据进入用户数据目录。
+- OpenCode ConPTY 启动环境注入随包插件目录以及本次运行生成的 Studio Control 管道名、Token 和协议版本。
+- 同一进程环境还注入 `AI_MOBILE_TEST_STUDIO_AUTOMATION_ROOT`、`AI_MOBILE_TEST_STUDIO_AUTOMATION_SCRIPTS`、`AI_MOBILE_TEST_STUDIO_AUTOMATION_REPORTS`、`AI_MOBILE_TEST_STUDIO_AUTOMATION_ASSETS` 和 `AI_MOBILE_TEST_STUDIO_AUTOMATION_RUNS` 五个自动化产物路径。
 
-### 8.2 Server/SDK
+### 8.2 Studio Control 插件
+
+当前已经实现 `OpenCode -> Studio` 的本地结构化控制通道：
+
+- OpenCode 插件通过 `QLocalServer` 对应的 Windows 命名管道调用 JSON-RPC 2.0。
+- 每次应用启动生成新的管道名和 256 位随机 Token，仅放入 OpenCode 子进程环境。
+- 插件可打开稳定工作区、读取设备概览和应用列表、执行 KEYCODE/启动应用/停止应用三类安全动作。
+- `amts_automation_paths` 返回自动化目录和 HTML 交付约束；脚本进入 `scripts/`，文档和报告进入 `reports/`。
+- 长操作返回 `operationId`，插件可轮询或取消。
+- API 操作使用独立 ADB 子进程，不复用页面 service 的单实例 `QProcess`；只读操作可并行，设备控制动作按设备加锁。
+- 插件依赖在构建阶段锁定 staging，OpenCode 启动时不联网安装。
+
+完整协议与安全边界见 [STUDIO_CONTROL_API.md](STUDIO_CONTROL_API.md)。
+
+### 8.3 Server/SDK
 
 OpenCode 官方架构中，TUI 是 Server 的客户端；Server 暴露 OpenAPI 3.1 和 SDK。项目应利用这一结构：
 
@@ -232,8 +248,9 @@ OpenCode 官方架构中，TUI 是 Server 的客户端；Server 暴露 OpenAPI 3
 4. **部分完成**：已锁定并在 Windows 开发构建中装配 Node.js、`node-pty` 和 OpenCode；完整发布包的 Qt WebEngine 依赖和许可证产物仍在进行中。
 5. **部分完成**：Qt WebEngine 构建已通过 ConPTY 回显和 OpenCode 1.18.5 基本交互链路；继续完成 `vim`、IME、鼠标、备用屏幕和长时间高输出验收。
 6. **待开始**：接入 `RuntimeLocator`、manifest 校验和启动自检。
-7. **待开始**：接入 OpenCode Server/SDK，停止解析终端文字。
-8. **待开始**：加入搜索、链接、Unicode11、WebGL、可访问性和性能测试，随后删除降级解析器。
+7. **已完成**：接入 OpenCode 官方插件工具和 Studio Control API，使 OpenCode 可以结构化控制工作区和安全设备能力。
+8. **待开始**：接入反方向的 OpenCode Server/SDK，用于 Qt 创建会话、读取 Agent 事件和任务结果。
+9. **待开始**：加入搜索、链接、Unicode11、WebGL、可访问性和性能测试，随后删除降级解析器。
 
 ## 11. 验收矩阵
 
@@ -247,6 +264,11 @@ OpenCode 官方架构中，TUI 是 Server 的客户端；Server 暴露 OpenAPI 3
 | 大量输出 | UI 不阻塞，内存有上限，滚动仍可操作 |
 | 工作区连续切换 | 终端与 Inspector 不空白、不重载，前台恢复回显目标小于 300ms |
 | 设备断开 | ADB 会话明确结束，OpenCode 会话不受影响 |
+| OpenCode 设备读取期间切换页面 | API 独立运行，页面 service 状态和输出不被覆盖 |
+| OpenCode 生成 HTML 期间使用其它工作区 | 终端继续后台运行，产物监听不阻塞设备和页面 service |
+| 自动化 HTML 生成完成 | “自动化”列表自动出现文件，选中后默认浏览器可打开 |
+| 两个 OpenCode 只读设备操作 | 可并行执行并分别通过 operationId 返回结果 |
+| 两个 OpenCode 设备控制动作 | 同一设备资源锁拒绝冲突动作，前一个完成后释放 |
 | 应用退出 | ConPTY、ADB socket、OpenCode Server 和子进程全部回收 |
 
 ## 12. 参考资料

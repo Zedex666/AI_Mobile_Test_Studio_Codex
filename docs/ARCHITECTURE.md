@@ -26,6 +26,10 @@ flowchart TB
     Services --> Scrcpy["scrcpy process"]
     Services --> Metadata["app_metadata.jar"]
     Services --> AppiumService["AppiumService"]
+    Main --> ControlServer["StudioControlServer"]
+    OpenCodePlugin["OpenCode Plugin Tools"] --> ControlServer
+    ControlServer --> ControlOperations["Independent Control Operations"]
+    ControlOperations --> AdbProcess
     AppiumService --> ExistingAppium["Existing Appium on 127.0.0.1:4723"]
     AppiumService --> BundledAppium["Bundled Node.js + Appium"]
     BundledAppium --> BundledSdk["Bundled JDK + Android SDK + UiAutomator2"]
@@ -52,6 +56,9 @@ flowchart TB
 | `TerminalService` | 统一管理 ADB shell 与 OpenCode 会话，设备切换只回收 ADB 会话 |
 | `ConPtySession` | 通过随包 Node.js/`node-pty` 宿主创建 OpenCode ConPTY |
 | `AppiumService` | 探测默认 Appium 状态端点，复用有效外部服务或使用随包 Node.js、JDK、Android SDK 和 UiAutomator2 启动私有 Appium；只回收自己拥有的进程 |
+| `StudioControlServer` | 面向应用内 OpenCode 的认证命名管道、JSON-RPC 路由、稳定工作区控制和设备状态快照 |
+| `StudioOperationManager` | 每个 API 请求独立创建 ADB `QProcess`，并行执行只读操作，按设备锁定安全控制动作，不复用 UI service 实例 |
+| `AutomationArtifactService` | 创建并监听 workspace 下的自动化产物目录，安全扫描脚本和报告 HTML，并向“自动化”工作区推送列表更新 |
 
 当前 Python `services/automation/`、contracts 和 tests 主要是目录骨架，尚未形成运行进程。仓库中的 `plugins/`、`skills/` 是早期空目录，不属于目标架构，后续可以清理。
 
@@ -205,7 +212,31 @@ sequenceDiagram
 5. UiAutomator2 driver metadata 写入应用数据目录，安装目录保持只读；启动后持续探测状态端点，超时或提前退出时返回结构化状态详情。
 6. 桌面进程退出时只停止 `QProcess` 所拥有的随包 Appium，不影响复用的外部实例。
 
-### 7.4 目标 AI 自动化
+### 7.4 当前 OpenCode 控制 Studio
+
+```mermaid
+sequenceDiagram
+    participant O as OpenCode Plugin
+    participant S as StudioControlServer
+    participant M as StudioOperationManager
+    participant D as Android Device
+    O->>S: JSON-RPC + per-run token
+    S-->>O: operationId / running
+    S->>M: start isolated operation
+    M->>D: independent adb QProcess
+    O->>S: operation.get
+    S-->>O: completed / failed / canceled
+```
+
+工作区打开在 Qt 主线程中同步完成；设备 I/O 由独立子进程异步执行。页面 services 与 OpenCode operations 不共享 `QProcess`、输出缓冲或请求状态，用户可在 OpenCode 任务执行期间继续操作其它页面。详细协议见 [STUDIO_CONTROL_API.md](STUDIO_CONTROL_API.md)。
+
+### 7.5 当前自动化 HTML 产物
+
+OpenCode 子进程通过环境变量获得 `automation/`、`scripts/`、`reports/`、`assets/` 和 `runs/` 的绝对路径。插件工具 `amts_automation_paths` 将产物契约结构化返回给模型：自动化脚本写入 `scripts/`，文档和报告写入 `reports/`，最终入口为可直接在浏览器打开的 HTML。
+
+`AutomationArtifactService` 仅扫描 `scripts/` 和 `reports/` 下的 `.html`/`.htm`，规范化并校验文件真实路径仍位于自动化根目录内。“自动化”页面通过 `QFileSystemWatcher` 与定时刷新更新列表，用户选中后由 `QDesktopServices` 交给系统默认浏览器。该服务不等待 OpenCode、不占用设备 API 的 ADB 进程或资源锁，因此生成任务和其它工作区操作可以同时进行。
+
+### 7.6 目标 AI 自动化
 
 ```mermaid
 sequenceDiagram
@@ -259,6 +290,7 @@ sequenceDiagram
 - 默认只操作用户选中的设备和 workspace。
 - 重启、卸载、清数据、删除文件等动作需要按风险确认。
 - OpenCode 和 Agent 读取范围、网络权限和命令权限必须可配置。
+- Studio Control API 每次运行生成新管道名和随机 Token，只注入本应用创建的 OpenCode 进程；危险设备动作仍由 Studio 保留最终审批权。
 - 日志和报告落盘前脱敏。
 - 凭据不进入命令行、普通日志或任务产物。
 - 本机 HTTP 服务默认只监听 `127.0.0.1` 并使用随机认证信息。

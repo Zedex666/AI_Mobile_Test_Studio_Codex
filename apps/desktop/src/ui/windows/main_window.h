@@ -8,6 +8,8 @@
 class AdbControlService;
 class AppsPage;
 class AppsService;
+class AutomationArtifactService;
+class AutomationPage;
 class DeviceControlPage;
 class DeviceCenterService;
 class DeviceCenterWindow;
@@ -34,6 +36,7 @@ class ProcessPage;
 class ProcessService;
 class TerminalPage;
 class TerminalService;
+class StudioControlServer;
 class QLabel;
 class QMenu;
 class QPushButton;
@@ -63,6 +66,7 @@ private:
     void cancelWorkspacePreload();
     void preloadDeviceData(const QString &serial);
     void selectWorkspace(int index);
+    void selectWorkspaceById(const QString &workspaceId);
     void animateWorkspaceTransition(int index);
     void applyLanguage();
     void updateDeviceUi(ScrcpyService::DeviceState state,
@@ -98,12 +102,16 @@ private:
     RecoveryPage *m_recoveryPage = nullptr;
     SettingsPage *m_settingsPage = nullptr;
     TerminalService *m_terminalService = nullptr;
+    StudioControlServer *m_studioControlServer = nullptr;
     TerminalPage *m_terminalPage = nullptr;
+    AutomationArtifactService *m_automationArtifactService = nullptr;
+    AutomationPage *m_automationPage = nullptr;
     QStackedWidget *m_workspaceStack = nullptr;
     QPushButton *m_overviewNavButton = nullptr;
     QPushButton *m_displayNavButton = nullptr;
     QPushButton *m_mirroringNavButton = nullptr;
     QPushButton *m_chatNavButton = nullptr;
+    QPushButton *m_automationNavButton = nullptr;
     QPushButton *m_deviceControlNavButton = nullptr;
     QPushButton *m_packageManagerNavButton = nullptr;
     QPushButton *m_appsNavButton = nullptr;

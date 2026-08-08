@@ -1,3 +1,57 @@
+qt_add_executable(studio_control_server_smoke
+    studio_control_server_smoke.cpp
+    ../../apps/desktop/src/core/workspace_catalog.cpp
+    ../../apps/desktop/src/core/workspace_catalog.h
+    ../../apps/desktop/src/services/studio_control_protocol.cpp
+    ../../apps/desktop/src/services/studio_control_protocol.h
+    ../../apps/desktop/src/services/studio_operation_manager.cpp
+    ../../apps/desktop/src/services/studio_operation_manager.h
+    ../../apps/desktop/src/services/studio_control_server.cpp
+    ../../apps/desktop/src/services/studio_control_server.h
+)
+target_compile_features(studio_control_server_smoke PRIVATE cxx_std_17)
+set_target_properties(studio_control_server_smoke PROPERTIES WIN32_EXECUTABLE FALSE)
+target_include_directories(studio_control_server_smoke PRIVATE ../../apps/desktop/src)
+target_link_libraries(studio_control_server_smoke PRIVATE Qt::Core Qt::Network)
+add_test(NAME studio_control_server_smoke COMMAND studio_control_server_smoke)
+set_tests_properties(studio_control_server_smoke PROPERTIES
+    TIMEOUT 10
+    ENVIRONMENT "PATH=$<TARGET_FILE_DIR:Qt::Core>\;$ENV{PATH}")
+
+add_executable(fake_adb_helper fake_adb_helper.cpp)
+set_target_properties(fake_adb_helper PROPERTIES WIN32_EXECUTABLE FALSE)
+target_compile_features(fake_adb_helper PRIVATE cxx_std_17)
+
+qt_add_executable(studio_operation_manager_smoke
+    studio_operation_manager_smoke.cpp
+    ../../apps/desktop/src/services/studio_operation_manager.cpp
+    ../../apps/desktop/src/services/studio_operation_manager.h
+)
+target_compile_features(studio_operation_manager_smoke PRIVATE cxx_std_17)
+set_target_properties(studio_operation_manager_smoke PROPERTIES WIN32_EXECUTABLE FALSE)
+target_include_directories(studio_operation_manager_smoke PRIVATE ../../apps/desktop/src)
+target_link_libraries(studio_operation_manager_smoke PRIVATE Qt::Core)
+add_dependencies(studio_operation_manager_smoke fake_adb_helper)
+add_test(NAME studio_operation_manager_smoke
+    COMMAND studio_operation_manager_smoke $<TARGET_FILE:fake_adb_helper>)
+set_tests_properties(studio_operation_manager_smoke PROPERTIES
+    TIMEOUT 10
+    ENVIRONMENT "PATH=$<TARGET_FILE_DIR:Qt::Core>\;$ENV{PATH}")
+
+qt_add_executable(automation_artifact_service_smoke
+    automation_artifact_service_smoke.cpp
+    ../../apps/desktop/src/services/automation_artifact_service.cpp
+    ../../apps/desktop/src/services/automation_artifact_service.h
+)
+target_compile_features(automation_artifact_service_smoke PRIVATE cxx_std_17)
+set_target_properties(automation_artifact_service_smoke PROPERTIES WIN32_EXECUTABLE FALSE)
+target_include_directories(automation_artifact_service_smoke PRIVATE ../../apps/desktop/src)
+target_link_libraries(automation_artifact_service_smoke PRIVATE Qt::Core)
+add_test(NAME automation_artifact_service_smoke COMMAND automation_artifact_service_smoke)
+set_tests_properties(automation_artifact_service_smoke PROPERTIES
+    TIMEOUT 10
+    ENVIRONMENT "PATH=$<TARGET_FILE_DIR:Qt::Core>\;$ENV{PATH}")
+
 if(WIN32)
     qt_add_executable(appium_service_smoke
         appium_service_smoke.cpp
@@ -39,6 +93,14 @@ if(WIN32)
     target_include_directories(conpty_session_smoke PRIVATE ../../apps/desktop/src)
     target_link_libraries(conpty_session_smoke PRIVATE Qt::Core)
     if(MSVC)
+        target_compile_options(studio_control_server_smoke PRIVATE
+            /utf-8 /Zc:__cplusplus /permissive-)
+        target_compile_options(fake_adb_helper PRIVATE
+            /utf-8 /Zc:__cplusplus /permissive-)
+        target_compile_options(studio_operation_manager_smoke PRIVATE
+            /utf-8 /Zc:__cplusplus /permissive-)
+        target_compile_options(automation_artifact_service_smoke PRIVATE
+            /utf-8 /Zc:__cplusplus /permissive-)
         target_compile_options(appium_service_smoke PRIVATE
             /utf-8 /Zc:__cplusplus /permissive-)
         target_compile_options(conpty_session_smoke PRIVATE

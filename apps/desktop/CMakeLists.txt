@@ -5,6 +5,8 @@ qt_add_executable(${DESKTOP_TARGET}
     src/app/main.cpp
     src/core/device_command_catalog.cpp
     src/core/device_command_catalog.h
+    src/core/workspace_catalog.cpp
+    src/core/workspace_catalog.h
     src/services/adb_control_service.cpp
     src/services/adb_control_service.h
     src/services/adb_shell_session.cpp
@@ -39,7 +41,15 @@ qt_add_executable(${DESKTOP_TARGET}
     src/services/conpty_session.h
     src/services/terminal_service.cpp
     src/services/terminal_service.h
+    src/services/automation_artifact_service.cpp
+    src/services/automation_artifact_service.h
     src/services/terminal_session.h
+    src/services/studio_control_protocol.cpp
+    src/services/studio_control_protocol.h
+    src/services/studio_operation_manager.cpp
+    src/services/studio_operation_manager.h
+    src/services/studio_control_server.cpp
+    src/services/studio_control_server.h
     src/ui/common/widget_helpers.cpp
     src/ui/common/widget_helpers.h
     src/ui/common/app_preferences.cpp
@@ -78,6 +88,8 @@ qt_add_executable(${DESKTOP_TARGET}
     src/ui/pages/terminal_page.h
     src/ui/pages/terminal_bridge.cpp
     src/ui/pages/terminal_bridge.h
+    src/ui/pages/automation_page.cpp
+    src/ui/pages/automation_page.h
     src/ui/styles/app_style.cpp
     src/ui/styles/app_style.h
     src/ui/motion/ui_motion_controller.cpp
@@ -105,6 +117,7 @@ file(GLOB_RECURSE TERMINAL_RUNTIME_RESOURCE_FILES CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/resources/terminal-host/*"
     "${CMAKE_SOURCE_DIR}/resources/terminal-web/*"
     "${CMAKE_SOURCE_DIR}/resources/appium-inspector/*"
+    "${CMAKE_SOURCE_DIR}/resources/opencode-extension/*"
     "${CMAKE_SOURCE_DIR}/resources/images/icons/*"
     "${CMAKE_SOURCE_DIR}/resources/font/*")
 set_property(TARGET ${DESKTOP_TARGET} APPEND PROPERTY LINK_DEPENDS
@@ -143,6 +156,23 @@ add_custom_command(TARGET ${DESKTOP_TARGET} POST_BUILD
         "$<TARGET_FILE_DIR:${DESKTOP_TARGET}>/runtime/fonts/us/JetBrainsMono-2.304/fonts/ttf"
     VERBATIM
 )
+
+if(TARGET ai_mobile_test_stage_opencode_extension)
+    add_dependencies(${DESKTOP_TARGET} ai_mobile_test_stage_opencode_extension)
+    add_custom_command(TARGET ${DESKTOP_TARGET} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${AI_MOBILE_TEST_OPENCODE_EXTENSION_STAGE_ROOT}"
+            "$<TARGET_FILE_DIR:${DESKTOP_TARGET}>/runtime/opencode-extension"
+        VERBATIM
+    )
+else()
+    add_custom_command(TARGET ${DESKTOP_TARGET} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_SOURCE_DIR}/resources/opencode-extension"
+            "$<TARGET_FILE_DIR:${DESKTOP_TARGET}>/runtime/opencode-extension"
+        VERBATIM
+    )
+endif()
 
 if(TARGET ai_mobile_test_stage_terminal_runtime)
     add_dependencies(${DESKTOP_TARGET} ai_mobile_test_stage_terminal_runtime)
@@ -271,6 +301,13 @@ install(DIRECTORY "${CMAKE_SOURCE_DIR}/resources/terminal-host/"
     DESTINATION "runtime/terminal-host")
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/resources/appium-inspector/"
     DESTINATION "runtime/appium-inspector")
+if(TARGET ai_mobile_test_stage_opencode_extension)
+    install(DIRECTORY "${AI_MOBILE_TEST_OPENCODE_EXTENSION_STAGE_ROOT}/"
+        DESTINATION "runtime/opencode-extension")
+else()
+    install(DIRECTORY "${CMAKE_SOURCE_DIR}/resources/opencode-extension/"
+        DESTINATION "runtime/opencode-extension")
+endif()
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/resources/images/icons/"
     DESTINATION "runtime/images/icons")
 install(FILES

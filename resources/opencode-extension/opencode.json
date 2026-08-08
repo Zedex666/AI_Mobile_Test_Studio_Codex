@@ -1,0 +1,13 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "amts_status": "allow",
+    "amts_workspace_open": "allow",
+    "amts_automation_paths": "allow",
+    "amts_device_refresh": "allow",
+    "amts_device_read": "allow",
+    "amts_safe_action": "ask",
+    "amts_operation_get": "allow",
+    "amts_operation_cancel": "allow"
+  }
+}

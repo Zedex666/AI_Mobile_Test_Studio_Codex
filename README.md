@@ -7,6 +7,8 @@ AI Mobile Test Studio 是一个面向 Android 设备调试与 AI 自动化测试
 - 发现和监控 Android 设备，管理 scrcpy 主屏幕、虚拟屏幕与摄像头镜像。
 - 通过 ADB `shell,v2` 和 legacy 回退提供持久、多标签设备终端。
 - 通过随包 OpenCode、Node.js、`node-pty` 和 Windows ConPTY 运行 OpenCode TUI。
+- 为应用内 OpenCode 提供带随机 Token 的本地 Studio Control API，可打开稳定工作区、读取设备信息和应用列表、执行安全设备动作；API 使用独立 ADB 子进程，不阻塞用户继续使用其它工作区。
+- 新增“自动化”工作区，自动发现 OpenCode 生成的脚本和报告 HTML；选中文件后可通过右上角“打开/运行”在系统默认浏览器中打开。
 - 随包提供 npm、Conda、OpenJDK 8、Android SDK、Appium Server 和 UiAutomator2 driver；启动时复用默认端口上已有的 Appium，否则运行隔离的随包服务。
 - 使用本地 xterm.js、Qt WebEngine 和 QWebChannel 渲染终端，支持输入输出、resize、复制粘贴、背压和后台预热。
 - 提供设备控制、软件包、应用、文件、Recovery sideload、性能、进程、日志和其它 ADB 工具工作区。
@@ -22,6 +24,20 @@ Python 自动化服务、Appium Runner、OpenCode Server/SDK、Agent 编排、�
 
 这些设备数据按设备序列号保存在当前桌面进程的内存中。用户在同一次运行中再次进入对应页面时会直接看到缓存；手动刷新仍会读取设备最新状态，文件变更会使目录缓存失效。退出应用后不会保留这批易变设备快照。
 
+## 自动化 HTML 产物
+
+应用会在 OpenCode 工作目录下自动创建并监听以下结构：
+
+```text
+automation/
+  scripts/   # 自动化脚本的可交互 HTML 前端
+  reports/   # 文档和测试报告 HTML
+  assets/    # HTML 共享的 CSS、JavaScript、图片等资源
+  runs/      # 后续执行记录、日志、截图和证据
+```
+
+随包 OpenCode 插件的 `amts_automation_paths` 工具返回这些绝对路径。自动化脚本最终文件必须写入 `scripts/`，文档或报告必须写入 `reports/`；交付入口必须是无需构建即可在默认浏览器直接打开的 `.html` 或 `.htm` 文件。目录扫描与终端、设备 API 分离，OpenCode 生成期间用户仍可切换并使用其它工作区。
+
 ## 架构概览
 
 ```text
@@ -31,6 +47,9 @@ Qt Widgets pages
         -> AppiumService -> existing Appium or bundled Node.js/Appium
         -> TerminalService -> AdbShellSession
                            -> ConPtySession -> node-pty -> OpenCode
+                           -> OpenCode Plugin -> StudioControlServer
+                                              -> independent adb operations
+        -> AutomationArtifactService -> workspace/automation HTML
     -> Qt WebEngine
         -> xterm.js terminal
         -> Appium Inspector
@@ -93,6 +112,7 @@ ctest --test-dir build-msvc-web -C Debug --output-on-failure
 - [项目设计](docs/PROJECT_DESIGN.md)
 - [系统架构](docs/ARCHITECTURE.md)
 - [终端与 OpenCode 架构](docs/TERMINAL_ARCHITECTURE.md)
+- [Studio Control API](docs/STUDIO_CONTROL_API.md)
 - [便携运行时](docs/PORTABLE_RUNTIME.md)
 - [项目目录结构](docs/PROJECT_STRUCTURE.md)
 - [开发指南](docs/DEVELOPMENT_GUIDE.md)

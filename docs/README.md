@@ -16,6 +16,7 @@
 - Android 设备发现、连接状态和 scrcpy 镜像进程管理。
 - 持久 ADB `shell,v2` 终端、多标签、输入输出、尺寸同步和快捷命令。
 - ADB/OpenCode 统一终端会话、新建类型菜单和 `node-pty` ConPTY 宿主。
+- OpenCode 专用 Studio Control API、稳定工作区 ID、每操作独立 ADB 子进程和随包 OpenCode 工具插件；OpenCode 执行设备任务时不占用页面 service 的 `QProcess`。
 - 随包 xterm.js/QWebChannel 前端资源、写入回执和分块背压；Qt WebEngine 依赖完整时自动启用，其他工具链使用基础显示降级。
 - 设备按键控制、软件包管理、应用管理、文件管理、Recovery sideload。
 - 电池、CPU、内存、温度和前台应用 FPS 性能观测。
@@ -46,6 +47,7 @@
 | [FRONTEND_DESIGN.md](FRONTEND_DESIGN.md) | Apple 风格视觉系统、动效、响应式与中英文体验 |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 当前与目标系统架构、进程和数据边界 |
 | [TERMINAL_ARCHITECTURE.md](TERMINAL_ARCHITECTURE.md) | ADB 终端、xterm.js、ConPTY 和 OpenCode 集成决策 |
+| [STUDIO_CONTROL_API.md](STUDIO_CONTROL_API.md) | OpenCode 调用桌面工作区和设备能力的本地 API、并发与安全边界 |
 | [PORTABLE_RUNTIME.md](PORTABLE_RUNTIME.md) | 无需终端用户安装工具的运行时装配与隔离规范 |
 | [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) | 仓库真实结构、模块所有权和依赖方向 |
 | [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md) | 构建、调试、运行时更新和验收流程 |

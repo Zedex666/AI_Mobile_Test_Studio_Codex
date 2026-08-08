@@ -120,6 +120,14 @@ void ConPtySession::setArguments(const QStringList &arguments)
     }
 }
 
+void ConPtySession::setEnvironmentVariables(
+    const QHash<QString, QString> &environmentVariables)
+{
+    if (!m_started && m_process->state() == QProcess::NotRunning) {
+        m_environmentVariables = environmentVariables;
+    }
+}
+
 void ConPtySession::start()
 {
     if (m_started || m_finished || m_process->state() != QProcess::NotRunning) {
@@ -150,6 +158,15 @@ void ConPtySession::start()
     environment.insert(QStringLiteral("TERM"), QStringLiteral("xterm-256color"));
     environment.insert(QStringLiteral("COLORTERM"), QStringLiteral("truecolor"));
     environment.insert(QStringLiteral("FORCE_COLOR"), QStringLiteral("1"));
+    for (auto iterator = m_environmentVariables.cbegin();
+         iterator != m_environmentVariables.cend();
+         ++iterator) {
+        if (iterator.value().isEmpty()) {
+            environment.remove(iterator.key());
+        } else {
+            environment.insert(iterator.key(), iterator.value());
+        }
+    }
     if (QFileInfo(m_nodeExecutablePath).fileName().compare(QStringLiteral("Code.exe"),
                                                           Qt::CaseInsensitive)
         == 0) {

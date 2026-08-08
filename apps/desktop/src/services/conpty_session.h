@@ -3,6 +3,7 @@
 
 #include "services/terminal_session.h"
 
+#include <QHash>
 #include <QStringList>
 
 class QProcess;
@@ -21,6 +22,7 @@ public:
     ~ConPtySession() override;
 
     void setArguments(const QStringList &arguments);
+    void setEnvironmentVariables(const QHash<QString, QString> &environmentVariables);
 
     void start() override;
     void write(const QByteArray &data) override;
@@ -38,6 +40,7 @@ private:
     QString m_nodePtyModulePath;
     QString m_hostScriptPath;
     QStringList m_arguments;
+    QHash<QString, QString> m_environmentVariables;
     QProcess *m_process = nullptr;
     QByteArray m_hostMessageBuffer;
     QString m_hostError;

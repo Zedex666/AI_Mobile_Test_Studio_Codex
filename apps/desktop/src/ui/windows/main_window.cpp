@@ -1,7 +1,9 @@
 #include "ui/windows/main_window.h"
 
+#include "core/workspace_catalog.h"
 #include "services/adb_control_service.h"
 #include "services/apps_service.h"
+#include "services/automation_artifact_service.h"
 #include "services/device_center_service.h"
 #include "services/display_service.h"
 #include "services/file_manager_service.h"
@@ -13,6 +15,7 @@
 #include "services/process_service.h"
 #include "services/recovery_service.h"
 #include "services/terminal_service.h"
+#include "services/studio_control_server.h"
 #include "ui/common/widget_helpers.h"
 #include "ui/common/app_preferences.h"
 #include "ui/components/main_window_sections.h"
@@ -31,6 +34,7 @@
 #include "ui/pages/overview_page.h"
 #include "ui/pages/process_page.h"
 #include "ui/pages/terminal_page.h"
+#include "ui/pages/automation_page.h"
 #include "ui/styles/app_style.h"
 #include "ui/windows/device_center_window.h"
 
@@ -39,6 +43,7 @@
 #include <QBoxLayout>
 #include <QCoreApplication>
 #include <QDir>
+#include <QHash>
 #include <QFileInfo>
 #include <QLabel>
 #include <QMenu>
@@ -131,6 +136,29 @@ QString terminalHostScriptPath()
         .filePath(QStringLiteral("runtime/terminal-host/conpty_host.js"));
 }
 
+QString openCodeExtensionDirectory()
+{
+    return QDir(QCoreApplication::applicationDirPath())
+        .filePath(QStringLiteral("runtime/opencode-extension"));
+}
+
+QString controlDeviceState(ScrcpyService::DeviceState state)
+{
+    switch (state) {
+    case ScrcpyService::DeviceState::ToolUnavailable:
+        return QStringLiteral("tool-unavailable");
+    case ScrcpyService::DeviceState::Disconnected:
+        return QStringLiteral("disconnected");
+    case ScrcpyService::DeviceState::Unauthorized:
+        return QStringLiteral("unauthorized");
+    case ScrcpyService::DeviceState::Connected:
+        return QStringLiteral("connected");
+    case ScrcpyService::DeviceState::Sideload:
+        return QStringLiteral("sideload");
+    }
+    return QStringLiteral("unknown");
+}
+
 } // namespace
 
 MainWindow::MainWindow(QWidget *parent)
@@ -176,6 +204,7 @@ void MainWindow::buildUi()
     m_displayNavButton = sidebar.displayButton;
     m_mirroringNavButton = sidebar.mirroringButton;
     m_chatNavButton = sidebar.chatButton;
+    m_automationNavButton = sidebar.automationButton;
     m_deviceControlNavButton = sidebar.deviceControlButton;
     m_packageManagerNavButton = sidebar.packageManagerButton;
     m_appsNavButton = sidebar.appsButton;
@@ -205,6 +234,9 @@ void MainWindow::buildUi()
     m_workspaceStack->addWidget(m_mirroringPage);
     m_terminalPage = new TerminalPage;
     m_workspaceStack->addWidget(m_terminalPage);
+    m_automationArtifactService = new AutomationArtifactService(this);
+    m_automationPage = new AutomationPage(m_automationArtifactService);
+    m_workspaceStack->addWidget(m_automationPage);
     m_deviceControlPage = new DeviceControlPage;
     m_workspaceStack->addWidget(m_deviceControlPage);
     m_packageManagerPage = new PackageManagerPage;
@@ -309,12 +341,48 @@ void MainWindow::configureScrcpy()
 
 void MainWindow::configureDeviceControls()
 {
+    const QString workingDirectory = openCodeWorkingDirectory();
+    m_automationArtifactService->setWorkspaceDirectory(workingDirectory);
+    m_studioControlServer = new StudioControlServer(m_scrcpyService->adbExecutablePath(), this);
+    QString controlServerError;
+    m_studioControlServer->start(&controlServerError);
+    connect(m_studioControlServer,
+            &StudioControlServer::workspaceOpenRequested,
+            this,
+            &MainWindow::selectWorkspaceById);
+    connect(m_studioControlServer,
+            &StudioControlServer::deviceRefreshRequested,
+            m_scrcpyService,
+            &ScrcpyService::refreshDeviceState);
+
+    QHash<QString, QString> openCodeEnvironment;
+    openCodeEnvironment.insert(QStringLiteral("OPENCODE_CONFIG_DIR"),
+                               openCodeExtensionDirectory());
+    openCodeEnvironment.insert(QStringLiteral("AI_MOBILE_TEST_STUDIO_AUTOMATION_ROOT"),
+                               m_automationArtifactService->automationDirectory());
+    openCodeEnvironment.insert(QStringLiteral("AI_MOBILE_TEST_STUDIO_AUTOMATION_SCRIPTS"),
+                               m_automationArtifactService->scriptsDirectory());
+    openCodeEnvironment.insert(QStringLiteral("AI_MOBILE_TEST_STUDIO_AUTOMATION_REPORTS"),
+                               m_automationArtifactService->reportsDirectory());
+    openCodeEnvironment.insert(QStringLiteral("AI_MOBILE_TEST_STUDIO_AUTOMATION_ASSETS"),
+                               m_automationArtifactService->assetsDirectory());
+    openCodeEnvironment.insert(QStringLiteral("AI_MOBILE_TEST_STUDIO_AUTOMATION_RUNS"),
+                               m_automationArtifactService->runsDirectory());
+    if (m_studioControlServer->isListening()) {
+        openCodeEnvironment.insert(QStringLiteral("AI_MOBILE_TEST_STUDIO_CONTROL_PIPE"),
+                                   m_studioControlServer->serverName());
+        openCodeEnvironment.insert(QStringLiteral("AI_MOBILE_TEST_STUDIO_CONTROL_TOKEN"),
+                                   m_studioControlServer->accessToken());
+        openCodeEnvironment.insert(QStringLiteral("AI_MOBILE_TEST_STUDIO_CONTROL_PROTOCOL"),
+                                   m_studioControlServer->protocolVersion());
+    }
     m_terminalService = new TerminalService(this);
     m_terminalService->setOpenCodeConfiguration(openCodeExecutablePath(),
-                                                openCodeWorkingDirectory(),
+                                                workingDirectory,
                                                 nodeExecutablePath(),
                                                 nodePtyModulePath(),
-                                                terminalHostScriptPath());
+                                                terminalHostScriptPath(),
+                                                openCodeEnvironment);
     QTimer::singleShot(100, this, &MainWindow::preloadWebWorkspaces);
     m_adbControlService = new AdbControlService(m_scrcpyService->adbExecutablePath(), this);
     m_deviceCenterService = new DeviceCenterService(m_scrcpyService->adbExecutablePath(), this);
@@ -364,52 +432,55 @@ void MainWindow::configureDeviceControls()
             &TerminalPage::handleSessionClosed);
 
     connect(m_overviewNavButton, &QPushButton::clicked, this, [this] {
-        selectWorkspace(0);
+        selectWorkspaceById(QStringLiteral("overview"));
     });
     connect(m_displayNavButton, &QPushButton::clicked, this, [this] {
-        selectWorkspace(1);
+        selectWorkspaceById(QStringLiteral("display"));
     });
     connect(m_mirroringNavButton, &QPushButton::clicked, this, [this] {
-        selectWorkspace(2);
+        selectWorkspaceById(QStringLiteral("mirroring"));
     });
     connect(m_chatNavButton, &QPushButton::clicked, this, [this] {
-        selectWorkspace(3);
+        selectWorkspaceById(QStringLiteral("terminal"));
+    });
+    connect(m_automationNavButton, &QPushButton::clicked, this, [this] {
+        selectWorkspaceById(QStringLiteral("automation"));
     });
     connect(m_deviceControlNavButton, &QPushButton::clicked, this, [this] {
-        selectWorkspace(4);
+        selectWorkspaceById(QStringLiteral("device-control"));
     });
     connect(m_packageManagerNavButton, &QPushButton::clicked, this, [this] {
-        selectWorkspace(5);
+        selectWorkspaceById(QStringLiteral("packages"));
     });
     connect(m_appsNavButton, &QPushButton::clicked, this, [this] {
-        selectWorkspace(6);
+        selectWorkspaceById(QStringLiteral("apps"));
     });
     connect(m_filesNavButton, &QPushButton::clicked, this, [this] {
-        selectWorkspace(7);
+        selectWorkspaceById(QStringLiteral("files"));
     });
     connect(m_recoveryNavButton, &QPushButton::clicked, this, [this] {
-        selectWorkspace(8);
+        selectWorkspaceById(QStringLiteral("recovery"));
     });
     connect(m_performanceNavButton, &QPushButton::clicked, this, [this] {
-        selectWorkspace(9);
+        selectWorkspaceById(QStringLiteral("performance"));
     });
     connect(m_layoutNavButton, &QPushButton::clicked, this, [this] {
-        selectWorkspace(10);
+        selectWorkspaceById(QStringLiteral("layout"));
     });
     connect(m_logcatNavButton, &QPushButton::clicked, this, [this] {
-        selectWorkspace(11);
+        selectWorkspaceById(QStringLiteral("logcat"));
     });
     connect(m_otherNavButton, &QPushButton::clicked, this, [this] {
-        selectWorkspace(12);
+        selectWorkspaceById(QStringLiteral("other"));
     });
     connect(m_processNavButton, &QPushButton::clicked, this, [this] {
-        selectWorkspace(13);
+        selectWorkspaceById(QStringLiteral("process"));
     });
     connect(m_settingsNavButton, &QPushButton::clicked, this, [this] {
-        selectWorkspace(14);
+        selectWorkspaceById(QStringLiteral("settings"));
     });
     connect(m_headerSettingsButton, &QPushButton::clicked, this, [this] {
-        selectWorkspace(14);
+        selectWorkspaceById(QStringLiteral("settings"));
     });
     connect(m_headerDeviceCenterButton,
             &QPushButton::clicked,
@@ -936,7 +1007,10 @@ void MainWindow::configureDeviceControls()
     if (initialConnected) {
         preloadDeviceData(m_deviceSerial);
     }
-    selectWorkspace(0);
+    m_studioControlServer->setDeviceState(controlDeviceState(m_deviceState),
+                                          initialConnected ? m_deviceSerial : QString(),
+                                          m_deviceDetail);
+    selectWorkspaceById(QStringLiteral("overview"));
 }
 
 void MainWindow::showDeviceCenter()
@@ -1095,10 +1169,12 @@ void MainWindow::selectWorkspace(int index)
     m_selectedWorkspaceIndex = index;
     cancelWorkspacePreload();
     animateWorkspaceTransition(index);
+    const QString workspaceId = workspaceIdForIndex(index);
     const QList<QPushButton *> workspaceButtons = {m_overviewNavButton,
                                                    m_displayNavButton,
                                                    m_mirroringNavButton,
                                                    m_chatNavButton,
+                                                   m_automationNavButton,
                                                    m_deviceControlNavButton,
                                                    m_packageManagerNavButton,
                                                    m_appsNavButton,
@@ -1122,48 +1198,62 @@ void MainWindow::selectWorkspace(int index)
         button->style()->polish(button);
         button->update();
     }
-    const bool settingsActive = index == 14;
+    const bool settingsActive = workspaceId == QStringLiteral("settings");
     if (m_headerSettingsButton->property("active").toBool() != settingsActive) {
         m_headerSettingsButton->setProperty("active", settingsActive);
         m_headerSettingsButton->style()->unpolish(m_headerSettingsButton);
         m_headerSettingsButton->style()->polish(m_headerSettingsButton);
         m_headerSettingsButton->update();
     }
-    if (index == 0 && m_overviewPage != nullptr) {
+    if (workspaceId == QStringLiteral("overview") && m_overviewPage != nullptr) {
         m_overviewPage->activate();
     }
-    if (index == 1 && m_displayPage != nullptr) {
+    if (workspaceId == QStringLiteral("display") && m_displayPage != nullptr) {
         m_displayPage->activate();
     }
-    if (index == 2 && m_mirroringPage != nullptr) {
+    if (workspaceId == QStringLiteral("mirroring") && m_mirroringPage != nullptr) {
         m_mirroringPage->activate();
     }
-    if (index == 5) {
+    if (workspaceId == QStringLiteral("packages")) {
         m_packageManagerPage->showOverview();
     }
-    if (index == 6) {
+    if (workspaceId == QStringLiteral("apps")) {
         m_appsPage->activate();
     }
-    if (index == 7) {
+    if (workspaceId == QStringLiteral("files")) {
         m_filesPage->activate();
     }
-    if (index == 8) {
+    if (workspaceId == QStringLiteral("recovery")) {
         m_recoveryPage->showOverview();
     }
     if (m_performanceService != nullptr) {
-        m_performanceService->setActive(index == 9);
+        m_performanceService->setActive(workspaceId == QStringLiteral("performance"));
     }
     if (m_logcatService != nullptr) {
-        m_logcatService->setActive(index == 11);
+        m_logcatService->setActive(workspaceId == QStringLiteral("logcat"));
     }
     if (m_processService != nullptr) {
-        m_processService->setActive(index == 13);
+        m_processService->setActive(workspaceId == QStringLiteral("process"));
     }
-    if (index == 3 && m_terminalPage != nullptr) {
+    if (workspaceId == QStringLiteral("terminal") && m_terminalPage != nullptr) {
         m_terminalPage->activate();
     }
-    if (index == 14 && m_settingsPage != nullptr) {
+    if (workspaceId == QStringLiteral("automation") && m_automationPage != nullptr) {
+        m_automationPage->activate();
+    }
+    if (workspaceId == QStringLiteral("settings") && m_settingsPage != nullptr) {
         m_settingsPage->refreshPreferences();
+    }
+    if (m_studioControlServer != nullptr) {
+        m_studioControlServer->setActiveWorkspaceId(workspaceIdForIndex(index));
+    }
+}
+
+void MainWindow::selectWorkspaceById(const QString &workspaceId)
+{
+    const int index = workspaceIndexForId(workspaceId);
+    if (index >= 0) {
+        selectWorkspace(index);
     }
 }
 
@@ -1185,6 +1275,10 @@ void MainWindow::applyLanguage()
     if (m_settingsPage != nullptr) {
         m_settingsPage->refreshPreferences();
     }
+    if (m_automationPage != nullptr
+        && m_workspaceStack->currentWidget() == m_automationPage) {
+        m_automationPage->activate();
+    }
 
 }
 
@@ -1198,6 +1292,13 @@ void MainWindow::updateDeviceUi(ScrcpyService::DeviceState state,
     m_deviceState = state;
     m_deviceSerial = serial;
     m_deviceDetail = detail;
+    if (m_studioControlServer != nullptr) {
+        m_studioControlServer->setDeviceState(controlDeviceState(state),
+                                              state == ScrcpyService::DeviceState::Connected
+                                                  ? serial
+                                                  : QString(),
+                                              detail);
+    }
     if (m_deviceCenterWindow != nullptr) {
         m_deviceCenterWindow->setActiveDeviceSerial(serial);
     }

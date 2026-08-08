@@ -33,13 +33,15 @@ void TerminalService::setOpenCodeConfiguration(const QString &executablePath,
                                                const QString &workingDirectory,
                                                const QString &nodeExecutablePath,
                                                const QString &nodePtyModulePath,
-                                               const QString &hostScriptPath)
+                                               const QString &hostScriptPath,
+                                               const QHash<QString, QString> &environmentVariables)
 {
     m_openCodeExecutablePath = executablePath;
     m_openCodeWorkingDirectory = workingDirectory;
     m_nodeExecutablePath = nodeExecutablePath;
     m_nodePtyModulePath = nodePtyModulePath;
     m_terminalHostScriptPath = hostScriptPath;
+    m_openCodeEnvironment = environmentVariables;
 }
 
 void TerminalService::createSession(const QString &sessionId, const QString &kindId)
@@ -63,12 +65,14 @@ void TerminalService::createSession(const QString &sessionId, const QString &kin
         }
         session = new AdbShellSession(m_deviceSerial, this);
     } else {
-        session = new ConPtySession(m_openCodeExecutablePath,
-                                    m_openCodeWorkingDirectory,
-                                    m_nodeExecutablePath,
-                                    m_nodePtyModulePath,
-                                    m_terminalHostScriptPath,
-                                    this);
+        auto *conPtySession = new ConPtySession(m_openCodeExecutablePath,
+                                                m_openCodeWorkingDirectory,
+                                                m_nodeExecutablePath,
+                                                m_nodePtyModulePath,
+                                                m_terminalHostScriptPath,
+                                                this);
+        conPtySession->setEnvironmentVariables(m_openCodeEnvironment);
+        session = conPtySession;
     }
 
     m_sessions.insert(sessionId, session);

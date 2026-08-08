@@ -28,7 +28,7 @@
 
 ## 3. 当前状态与差距
 
-当前构建会复制 `app_metadata.jar`、xterm.js、Appium Inspector 2026.5.1 静态资源和 ConPTY 宿主脚本。Windows 构建默认按 `tools/runtime/runtime-lock.json` 和 npm package lock 下载并校验 OpenCode、Node.js/npm、`node-pty`、Conda standalone、OpenJDK 8、Android SDK command-line/platform-tools、Appium Server 和 UiAutomator2 driver，将它们 staging 到构建目录并复制到应用旁的 `runtime/`。主程序链接后还会运行 `windeployqt`，部署 Qt DLL、插件和 WebEngine 资源，使构建目录可以直接启动。
+当前构建会复制 `app_metadata.jar`、xterm.js、Appium Inspector 2026.5.1 静态资源、ConPTY 宿主脚本和 OpenCode Studio Control 插件。Windows 构建默认按 `tools/runtime/runtime-lock.json` 和 npm package lock 下载并校验 OpenCode、Node.js/npm、`node-pty`、Conda standalone、OpenJDK 8、Android SDK command-line/platform-tools、Appium Server、UiAutomator2 driver 和 OpenCode 插件依赖，将它们 staging 到构建目录并复制到应用旁的 `runtime/`。主程序链接后还会运行 `windeployqt`，部署 Qt DLL、插件和 WebEngine 资源，使构建目录可以直接启动。
 
 当前 Windows x64 锁定版本：
 
@@ -41,7 +41,7 @@
 | Android command-line tools / platform-tools | 8.0 / 37.0.1 |
 | Appium / UiAutomator2 driver | 3.5.2 / 8.1.0 |
 
-Appium 的 npm 依赖树由 `tools/runtime/appium/package-lock.json` 锁定，其 SHA-256 同时记录在 `runtime-lock.json`。Android command-line tools 8.0 是当前 JDK 8 基线下的兼容选择；command-line tools 22 需要 Java 17，不能单独升级。JDK、Android SDK tools、Appium 和 driver 必须作为兼容组共同回归。
+Appium 的 npm 依赖树由 `tools/runtime/appium/package-lock.json` 锁定，其 SHA-256 同时记录在 `runtime-lock.json`。OpenCode 插件依赖由 `resources/opencode-extension/package-lock.json` 锁定，并由 `stage-opencode-extension.ps1` 在构建阶段安装到独立 staging 目录。Android command-line tools 8.0 是当前 JDK 8 基线下的兼容选择；command-line tools 22 需要 Java 17，不能单独升级。JDK、Android SDK tools、Appium 和 driver 必须作为兼容组共同回归。
 
 `AppiumService` 启动时先探测默认地址 `127.0.0.1:4723/status`：可用时不启动任何子进程，否则使用随包 Node.js 启动随包 Appium。其环境、driver manifest 和缓存均为应用私有，退出时只停止本应用拥有的进程。
 
@@ -92,6 +92,10 @@ AI-Mobile-Test-Studio/
       ...上游发布包的完整配套文件
     opencode/
       opencode.exe
+    opencode-extension/
+      opencode.json
+      plugins/ai-mobile-test-studio.ts
+      node_modules/@opencode-ai/plugin/
     python/
     node/
       node.exe
@@ -200,6 +204,7 @@ AI-Mobile-Test-Studio/
 - OpenCode Server 仅绑定 `127.0.0.1`，端口由应用分配。
 - 设置随机会话密码；不得监听公网地址。
 - OpenCode 配置、TUI 配置和凭据写入用户数据目录，不写入安装目录。
+- 随包 `opencode-extension` 是只读插件代码和依赖；本次运行的管道名与 Token 只通过子进程环境传递，不写入安装目录。
 - 日志必须脱敏，不能记录服务商 Token。
 
 ### 6.4 子进程环境

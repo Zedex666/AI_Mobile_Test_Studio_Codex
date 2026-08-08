@@ -18,8 +18,10 @@ AI_Mobile_Test_Studio_Codex/
           main.cpp
         core/
           device_command_catalog.*
+          workspace_catalog.*
         services/
           adb_control_service.*
+          automation_artifact_service.*
           adb_shell_session.*
           appium_service.*
           apps_service.*
@@ -47,6 +49,7 @@ AI_Mobile_Test_Studio_Codex/
             mirroring_page.*
             terminal_page.*
             terminal_bridge.*
+            automation_page.*
             device_control_page.*
             package_manager_page.*
             apps_page.*
@@ -70,6 +73,7 @@ AI_Mobile_Test_Studio_Codex/
       cn/                       # 霞鹜文楷 Regular/Medium
       us/JetBrainsMono-2.304/fonts/ttf/  # JetBrains Mono 全部 32 个 TTF
     images/
+    opencode-extension/        # 随包 OpenCode 插件、权限配置和锁定依赖
     terminal-host/conpty_host.js
     terminal-web/              # xterm.js、FitAddon、本地页面和许可证
     tools/java/app_metadata.jar
@@ -182,7 +186,26 @@ licenses/
   components/
 ```
 
-## 5. Python 自动化服务目标结构
+## 5. 用户自动化产物结构
+
+以下目录由 `AutomationArtifactService` 在当前 OpenCode workspace 下创建，不属于安装目录，也不提交到应用仓库：
+
+```text
+<workspace>/
+  automation/
+    scripts/                   # 自动化脚本 HTML 前端
+      <feature-or-task>/       # 可按任务继续分层
+        index.html
+    reports/                   # 文档和测试报告 HTML
+      <feature-or-task>/
+        index.html
+    assets/                    # 可复用 CSS、JavaScript、图片和字体
+    runs/                      # 后续执行日志、截图、证据和状态文件
+```
+
+桌面端只将 `scripts/` 和 `reports/` 中的 `.html`、`.htm` 显示为可打开产物。扫描结果使用规范化真实路径校验，目录外文件和逃逸符号链接不会进入列表。OpenCode 通过环境变量和 `amts_automation_paths` 获得绝对路径，不需要猜测工作目录。
+
+## 6. Python 自动化服务目标结构
 
 ```text
 services/automation/
@@ -214,13 +237,16 @@ flowchart LR
     Reports --> Contracts
 ```
 
-## 6. 文件放置表
+## 7. 文件放置表
 
 | 内容 | 目录 |
 | --- | --- |
 | 应用入口 | `apps/desktop/src/app/` |
 | 桌面业务事实和目录 | `apps/desktop/src/core/` |
 | 当前设备/文件/应用服务 | `apps/desktop/src/services/` |
+| 自动化 HTML 目录监听 | `apps/desktop/src/services/automation_artifact_service.*` |
+| 自动化 HTML 工作区 | `apps/desktop/src/ui/pages/automation_page.*` |
+| OpenCode 工具插件 | `resources/opencode-extension/` |
 | Appium 运行时定位和进程监督 | `apps/desktop/src/services/appium_service.*`（已实现） |
 | 通用运行时发现和进程监督 | `apps/desktop/src/runtime/`（规划） |
 | 终端会话后端 | `apps/desktop/src/terminal/`（规划） |
@@ -233,17 +259,17 @@ flowchart LR
 | 随包第三方许可证 | `licenses/`（规划） |
 | 用户任务产物 | workspace，不进入安装目录和 Git |
 
-## 7. 运行时与用户数据边界
+## 8. 运行时与用户数据边界
 
 - `runtime/`：只读、随发布制品装配的工具和静态资源。
 - `resources/`：源码内资源和可复现构建的小型自有工具。
 - `build*/`：本机构建输出。
-- workspace：用户项目和测试任务。
+- workspace：用户项目、测试任务和 `automation/` HTML 产物。
 - `QStandardPaths` 用户目录：设置、缓存、凭据、会话和日志。
 
 运行时不得把缓存写回安装目录。详细规则见 [PORTABLE_RUNTIME.md](PORTABLE_RUNTIME.md)。
 
-## 8. 命名约定
+## 9. 命名约定
 
 - C++ 文件和目录：`snake_case`。
 - C++ 类型：`PascalCase`；成员：`m_` 前缀。
@@ -253,7 +279,7 @@ flowchart LR
 
 项目不新增自有 Plugin/Skill 目录协议。OpenCode 扩展放在 OpenCode 支持的标准用户或 workspace 配置位置，并由 OpenCode 自己加载。
 
-## 9. Git 边界
+## 10. Git 边界
 
 默认不提交：
 

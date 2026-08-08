@@ -485,6 +485,76 @@ QString appStyleSheet()
             selection-background-color: #264f78;
             selection-color: #ffffff;
         }
+        QWidget#AutomationPage {
+            background: #f5f5f7;
+            color: #1d1d1f;
+        }
+        QWidget#AutomationToolbar {
+            background: #eef1f5;
+            border: 1px solid #d9dee7;
+            border-radius: 8px;
+        }
+        QFrame#AutomationContent {
+            background: #ffffff;
+            border: 1px solid #d9dee7;
+            border-radius: 8px;
+        }
+        QLineEdit#AutomationSearchInput {
+            min-width: 240px;
+            max-width: 360px;
+            min-height: 32px;
+            background: #ffffff;
+            border: 1px solid #cbd2dc;
+            border-radius: 6px;
+            color: #232a35;
+            padding: 0 10px;
+        }
+        QLineEdit#AutomationSearchInput:focus { border-color: #3478d4; }
+        QPushButton#AutomationToolbarButton,
+        QPushButton#AutomationOpenButton {
+            min-width: 86px;
+            background: #ffffff;
+            border: 1px solid #cbd2dc;
+            border-radius: 6px;
+            color: #263142;
+            padding: 0 12px;
+        }
+        QPushButton#AutomationToolbarButton:hover {
+            background: #eef5ff;
+            border-color: #8db3e8;
+        }
+        QPushButton#AutomationOpenButton {
+            background: #1769c2;
+            border-color: #1769c2;
+            color: #ffffff;
+        }
+        QPushButton#AutomationOpenButton:hover {
+            background: #115aa8;
+            border-color: #115aa8;
+        }
+        QPushButton#AutomationOpenButton:disabled {
+            background: #dfe4eb;
+            border-color: #dfe4eb;
+            color: #8c96a5;
+        }
+        QTableWidget#AutomationTable {
+            background: transparent;
+            alternate-background-color: #f7f8fa;
+            border: none;
+            color: #232a35;
+            gridline-color: transparent;
+            selection-background-color: #dcecff;
+            selection-color: #12375f;
+        }
+        QTableWidget#AutomationTable QHeaderView::section {
+            min-height: 36px;
+            background: #eef1f5;
+            border: none;
+            border-bottom: 1px solid #d9dee7;
+            color: #586477;
+            padding: 0 8px;
+        }
+        QTableWidget#AutomationTable::item { padding: 8px; }
         QMenu {
             background: #ffffff;
             border: 1px solid #d6e0ee;
@@ -1552,7 +1622,7 @@ QString appStyleSheet()
         QWidget#DeviceControlPage, QWidget#PackageManagerPage,
         QWidget#AppsPage, QWidget#FilesPage, QWidget#RecoveryPage,
         QWidget#PerformancePage, QWidget#LayoutPage, QWidget#LogcatPage,
-        QWidget#OtherPage, QWidget#ProcessPage {
+        QWidget#OtherPage, QWidget#ProcessPage, QWidget#AutomationPage {
             background: #f5f5f7;
             color: #1d1d1f;
         }
